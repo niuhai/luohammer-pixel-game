@@ -1,0 +1,81 @@
+import { rect, px, scanlines, miniFigure } from '../primitives.js';
+import { COLORS, GAME_WIDTH, GAME_HEIGHT } from '../../../config.js';
+
+export function drawLivestream(g) {
+  const c = COLORS.livestream;
+  rect(g, 0, 0, GAME_WIDTH, 300, 0x0a0a1a);
+  rect(g, 0, 0, GAME_WIDTH, 120, 0x12122a);
+  rect(g, 0, 120, GAME_WIDTH, 180, 0x080818);
+  rect(g, 0, 300, GAME_WIDTH, 200, c.floor);
+  g.fillStyle(0x14142a, 1);
+  for (let y = 320; y < 500; y += 40) {
+    g.fillRect(0, y, GAME_WIDTH, 2);
+  }
+  g.fillStyle(c.ring, 0.12);
+  g.fillRect(240, 20, 320, 240);
+  g.fillStyle(c.ring, 0.25);
+  g.fillRect(280, 40, 240, 200);
+  g.fillStyle(c.ring, 0.08);
+  g.fillRect(200, 0, 400, 280);
+  rect(g, 280, 40, 240, 4, c.ring);
+  rect(g, 280, 236, 240, 4, c.ring);
+  rect(g, 280, 40, 4, 200, c.ring);
+  rect(g, 516, 40, 4, 200, c.ring);
+  rect(g, 320, 80, 160, 120, c.wall);
+  g.fillStyle(c.highlight, 0.3);
+  g.fillRect(340, 100, 120, 80);
+  g.fillStyle(c.highlight, 0.15);
+  g.fillRect(300, 60, 200, 160);
+  rect(g, 160, 260, 480, 60, c.desk);
+  rect(g, 160, 260, 480, 4, 0x3a2a1a);
+  rect(g, 172, 320, 16, 40, 0x2a1a0a);
+  rect(g, 612, 320, 16, 40, 0x2a1a0a);
+  rect(g, 384, 180, 32, 80, 0x1a1a2e);
+  rect(g, 380, 172, 40, 12, 0x2a2a3e);
+  rect(g, 396, 176, 8, 4, 0xe04040);
+  rect(g, 392, 260, 16, 40, 0x4a4a5e);
+  rect(g, 376, 296, 48, 8, 0x4a4a5e);
+  rect(g, 200, 232, 36, 28, 0xc04040);
+  rect(g, 204, 236, 28, 6, 0xe05050);
+  rect(g, 252, 240, 28, 20, 0x40c040);
+  rect(g, 256, 244, 20, 4, 0x50d050);
+  rect(g, 520, 232, 36, 28, 0x4040c0);
+  rect(g, 524, 236, 28, 6, 0x5050d0);
+  rect(g, 572, 240, 28, 20, 0xc0c040);
+  rect(g, 576, 244, 20, 4, 0xd0d050);
+  g.fillStyle(0x2a2a3e, 1);
+  for (let y = 60; y < 200; y += 60) {
+    g.fillRect(40, y, 160, 8);
+    g.fillRect(600, y, 160, 8);
+  }
+  rect(g, 36, 40, 8, 160, 0x1e1e32);
+  rect(g, 196, 40, 8, 160, 0x1e1e32);
+  rect(g, 596, 40, 8, 160, 0x1e1e32);
+  rect(g, 756, 40, 8, 160, 0x1e1e32);
+  rect(g, 52, 36, 24, 24, 0x4a4a6e);
+  rect(g, 88, 40, 20, 20, 0x4a4a6e);
+  rect(g, 120, 36, 28, 24, 0x4a4a6e);
+  rect(g, 156, 40, 16, 20, 0x4a4a6e);
+  rect(g, 52, 96, 20, 24, 0x4a4a6e);
+  rect(g, 84, 100, 24, 20, 0x4a4a6e);
+  rect(g, 124, 96, 20, 24, 0x4a4a6e);
+  rect(g, 156, 100, 16, 20, 0x4a4a6e);
+  rect(g, 612, 36, 24, 24, 0x4a4a6e);
+  rect(g, 648, 40, 20, 20, 0x4a4a6e);
+  rect(g, 680, 36, 28, 24, 0x4a4a6e);
+  rect(g, 716, 40, 16, 20, 0x4a4a6e);
+  rect(g, 612, 96, 20, 24, 0x4a4a6e);
+  rect(g, 644, 100, 24, 20, 0x4a4a6e);
+  rect(g, 684, 96, 20, 24, 0x4a4a6e);
+  rect(g, 716, 100, 16, 20, 0x4a4a6e);
+  rect(g, 80, 420, 80, 48, 0xc04040);
+  rect(g, 84, 424, 72, 12, 0xe05050);
+  rect(g, 200, 432, 64, 36, 0x40c040);
+  rect(g, 204, 436, 56, 8, 0x50d050);
+  rect(g, 560, 420, 80, 48, 0x4040c0);
+  rect(g, 564, 424, 72, 12, 0x5050d0);
+  rect(g, 680, 432, 64, 36, 0xc0c040);
+  rect(g, 684, 436, 56, 8, 0xd0d050);
+  rect(g, 160, 316, 480, 8, 0x4a3a2a);
+  rect(g, 160, 320, 480, 4, 0x5a4a3a);
+}

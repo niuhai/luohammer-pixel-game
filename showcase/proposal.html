@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>【生活娱乐】十字路口·人生模拟器 — 一个创业者的选择</title>
+  <meta name="description" content="TRAE AI 创造力大赛报名提案：以创业者人生经历为灵感的像素风互动养成游戏。选择没有对错，只有不同的人生。">
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --panel: #12122a;
+      --panel-lt: #1a1a32;
+      --gold: #f0c040;
+      --gold-dim: #c49a2a;
+      --text: #e8d5a3;
+      --text-dim: #9a8a6a;
+      --danger: #e04040;
+      --success: #40c040;
+      --blue: #60b0ff;
+      --radius: 4px;
+    }
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif;
+      line-height: 1.8;
+      overflow-x: hidden;
+    }
+    ::selection { background: var(--gold); color: var(--bg); }
+
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.08) 2px, rgba(0,0,0,.08) 4px);
+    }
+
+    nav {
+      position: fixed; top:0; left:0; right:0;
+      z-index: 100;
+      background: rgba(10,10,10,.88);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(240,192,64,.15);
+      padding: 0 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 56px;
+    }
+    nav .logo {
+      font-size: .9rem; font-weight: 700; color: var(--gold);
+      letter-spacing: .12em;
+    }
+    nav .logo span { color: var(--text-dim); font-weight: 400; }
+    nav ul { list-style: none; display: flex; gap: 1.5rem; }
+    nav a {
+      color: var(--text-dim); text-decoration: none; font-size: .82rem;
+      letter-spacing: .06em; transition: color .25s;
+    }
+    nav a:hover { color: var(--gold); }
+
+    .container { max-width: 800px; margin: 0 auto; padding: 0 1.5rem; }
+
+    header {
+      text-align: center;
+      padding: 6rem 1rem 2rem;
+      background:
+        radial-gradient(ellipse 60% 50% at 50% 60%, rgba(240,192,64,.06) 0%, transparent 70%),
+        var(--bg);
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(240,192,64,.1);
+      border: 1px solid rgba(240,192,64,.25);
+      color: var(--gold);
+      font-size: .72rem; letter-spacing: .15em;
+      padding: 4px 14px; border-radius: 2px;
+      margin-bottom: 1.2rem;
+    }
+    h1 {
+      font-size: clamp(1.6rem, 5vw, 2.4rem);
+      font-weight: 900;
+      color: var(--gold);
+      letter-spacing: .04em;
+      line-height: 1.25;
+      margin-bottom: .6rem;
+    }
+    .subtitle {
+      color: var(--text-dim);
+      font-size: .95rem;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    main { padding: 2rem 0 4rem; }
+
+    section {
+      background: var(--panel);
+      border: 1px solid rgba(240,192,64,.1);
+      border-radius: var(--radius);
+      padding: 1.6rem;
+      margin-bottom: 1.2rem;
+      position: relative;
+    }
+    section::before, section::after {
+      content: '';
+      position: absolute;
+      width: 10px; height: 10px;
+      border: 2px solid var(--gold);
+    }
+    section::before { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+    section::after { bottom: 8px; right: 8px; border-left: none; border-top: none; }
+
+    .section-num {
+      display: inline-block;
+      width: 26px; height: 26px;
+      line-height: 26px;
+      text-align: center;
+      background: var(--gold);
+      color: var(--bg);
+      font-weight: 900;
+      font-size: .85rem;
+      border-radius: 2px;
+      margin-right: .6rem;
+    }
+    h2 {
+      font-size: 1.15rem;
+      color: var(--gold);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+    }
+    p { margin-bottom: .9rem; font-size: .92rem; }
+    strong { color: var(--gold); }
+    ul { margin-left: 1.2rem; margin-bottom: 1rem; }
+    li { margin-bottom: .5rem; font-size: .92rem; }
+
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      margin-top: .5rem;
+    }
+    .tag {
+      font-size: .72rem;
+      color: var(--gold-dim);
+      border: 1px solid rgba(240,192,64,.25);
+      padding: 2px 8px;
+      border-radius: 2px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: .8rem;
+      margin-top: 1rem;
+    }
+    .stat {
+      background: var(--bg);
+      border: 1px solid rgba(240,192,64,.1);
+      border-radius: var(--radius);
+      padding: .8rem;
+      text-align: center;
+    }
+    .stat b {
+      display: block;
+      font-size: 1.3rem;
+      color: var(--gold);
+    }
+    .stat span { font-size: .75rem; color: var(--text-dim); }
+
+    .quote {
+      border-left: 3px solid var(--gold);
+      padding-left: 1rem;
+      margin: 1rem 0;
+      color: var(--text);
+      font-style: italic;
+    }
+
+    .cta {
+      display: inline-block;
+      background: linear-gradient(180deg, rgba(240,192,64,.15), rgba(240,192,64,.05));
+      border: 1px solid rgba(240,192,64,.3);
+      color: var(--gold);
+      padding: .7rem 1.4rem;
+      border-radius: var(--radius);
+      text-decoration: none;
+      font-size: .9rem;
+      margin-top: .5rem;
+      transition: all .2s;
+    }
+    .cta:hover {
+      background: rgba(240,192,64,.2);
+      box-shadow: 0 0 16px rgba(240,192,64,.15);
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem 1rem 4rem;
+      border-top: 1px solid rgba(240,192,64,.1);
+      color: var(--text-dim);
+      font-size: .78rem;
+    }
+    footer a { color: var(--gold-dim); text-decoration: none; }
+
+    @media (max-width: 480px) {
+      section { padding: 1.2rem; }
+      h1 { font-size: 1.5rem; }
+      .stats { grid-template-columns: 1fr 1fr; }
+      nav { padding: 0 1rem; }
+      nav ul { gap: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">十字路口 <span>· 人生模拟器</span></div>
+  <ul>
+    <li><a href="index.html">首页</a></li>
+    <li><a href="process.html">创作过程</a></li>
+    <li><a href="proposal.html">报名提案</a></li>
+  </ul>
+</nav>
+
+<header>
+  <div class="badge">TRAE AI 创造力大赛 · 报名提案</div>
+  <h1>十字路口·人生模拟器</h1>
+  <p class="subtitle">以创业者人生经历为灵感的像素风互动养成游戏 —— 选择没有对错，只有不同的人生。</p>
+</header>
+
+<main class="container">
+
+  <section>
+    <h2><span class="section-num">1</span>创意名称 + 创意介绍</h2>
+    <p><strong>创意名称：</strong>十字路口·人生模拟器（Luohammer: Crossroads of Destiny）</p>
+    <p><strong>想解决什么问题：</strong>市面上大多数养成游戏用"选对得分、选错扣分"来评判玩家，但真实的人生从来不是非黑即白。我们想做一个不评判选择、只呈现后果的游戏，让玩家在关键节点感受"选择的分量"。</p>
+    <p><strong>为什么会想到做这个：</strong>创业者的人生充满"争议性选择"——理想主义碰撞现实规则，坚持底线可能付出巨大代价，妥协求生也可能丢失自我。用利益最大化衡量，很多选择都是"错"的；但正是这些"错"的选择，定义了一个人是谁。这让我们想做一个以虚构创业者"罗远"为主角的人生模拟器。</p>
+    <p><strong>产品形态：</strong>H5 网页游戏，无需下载，打开浏览器即可体验。采用 2D 像素风 + 视觉小说式叙事，单局 10-15 分钟，支持多次重开探索不同结局。</p>
+    <div class="quote">"如果用利益最大化来衡量，罗远的很多选择都是'错'的。但正是这些'错'的选择，让他成为了罗远。"</div>
+  </section>
+
+  <section>
+    <h2><span class="section-num">2</span>目标用户及痛点</h2>
+    <p><strong>面向哪些用户：</strong></p>
+    <ul>
+      <li>20-35 岁互联网原住民，关注创业故事、人生选择与独立游戏</li>
+      <li>玩过《人生重开模拟器》《中国式家长》等养成/叙事类游戏</li>
+      <li>喜欢像素风、独立游戏、剧情向体验的玩家</li>
+    </ul>
+    <p><strong>在什么场景下使用：</strong>通勤、午休、睡前等碎片时间；也可以在朋友圈/群聊看到分享后点击即玩。</p>
+    <p><strong>当前痛点：</strong></p>
+    <ul>
+      <li>主流手游太重，需要下载、注册、付费，上手成本高</li>
+      <li>多数人生模拟器只有文字 + emoji，缺乏视觉沉浸感</li>
+      <li>很多游戏给玩家"标准答案"，缺少对真实人生复杂性的尊重</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="section-num">3</span>价值与意义</h2>
+    <p><strong>娱乐价值：</strong>像素风叙事 + 天赋抽取 + 随机事件 + 多结局，保证每局体验不同，重玩价值高。玩家可以截图分享自己的"人生结局"，具备社交传播属性。</p>
+    <p><strong>情绪价值：</strong>游戏不评判选择，让玩家在安全的环境里体验"如果我是罗远，我会怎么选"，引发对人生、理想、现实等议题的思考。</p>
+    <p><strong>社会价值：</strong>通过创业者的人生切片，传递"所有结局都值得尊重"的价值观——平凡不是平庸，活着本身就是胜利。</p>
+  </section>
+
+  <section>
+    <h2><span class="section-num">4</span>核心玩法与特色</h2>
+    <div class="stats">
+      <div class="stat"><b>70+</b><span>剧情节点</span></div>
+      <div class="stat"><b>12+</b><span>人生结局</span></div>
+      <div class="stat"><b>8</b><span>开局天赋</span></div>
+      <div class="stat"><b>6</b><span>人生阶段</span></div>
+    </div>
+    <ul style="margin-top:1rem">
+      <li><strong>天赋抽取：</strong>每局随机 3 选 1 天赋，决定初始属性和特殊能力</li>
+      <li><strong>多维属性：</strong>理想主义、财富、名声、翻车次数、压力、公众信任共同影响剧情走向</li>
+      <li><strong>选择有远期后果：</strong>第 1 章的选择可能影响第 8 章的结局</li>
+      <li><strong>随机事件池：</strong>投资人撤资、产品爆火、直播间被封等事件让每局不同</li>
+      <li><strong>所有结局都值得尊重：</strong>没有"好结局"和"坏结局"，只有不同的人生</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="section-num">5</span>技术实现</h2>
+    <div class="tag-list">
+      <span class="tag">Phaser 3 游戏引擎</span>
+      <span class="tag">Vite 5 构建</span>
+      <span class="tag">Canvas 2D 渲染</span>
+      <span class="tag">Vercel 部署</span>
+      <span class="tag">TRAE AI 辅助开发</span>
+    </div>
+    <p style="margin-top:1rem">本项目从创意提案到代码实现、美术素材、音效均由 TRAE AI 辅助完成，展现了 AI 在游戏原型开发中的全流程能力。</p>
+  </section>
+
+  <section>
+    <h2><span class="section-num">6</span>体验入口</h2>
+    <p>参赛作品展示页：<a href="index.html" class="cta">查看完整展示</a></p>
+    <p style="font-size:.8rem;color:var(--text-dim);margin-top:.5rem">提示：游戏 Demo 将在初赛阶段部署上线，报名阶段请以上述展示页了解创意方案。</p>
+  </section>
+
+</main>
+
+<footer>
+  <p>十字路口·人生模拟器 | TRAE AI 创造力大赛参赛作品</p>
+  <p style="margin-top:.5rem">Powered by <a href="https://www.trae.cn" target="_blank">TRAE AI</a></p>
+</footer>
+
+</body>
+</html>
