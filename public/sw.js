@@ -1,12 +1,13 @@
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CACHE_NAME = `luohammer-${CACHE_VERSION}`;
 
-// 只预缓存核心 HTML，避免路径问题
+// 预缓存核心 HTML + 首屏关键图（标题背景，避免首屏白屏等待）
 const PRECACHE_ASSETS = [
   './index.html',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './assets/characters/scene-stage-v2.webp'
 ];
 
 self.addEventListener('install', (event) => {

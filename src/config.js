@@ -160,32 +160,32 @@ export const SCENE_TYPES = {
  * 加一个新场景？只要在这里加一行。
  */
 export const SCENE_ASSETS = [
-  { key: 'bg-classroom',  url: 'assets/characters/scene-classroom-v2.jpg',  type: 'classroom' },
-  { key: 'bg-office',     url: 'assets/characters/scene-office-v2.jpg',     type: 'office' },
-  { key: 'bg-stage',      url: 'assets/characters/scene-stage-v2.jpg',      type: 'stage' },
-  { key: 'bg-lab',        url: 'assets/characters/scene-lab-v2.jpg',        type: 'lab' },
-  { key: 'bg-podcast',    url: 'assets/characters/scene-podcast-v2.jpg',    type: 'podcast' },
-  { key: 'bg-lecture',    url: 'assets/characters/scene-lecture-v2.jpg',    type: 'lecture' },
-  { key: 'bg-livestream', url: 'assets/characters/scene-livestream-v2.jpg', type: 'livestream' },
-  { key: 'bg-street',     url: 'assets/characters/scene-street-v2.jpg',     type: 'street' },
-  { key: 'bg-fridge_smash', url: 'assets/characters/scene-fridge_smash-v2.jpg', type: 'fridge_smash' },
-  { key: 'bg-talkshow',   url: 'assets/characters/scene-talkshow-v2.jpg',   type: 'talkshow' },
-  { key: 'bg-court',      url: 'assets/characters/scene-court-v2.jpg',      type: 'court' },
-  { key: 'bg-ending',     url: 'assets/characters/scene-ending-v2.jpg',     type: 'ending' },
+  { key: 'bg-classroom',  url: 'assets/characters/scene-classroom-v2.webp',  type: 'classroom' },
+  { key: 'bg-office',     url: 'assets/characters/scene-office-v2.webp',     type: 'office' },
+  { key: 'bg-stage',      url: 'assets/characters/scene-stage-v2.webp',      type: 'stage' },
+  { key: 'bg-lab',        url: 'assets/characters/scene-lab-v2.webp',        type: 'lab' },
+  { key: 'bg-podcast',    url: 'assets/characters/scene-podcast-v2.webp',    type: 'podcast' },
+  { key: 'bg-lecture',    url: 'assets/characters/scene-lecture-v2.webp',    type: 'lecture' },
+  { key: 'bg-livestream', url: 'assets/characters/scene-livestream-v2.webp', type: 'livestream' },
+  { key: 'bg-street',     url: 'assets/characters/scene-street-v2.webp',     type: 'street' },
+  { key: 'bg-fridge_smash', url: 'assets/characters/scene-fridge_smash-v2.webp', type: 'fridge_smash' },
+  { key: 'bg-talkshow',   url: 'assets/characters/scene-talkshow-v2.webp',   type: 'talkshow' },
+  { key: 'bg-court',      url: 'assets/characters/scene-court-v2.webp',      type: 'court' },
+  { key: 'bg-ending',     url: 'assets/characters/scene-ending-v2.webp',     type: 'ending' },
   // 场景变体（氛围增强）
-  { key: 'bg-office_empty',  url: 'assets/characters/scene-office_empty-v2.jpg',  type: 'office_empty' },
-  { key: 'bg-street_night',  url: 'assets/characters/scene-street_night-v2.jpg',  type: 'street_night' },
-  { key: 'bg-office_dark',   url: 'assets/characters/scene-office_dark-v2.jpg',   type: 'office_dark' },
+  { key: 'bg-office_empty',  url: 'assets/characters/scene-office_empty-v2.webp',  type: 'office_empty' },
+  { key: 'bg-street_night',  url: 'assets/characters/scene-street_night-v2.webp',  type: 'street_night' },
+  { key: 'bg-office_dark',   url: 'assets/characters/scene-office_dark-v2.webp',   type: 'office_dark' },
   // 结局专属插图
-  { key: 'bg-ending-legend',   url: 'assets/characters/ending-legend-v2.jpg',   type: 'ending-legend' },
-  { key: 'bg-ending-phoenix',  url: 'assets/characters/ending-phoenix-v2.jpg',  type: 'ending-phoenix' },
-  { key: 'bg-ending-returns',  url: 'assets/characters/ending-returns-v2.jpg',  type: 'ending-returns' },
-  { key: 'bg-ending-peace',    url: 'assets/characters/ending-peace-v2.jpg',    type: 'ending-peace' },
-  { key: 'bg-ending-monk',     url: 'assets/characters/ending-monk-v2.jpg',     type: 'ending-monk' }
+  { key: 'bg-ending-legend',   url: 'assets/characters/ending-legend-v2.webp',   type: 'ending-legend' },
+  { key: 'bg-ending-phoenix',  url: 'assets/characters/ending-phoenix-v2.webp',  type: 'ending-phoenix' },
+  { key: 'bg-ending-returns',  url: 'assets/characters/ending-returns-v2.webp',  type: 'ending-returns' },
+  { key: 'bg-ending-peace',    url: 'assets/characters/ending-peace-v2.webp',    type: 'ending-peace' },
+  { key: 'bg-ending-monk',     url: 'assets/characters/ending-monk-v2.webp',     type: 'ending-monk' }
 ];
 
 export const CHARACTER_ASSETS = [
-  { key: 'char-reference', url: 'assets/characters/luo-character-reference.jpg', pose: 'reference' },
+  { key: 'char-reference', url: 'assets/characters/luo-character-reference.webp', pose: 'reference' },
   { key: 'char-standing',   url: 'assets/characters/luo-standing-v2-nobg.webp',   pose: 'standing' },
   { key: 'char-speaking',   url: 'assets/characters/luo-speaking-v2-nobg.webp',   pose: 'speaking' },
   { key: 'char-angry',      url: 'assets/characters/luo-angry-v2-nobg.webp',      pose: 'angry' },

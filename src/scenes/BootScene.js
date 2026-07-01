@@ -182,7 +182,7 @@ export class BootScene extends Phaser.Scene {
 
     // 确保标题画面使用场景图作为沉浸式背景（不显示人物立绘）
     const bootCharEl = document.getElementById('ui-boot-character');
-    if (bootCharEl) bootCharEl.src = 'assets/characters/scene-stage-v2.jpg';
+    if (bootCharEl) bootCharEl.src = 'assets/characters/scene-stage-v2.webp';
 
     // === 玩法指引卡片：首次自动展开，之后折叠；点击可切换 ===
     this._setupGuide();

@@ -15,8 +15,10 @@ export const VOICE_PRESETS = {
     key: 'luo_style',
     label: '★罗永浩风格·中低音男声',
     desc: '中低音调、稍慢语速、有节奏停顿，模仿罗永浩演讲风格',
-    rate: 0.75,
-    pitch: 0.65,
+    rate: 0.85,          // 匹配到语音时的语速
+    pitch: 0.80,         // 匹配到语音时的音调
+    rateNoMatch: 0.78,   // 无匹配时的替代值
+    pitchNoMatch: 0.65,
     gender: 'male',
     voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /kangkang|yunyang|liangliang|^yun$|male|男/i.test(v.name)
   },
@@ -24,8 +26,10 @@ export const VOICE_PRESETS = {
     key: 'broadcast',
     label: '播音腔·沉稳男声',
     desc: '更低音调、更慢语速，类似新闻播报',
-    rate: 0.68,
-    pitch: 0.55,
+    rate: 0.78,
+    pitch: 0.72,
+    rateNoMatch: 0.72,
+    pitchNoMatch: 0.60,
     gender: 'male',
     voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /kangkang|yunyang|liangliang|^yun$|male|男/i.test(v.name)
   },
@@ -33,8 +37,10 @@ export const VOICE_PRESETS = {
     key: 'warm_female',
     label: '温和女声·叙事',
     desc: '中音调、稍慢语速，适合剧情朗读',
-    rate: 0.85,
-    pitch: 1.25,
+    rate: 0.92,
+    pitch: 1.08,
+    rateNoMatch: 0.90,
+    pitchNoMatch: 1.20,
     gender: 'female',
     voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /huihui|yaoyao|tingting|hanhan|xiaoxiao|female|女/i.test(v.name)
   },
@@ -42,8 +48,10 @@ export const VOICE_PRESETS = {
     key: 'young_female',
     label: '明快女声·日常',
     desc: '稍高音调、正常语速，适合轻快场景',
-    rate: 0.95,
-    pitch: 1.35,
+    rate: 1.0,
+    pitch: 1.15,
+    rateNoMatch: 1.0,
+    pitchNoMatch: 1.30,
     gender: 'female',
     voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /huihui|yaoyao|tingting|hanhan|xiaoxiao|female|女/i.test(v.name)
   },
@@ -53,6 +61,8 @@ export const VOICE_PRESETS = {
     desc: '播放用户导入的录音文件（非 TTS）。适合测试自己录制的配音效果',
     rate: 1.0,
     pitch: 1.0,
+    rateNoMatch: 1.0,
+    pitchNoMatch: 1.0,
     gender: null,
     voiceFilter: null
   }
@@ -877,9 +887,6 @@ export class AudioSystem {
 
     const utter = new SpeechSynthesisUtterance(cleanText);
     utter.lang = 'zh-CN';
-    utter.rate = opts.rate != null ? opts.rate : preset.rate;
-    utter.pitch = opts.pitch != null ? opts.pitch : preset.pitch;
-    utter.volume = this.masterVolume * 0.9;
 
     // === 语音选择策略 ===
     const voices = this._cachedVoices.length > 0 ? this._cachedVoices : window.speechSynthesis.getVoices();
@@ -907,6 +914,20 @@ export class AudioSystem {
     if (!chosenVoice && zhVoices.length > 0) {
       chosenVoice = zhVoices[0];
     }
+
+    // === 应用 pitch/rate：匹配成功用温和值，否则用极端值做补偿 ===
+    const voiceMatched = chosenVoice !== null;
+    if (opts.rate != null) {
+      utter.rate = opts.rate;
+    } else {
+      utter.rate = voiceMatched ? preset.rate : (preset.rateNoMatch ?? preset.rate);
+    }
+    if (opts.pitch != null) {
+      utter.pitch = opts.pitch;
+    } else {
+      utter.pitch = voiceMatched ? preset.pitch : (preset.pitchNoMatch ?? preset.pitch);
+    }
+    utter.volume = this.masterVolume * 0.9;
 
     if (chosenVoice) utter.voice = chosenVoice;
 
