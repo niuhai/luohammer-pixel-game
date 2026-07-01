@@ -25,7 +25,7 @@ const config = {
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    resolution: window.devicePixelRatio || 1
+    resolution: 1 // Fixed at 1 for performance — avoids high-DPI buffer scaling issues
   },
   scene: [BootScene, IntroScene, GameScene, EndingScene]
 };

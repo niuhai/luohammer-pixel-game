@@ -1,0 +1,10 @@
+{
+	"name": "@byteplus/nest-linux-x64",
+	"version": "1.3.2",
+	"os": [
+		"linux"
+	],
+	"cpu": [
+		"x64"
+	]
+}
