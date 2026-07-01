@@ -2,7 +2,10 @@ import { getCharacterColor } from '../config.js';
 import { SaveSystem } from './SaveSystem.js';
 
 const SETTINGS_KEY = 'luohammer_dialog_settings';
-const TYPING_SPEEDS = [120, 75, 40];          // 每字间隔 ms：慢 / 中 / 快
+// 每字间隔 ms：慢 / 中 / 快
+// 调慢为的是让打字速度匹配 TTS 朗读节奏（TTS 中文约 200~250ms/字），
+// 解决"字幕比语音快"导致玩家来不及感受情绪的问题。
+const TYPING_SPEEDS = [220, 140, 80];
 const TYPING_SPEED_LABELS = ['慢', '中', '快'];
 
 export class DialogSystem {
@@ -220,6 +223,9 @@ export class DialogSystem {
 
   /**
    * 从 localStorage 读取用户偏好
+   * 默认关闭自动播放（autoPlay=false），让玩家自主掌控节奏；
+   * 默认慢速档（typingSpeedIdx=0，220ms/字）以匹配 TTS 朗读节奏。
+   * 旧用户若已显式保存过偏好，仍尊重其选择。
    */
   _loadSettings() {
     try {
@@ -234,7 +240,7 @@ export class DialogSystem {
         }
       }
     } catch (e) {}
-    return { autoPlay: true, typingSpeedIdx: 1 };
+    return { autoPlay: false, typingSpeedIdx: 0 };
   }
 
   /**
@@ -466,8 +472,9 @@ export class DialogSystem {
     this._typingAccum = 0;
     // === 情绪化打字速度：初始化动态字符延迟 ===
     this._currentCharDelay = this._getMoodBaseInterval();
-    // 自动播放开启时，才让打字机自己跑；关闭时等待用户点击
-    this._typingActive = this._autoPlay;
+    // 打字机始终自动工作；autoPlay 仅影响"继续"提示文案与打完后是否自动推进
+    // （修复：autoPlay=false 时字幕完全不显示的 bug）
+    this._typingActive = true;
     this.el.classList.remove('hiding');
     this.el.classList.add('visible');
     this.continueEl.style.display = 'none';
@@ -488,13 +495,11 @@ export class DialogSystem {
       try { this.hooks.onShow(characterName, text); } catch(e) {}
     }
 
-    // 自动播放模式下立即显示第一个字，然后由 update 驱动后续打字
-    if (this._autoPlay) {
-      this._advanceTyping();
-      // === 根据刚打出的字符重新计算下次延迟（标点停顿）===
-      if (this.isTyping) {
-        this._currentCharDelay = this._calculateCharDelay();
-      }
+    // 立即显示第一个字，然后由 update 驱动后续打字
+    this._advanceTyping();
+    // === 根据刚打出的字符重新计算下次延迟（标点停顿）===
+    if (this.isTyping) {
+      this._currentCharDelay = this._calculateCharDelay();
     }
   }
 
@@ -668,9 +673,9 @@ export class DialogSystem {
     if (this.hooks.onTextComplete) {
       try { this.hooks.onTextComplete(this.currentCharacterName, this.fullText); } catch(e) {}
     }
-    // === 已读节点多段叙事：自动推进到下一段 ===
+    // === 已读节点多段叙事：自动推进到下一段（等待 TTS 朗读结束才推进）===
     if (this._isSeenNode && this._segments && this._segmentIndex < this._segments.length - 1) {
-      setTimeout(() => {
+      this._scheduleAfterSpeech(() => {
         if (!this.isTyping && this._segments) {
           this._segmentIndex++;
           this._showSegment(this._segmentIndex);
@@ -678,9 +683,9 @@ export class DialogSystem {
       }, 300);
       return;
     }
-    // === 已读节点最后一段：打完后短暂等待再自动触发 onComplete（显示选项）===
+    // === 已读节点最后一段：打完后等待 TTS 朗读结束再触发 onComplete（显示选项）===
     if (this._isSeenNode && this.onComplete) {
-      setTimeout(() => {
+      this._scheduleAfterSpeech(() => {
         if (!this.isTyping && this.onComplete) {
           const cb = this.onComplete;
           this.onComplete = null;
@@ -689,6 +694,26 @@ export class DialogSystem {
       }, 400);
     }
     // === 自动播放：文字显示完整后绝不自动推进剧情，等待用户点击继续 ===
+  }
+
+  /**
+   * 自动推进调度：若 TTS 正在朗读则等其结束，否则延迟 delayMs 触发
+   * 用于已读节点快进模式下的多段叙事与选项自动显示同步
+   * @param {function} action - 延迟/朗读结束后要执行的动作
+   * @param {number} delayMs - 无朗读时的延迟毫秒数（视觉缓冲）
+   */
+  _scheduleAfterSpeech(action, delayMs = 300) {
+    if (!this.audio || typeof this.audio.onceSpeechEnd !== 'function') {
+      // 无 audio 或方法不存在，回退到原延迟逻辑
+      setTimeout(action, delayMs);
+      return;
+    }
+    // 若 TTS 正在朗读，等其结束；否则用 setTimeout 给视觉缓冲
+    if (this.audio.isSpeaking() || (typeof this.audio._isCustomAudioPlaying === 'function' && this.audio._isCustomAudioPlaying())) {
+      this.audio.onceSpeechEnd(action);
+    } else {
+      setTimeout(action, delayMs);
+    }
   }
 
   /**
@@ -713,17 +738,13 @@ export class DialogSystem {
 
   /**
    * 切换自动播放开关（T28）
+   * 注意：autoPlay 仅影响"继续"提示文案，打字机始终自动工作
    */
   _toggleAutoPlay() {
     this._autoPlay = !this._autoPlay;
     this._saveSettings();
     this._applyAutoPlayState();
-
-    // 切换时若正在打字，实时暂停/恢复
-    if (this.isTyping) {
-      this._typingActive = this._autoPlay;
-    }
-
+    // 打字机始终工作，不因 autoPlay 切换而暂停
     this._updateContinueHint();
   }
 

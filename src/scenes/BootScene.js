@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../config.js';
 import { SaveSystem } from '../systems/SaveSystem.js';
-import { AudioSystem } from '../systems/AudioSystem.js';
+import { AudioSystem, VOICE_PRESETS } from '../systems/AudioSystem.js';
 import { showAchievementGallery } from '../ui/AchievementGallery.js';
 import { showEndingGallery, getEndingProgress } from '../ui/EndingGallery.js';
 import { showSaveLoadPanel } from '../ui/SaveLoadPanel.js';
@@ -71,6 +71,16 @@ export class BootScene extends Phaser.Scene {
       return introBtn;
     };
 
+    // "配音试听"按钮：弹出预设选择面板，供用户试听并切换配音风格
+    const createVoicePreviewBtn = () => {
+      const btn = document.createElement('button');
+      btn.className = 'ui-boot-btn';
+      const currentPreset = this.audio.getVoicePresetKey();
+      btn.textContent = `♪ 配音试听（${VOICE_PRESETS[currentPreset].label}）`;
+      btn.addEventListener('click', () => this._showVoicePreviewPanel(btn));
+      return btn;
+    };
+
     // "结局图鉴"按钮：已有结局记录时显示
     const createEndingGalleryBtn = () => {
       const progress = getEndingProgress();
@@ -134,6 +144,8 @@ export class BootScene extends Phaser.Scene {
       galleryBtn.addEventListener('click', () => showAchievementGallery());
       buttonsEl.appendChild(galleryBtn);
 
+      buttonsEl.appendChild(createVoicePreviewBtn());
+
       const endingGalleryBtn = createEndingGalleryBtn();
       if (endingGalleryBtn) buttonsEl.appendChild(endingGalleryBtn);
     } else {
@@ -155,6 +167,8 @@ export class BootScene extends Phaser.Scene {
       galleryBtn.textContent = '成就图鉴';
       galleryBtn.addEventListener('click', () => showAchievementGallery());
       buttonsEl.appendChild(galleryBtn);
+
+      buttonsEl.appendChild(createVoicePreviewBtn());
 
       const endingGalleryBtn = createEndingGalleryBtn();
       if (endingGalleryBtn) buttonsEl.appendChild(endingGalleryBtn);
@@ -181,6 +195,7 @@ export class BootScene extends Phaser.Scene {
       quoteEl.innerHTML = '<span class="ui-boot-quote-cursor"></span>';
       let charIndex = 0;
       const cursorEl = quoteEl.querySelector('.ui-boot-quote-cursor');
+      let quoteSpoken = false;
       const timer = this.time.addEvent({
         delay: 120,
         loop: true,
@@ -192,6 +207,11 @@ export class BootScene extends Phaser.Scene {
             charIndex++;
           } else {
             timer.remove();
+            // 打字完成后语音播报金句（force=true，无视 narration 开关）
+            if (!quoteSpoken && this.audio) {
+              quoteSpoken = true;
+              this.audio.speak(quoteText, { force: true });
+            }
             // 打字完成后光标再闪几秒后消失
             this.time.delayedCall(3000, () => {
               if (cursorEl) cursorEl.style.display = 'none';
@@ -201,6 +221,8 @@ export class BootScene extends Phaser.Scene {
       });
       this._typewriterCleanup = () => {
         timer.remove();
+        // 离开标题画面时停止金句朗读
+        if (this.audio) this.audio.stopSpeaking();
       };
     }
 
@@ -220,6 +242,11 @@ export class BootScene extends Phaser.Scene {
         this._typewriterCleanup();
         this._typewriterCleanup = null;
       }
+      // 关闭配音试听面板（若仍开着）
+      if (this._voicePanelCleanup) {
+        this._voicePanelCleanup();
+        this._voicePanelCleanup = null;
+      }
       // 清理 overlay 同步
       if (this._overlayResizeObserver) {
         this._overlayResizeObserver.disconnect();
@@ -230,6 +257,284 @@ export class BootScene extends Phaser.Scene {
         this._overlayResizeHandler = null;
       }
     });
+  }
+
+  /**
+   * 配音试听面板：列出所有预设，每项提供「试听」+「应用」按钮。
+   * - 试听：用该预设朗读一段标准示例文本，不持久化
+   * - 应用：将该预设写入 localStorage 并设为当前预设
+   * 面板采用 DOM overlay 实现，与 BootScene 视觉风格一致。
+   * @param {HTMLElement} triggerBtn - 触发按钮，用于面板关闭后回写标签
+   */
+  _showVoicePreviewPanel(triggerBtn) {
+    // 若已存在则关闭
+    if (this._voicePanelCleanup) {
+      this._voicePanelCleanup();
+      return;
+    }
+
+    const presets = Object.values(VOICE_PRESETS);
+    const currentKey = this.audio.getVoicePresetKey();
+
+    // 容器
+    const panel = document.createElement('div');
+    panel.className = 'ui-voice-panel';
+    panel.style.cssText = [
+      'position: fixed',
+      'top: 50%', 'left: 50%',
+      'transform: translate(-50%, -50%)',
+      'background: rgba(20, 16, 8, 0.97)',
+      'border: 2px solid rgba(240, 192, 64, 0.5)',
+      'border-radius: 8px',
+      'padding: 18px 22px',
+      'max-width: 90vw',
+      'width: 420px',
+      'max-height: 85vh',
+      'overflow-y: auto',
+      'z-index: 10000',
+      'color: #f0e0a0',
+      'font-family: "Press Start 2P", "Microsoft YaHei", monospace',
+      'box-shadow: 0 8px 40px rgba(0,0,0,0.6)'
+    ].join(';');
+
+    // 标题
+    const title = document.createElement('div');
+    title.textContent = '♪ 配音试听';
+    title.style.cssText = 'font-size: 16px; color: #f0c040; text-align: center; margin-bottom: 4px; letter-spacing: 1px;';
+    panel.appendChild(title);
+
+    const subtitle = document.createElement('div');
+    subtitle.textContent = '点击「试听」听效果，满意后点「应用」';
+    subtitle.style.cssText = 'font-size: 11px; color: #9a8a6a; text-align: center; margin-bottom: 14px; line-height: 1.5;';
+    panel.appendChild(subtitle);
+
+    // 预设列表
+    presets.forEach(preset => {
+      const row = document.createElement('div');
+      row.style.cssText = [
+        'display: flex',
+        'align-items: center',
+        'justify-content: space-between',
+        'padding: 10px 12px',
+        'margin-bottom: 8px',
+        'border: 1px solid rgba(240, 192, 64, 0.18)',
+        'border-radius: 4px',
+        'background: rgba(240, 192, 64, 0.04)',
+        preset.key === currentKey ? 'border-color: rgba(240, 192, 64, 0.7); background: rgba(240, 192, 64, 0.1);' : ''
+      ].join(';');
+
+      // 左侧：名称+描述+当前标记
+      const left = document.createElement('div');
+      left.style.cssText = 'flex: 1; padding-right: 10px;';
+
+      const name = document.createElement('div');
+      name.style.cssText = 'font-size: 13px; color: #f0c040; font-weight: 700; margin-bottom: 3px;';
+      name.textContent = (preset.key === currentKey ? '★ ' : '') + preset.label;
+      left.appendChild(name);
+
+      const desc = document.createElement('div');
+      desc.style.cssText = 'font-size: 10px; color: #9a8a6a; line-height: 1.4;';
+      desc.textContent = preset.desc;
+      left.appendChild(desc);
+
+      // 实际匹配到的 voice 信息（让用户看到系统真实匹配结果，便于诊断"男声变女声"问题）
+      const voiceInfo = this.audio.getMatchedVoiceInfo(preset.key);
+      const matchedEl = document.createElement('div');
+      matchedEl.style.cssText = 'font-size: 9px; margin-top: 4px; line-height: 1.4;';
+      const genderLabel = voiceInfo.isMale === true ? '男声' :
+                          voiceInfo.isMale === false ? '女声' : '未知';
+      const expectLabel = voiceInfo.expectMale ? '期望男声' : '期望女声';
+      const matchedOk = voiceInfo.matched &&
+                        ((voiceInfo.expectMale && voiceInfo.isMale === true) ||
+                         (!voiceInfo.expectMale && voiceInfo.isMale === false));
+      matchedEl.style.color = matchedOk ? '#7ad07a' : '#e07050';
+      matchedEl.textContent = `→ ${voiceInfo.voiceName} [${genderLabel}/${expectLabel}${voiceInfo.matched ? '/匹配' : '/回退'}]`;
+      left.appendChild(matchedEl);
+
+      row.appendChild(left);
+
+      // 右侧：按钮组
+      const btnGroup = document.createElement('div');
+      btnGroup.style.cssText = 'display: flex; gap: 6px; flex-shrink: 0;';
+
+      const previewBtn = document.createElement('button');
+      previewBtn.textContent = '试听';
+      previewBtn.style.cssText = [
+        'background: transparent',
+        'border: 1px solid rgba(240, 192, 64, 0.5)',
+        'color: #f0c040',
+        'padding: 5px 10px',
+        'font-size: 11px',
+        'border-radius: 3px',
+        'cursor: pointer',
+        'font-family: inherit'
+      ].join(';');
+      previewBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.audio.previewVoicePreset(preset.key);
+      });
+      btnGroup.appendChild(previewBtn);
+
+      const applyBtn = document.createElement('button');
+      applyBtn.textContent = preset.key === currentKey ? '已应用' : '应用';
+      applyBtn.disabled = preset.key === currentKey;
+      applyBtn.style.cssText = [
+        'background: rgba(240, 192, 64, 0.85)',
+        'border: none',
+        'color: #1a1208',
+        'padding: 5px 10px',
+        'font-size: 11px',
+        'border-radius: 3px',
+        'cursor: pointer',
+        'font-family: inherit',
+        'font-weight: 700',
+        applyBtn.disabled ? 'opacity: 0.5; cursor: default;' : ''
+      ].join(';');
+      applyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.audio.setVoicePreset(preset.key);
+        // 关闭面板并重新打开以刷新"已应用"标记
+        this._voicePanelCleanup();
+        this._showVoicePreviewPanel(triggerBtn);
+        // 同步触发按钮的标签
+        if (triggerBtn) {
+          triggerBtn.textContent = `♪ 配音试听（${VOICE_PRESETS[preset.key].label}）`;
+        }
+        try { toast(`已应用：${preset.label}`); } catch(e) {}
+      });
+      btnGroup.appendChild(applyBtn);
+
+      row.appendChild(btnGroup);
+      panel.appendChild(row);
+    });
+
+    // 关闭按钮
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '关闭';
+    closeBtn.style.cssText = [
+      'display: block',
+      'margin: 14px auto 0',
+      'background: transparent',
+      'border: 1px solid rgba(154, 138, 106, 0.5)',
+      'color: #9a8a6a',
+      'padding: 6px 24px',
+      'font-size: 11px',
+      'border-radius: 3px',
+      'cursor: pointer',
+      'font-family: inherit'
+    ].join(';');
+    closeBtn.addEventListener('click', () => this._voicePanelCleanup());
+    panel.appendChild(closeBtn);
+
+    // === 自定义音频导入区 ===
+    const importSection = document.createElement('div');
+    importSection.style.cssText = 'margin: 14px 0 6px; padding-top: 10px; border-top: 1px dashed rgba(154, 138, 106, 0.3);';
+    importSection.innerHTML = `
+      <div style="font-size: 11px; color: var(--color-gold, #f0c040); margin-bottom: 4px;">♪ 自定义音频导入</div>
+      <div style="font-size: 9px; color: #9a8a6a; line-height: 1.5; margin-bottom: 8px;">
+        导入你录制的音频文件（mp3/wav/ogg/m4a，≤2MB）。<br>
+        导入后选择"自定义音频"预设，所有语音将播放该音频（非 TTS）。<br>
+        <span style="color: #e07050;">注意：浏览器无法用少量样本克隆声音，每段文本需单独录制。</span>
+      </div>
+    `;
+    panel.appendChild(importSection);
+
+    // 隐藏文件选择器
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'audio/*,.mp3,.wav,.ogg,.m4a,.aac';
+    fileInput.style.display = 'none';
+    panel.appendChild(fileInput);
+
+    const importBtn = document.createElement('button');
+    importBtn.textContent = this.audio.hasCustomVoice() ? '♪ 重新导入音频' : '♪ 导入音频文件';
+    importBtn.style.cssText = 'background: rgba(120, 80, 30, 0.6); color: #f0c040; border: 1px solid #c09830; padding: 8px 12px; font-size: 11px; cursor: pointer; margin-right: 8px; font-family: inherit;';
+    importBtn.addEventListener('click', () => fileInput.click());
+    panel.appendChild(importBtn);
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const result = await this.audio.importCustomVoice(file);
+      if (result.ok) {
+        importBtn.textContent = '♪ 重新导入音频';
+        const status = document.createElement('div');
+        status.style.cssText = 'font-size: 10px; color: #7ad07a; margin-top: 6px;';
+        status.textContent = `✓ 导入成功：${file.name}（${(file.size/1024).toFixed(1)}KB）。选择"自定义音频"预设试听。`;
+        panel.appendChild(status);
+        // 同步刷新已存在的 custom 预设行（如果已渲染）
+      } else {
+        const err = document.createElement('div');
+        err.style.cssText = 'font-size: 10px; color: #e07050; margin-top: 6px;';
+        err.textContent = `✗ ${result.error}`;
+        panel.appendChild(err);
+      }
+    });
+
+    // 清除按钮（仅在已导入时显示）
+    if (this.audio.hasCustomVoice()) {
+      const clearBtn = document.createElement('button');
+      clearBtn.textContent = '清除';
+      clearBtn.style.cssText = 'background: rgba(120, 30, 30, 0.4); color: #e07050; border: 1px solid #803030; padding: 8px 12px; font-size: 11px; cursor: pointer; font-family: inherit;';
+      clearBtn.addEventListener('click', () => {
+        this.audio.clearCustomVoice();
+        importBtn.textContent = '♪ 导入音频文件';
+        const status = document.createElement('div');
+        status.style.cssText = 'font-size: 10px; color: #9a8a6a; margin-top: 6px;';
+        status.textContent = '已清除自定义音频';
+        panel.appendChild(status);
+      });
+      panel.appendChild(clearBtn);
+    }
+
+    // === 系统可用中文语音调试区（帮助用户了解为什么男声可能匹配到女声）===
+    const zhVoices = this.audio.listSystemZhVoices();
+    if (zhVoices.length > 0) {
+      const debugTitle = document.createElement('div');
+      debugTitle.textContent = `系统可用中文语音（${zhVoices.length} 个）`;
+      debugTitle.style.cssText = 'font-size: 10px; color: #9a8a6a; margin: 14px 0 6px; padding-top: 10px; border-top: 1px dashed rgba(154, 138, 106, 0.3);';
+      panel.appendChild(debugTitle);
+
+      zhVoices.forEach(v => {
+        const vRow = document.createElement('div');
+        vRow.style.cssText = 'font-size: 9px; color: #7a6a5a; padding: 2px 0; line-height: 1.4;';
+        const gLabel = v.isMale === true ? '男' : v.isMale === false ? '女' : '?';
+        vRow.textContent = `· [${gLabel}] ${v.name} (${v.lang})`;
+        panel.appendChild(vRow);
+      });
+
+      if (zhVoices.every(v => v.isMale !== true)) {
+        const warn = document.createElement('div');
+        warn.style.cssText = 'font-size: 9px; color: #e07050; margin-top: 6px; line-height: 1.5;';
+        warn.textContent = '⚠ 你的系统未检测到中文男声 voice。男声预设将回退到默认女声，仅通过调低音调/语速模拟。';
+        panel.appendChild(warn);
+      }
+    }
+
+    document.body.appendChild(panel);
+
+    // 点击面板外部关闭
+    const onOutsideClick = (e) => {
+      if (panel.contains(e.target)) return;
+      this._voicePanelCleanup();
+    };
+    // 延迟一帧绑定，避免触发按钮的同一 click 立刻关闭面板
+    this.time.delayedCall(0, () => {
+      window.addEventListener('pointerdown', onOutsideClick);
+    });
+
+    // ESC 关闭
+    const onKey = (e) => {
+      if (e.code === 'Escape') this._voicePanelCleanup();
+    };
+    window.addEventListener('keydown', onKey);
+
+    this._voicePanelCleanup = () => {
+      window.removeEventListener('pointerdown', onOutsideClick);
+      window.removeEventListener('keydown', onKey);
+      if (panel.parentNode) panel.parentNode.removeChild(panel);
+      this._voicePanelCleanup = null;
+    };
   }
 
   /**

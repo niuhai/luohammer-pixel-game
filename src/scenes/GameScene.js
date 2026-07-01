@@ -6,7 +6,7 @@ import { DialogSystem } from '../systems/DialogSystem.js';
 import { ChoiceSystem } from '../systems/ChoiceSystem.js';
 import { StatsSystem } from '../systems/StatsSystem.js';
 import { Transition } from '../systems/Transition.js';
-import { AudioSystem } from '../systems/AudioSystem.js';
+import { AudioSystem, VOICE_PRESETS } from '../systems/AudioSystem.js';
 import { SaveSystem } from '../systems/SaveSystem.js';
 import { HistoryCard } from '../ui/HistoryCard.js';
 import { showSaveLoadPanel } from '../ui/SaveLoadPanel.js';
@@ -351,6 +351,19 @@ export class GameScene extends Phaser.Scene {
         this.narrationToggleEl.classList.toggle('active', on);
         if (this.narrationIconEl) this.narrationIconEl.textContent = on ? '朗读✓' : '朗读';
         if (!on) this.audio.stopSpeaking();
+      }, uiSignalOpts);
+    }
+
+    // === 音色快捷切换按钮（游戏内直接切换配音预设，无需返回标题页）===
+    this.voiceToggleEl = document.getElementById('ui-voice-toggle');
+    this.voiceIconEl = document.getElementById('ui-voice-icon');
+    if (this.voiceToggleEl) {
+      this.voiceToggleEl.classList.add('visible');
+      // 显示当前预设简称
+      this._updateVoiceToggleLabel();
+      this.voiceToggleEl.addEventListener('click', () => {
+        this.vibrate(12);
+        this._showQuickVoicePanel();
       }, uiSignalOpts);
     }
 
@@ -2307,11 +2320,174 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * 更新音色切换按钮的标签（显示当前预设简称）
+   */
+  _updateVoiceToggleLabel() {
+    if (!this.voiceIconEl || !this.audio) return;
+    try {
+      const preset = this.audio.getVoicePreset();
+      // 取标签前4字作为简称
+      const short = preset.label.replace(/★/, '').split('·')[0].slice(0, 4);
+      this.voiceIconEl.textContent = short;
+    } catch(e) {
+      this.voiceIconEl.textContent = '音色';
+    }
+  }
+
+  /**
+   * 游戏内快捷音色切换面板（简化版：预设列表 + 试听 + 应用，不含自定义导入）
+   */
+  _showQuickVoicePanel() {
+    // 若已存在则关闭
+    if (this._quickVoicePanelEl) {
+      this._closeQuickVoicePanel();
+      return;
+    }
+    const audio = this.audio;
+    if (!audio) return;
+    const currentKey = audio.getVoicePresetKey();
+
+    const panel = document.createElement('div');
+    panel.style.cssText = [
+      'position: fixed',
+      'inset: 0',
+      'background: rgba(0, 0, 0, 0.7)',
+      'display: flex',
+      'align-items: center',
+      'justify-content: center',
+      'z-index: 1000',
+      'font-family: "Press Start 2P", "Cascadia Mono", monospace'
+    ].join(';');
+
+    const box = document.createElement('div');
+    box.style.cssText = [
+      'background: #1a1a2e',
+      'border: 2px solid #f0c040',
+      'border-radius: 6px',
+      'padding: 20px',
+      'max-width: 90vw',
+      'max-height: 80vh',
+      'overflow-y: auto',
+      'box-shadow: 0 0 30px rgba(240, 192, 64, 0.3)',
+      'color: #f0c040'
+    ].join(';');
+
+    const title = document.createElement('div');
+    title.textContent = '♪ 配音音色切换';
+    title.style.cssText = 'font-size: 14px; color: #f0c040; margin-bottom: 14px; text-align: center; font-weight: 700;';
+    box.appendChild(title);
+
+    const presets = Object.values(VOICE_PRESETS);
+    presets.forEach(preset => {
+      const row = document.createElement('div');
+      row.style.cssText = [
+        'display: flex',
+        'align-items: center',
+        'justify-content: space-between',
+        'padding: 10px 12px',
+        'margin-bottom: 8px',
+        'border: 1px solid rgba(240, 192, 64, 0.18)',
+        'border-radius: 4px',
+        'background: rgba(240, 192, 64, 0.04)',
+        preset.key === currentKey ? 'border-color: rgba(240, 192, 64, 0.7); background: rgba(240, 192, 64, 0.1);' : ''
+      ].join(';');
+
+      const left = document.createElement('div');
+      left.style.cssText = 'flex: 1; padding-right: 10px;';
+
+      const name = document.createElement('div');
+      name.style.cssText = 'font-size: 12px; color: #f0c040; font-weight: 700; margin-bottom: 3px;';
+      name.textContent = (preset.key === currentKey ? '★ ' : '') + preset.label;
+      left.appendChild(name);
+
+      const desc = document.createElement('div');
+      desc.style.cssText = 'font-size: 10px; color: #9a8a6a; line-height: 1.4;';
+      desc.textContent = preset.desc;
+      left.appendChild(desc);
+
+      row.appendChild(left);
+
+      // 试听按钮
+      const previewBtn = document.createElement('button');
+      previewBtn.textContent = '试听';
+      previewBtn.style.cssText = 'background: rgba(120, 80, 30, 0.4); color: #f0c040; border: 1px solid #c09830; padding: 6px 10px; font-size: 10px; cursor: pointer; margin-left: 8px; font-family: inherit;';
+      previewBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        audio.previewVoicePreset(preset.key);
+      });
+      row.appendChild(previewBtn);
+
+      // 应用按钮
+      const applyBtn = document.createElement('button');
+      applyBtn.textContent = preset.key === currentKey ? '当前' : '应用';
+      applyBtn.style.cssText = preset.key === currentKey
+        ? 'background: rgba(120, 120, 120, 0.3); color: #9a8a6a; border: 1px solid #6a5a4a; padding: 6px 10px; font-size: 10px; cursor: default; margin-left: 6px; font-family: inherit;'
+        : 'background: rgba(120, 80, 30, 0.6); color: #f0c040; border: 1px solid #f0c040; padding: 6px 10px; font-size: 10px; cursor: pointer; margin-left: 6px; font-family: inherit;';
+      if (preset.key !== currentKey) {
+        applyBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (audio.setVoicePreset(preset.key)) {
+            this._updateVoiceToggleLabel();
+            this._closeQuickVoicePanel();
+            try { toast(`已切换：${preset.label}`, { type: 'info' }); } catch(e) {}
+          }
+        });
+      }
+      row.appendChild(applyBtn);
+
+      box.appendChild(row);
+    });
+
+    // 关闭按钮
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕ 关闭';
+    closeBtn.style.cssText = 'display: block; margin: 14px auto 0; background: transparent; color: #9a8a6a; border: 1px solid #6a5a4a; padding: 8px 16px; font-size: 11px; cursor: pointer; font-family: inherit;';
+    closeBtn.addEventListener('click', () => this._closeQuickVoicePanel());
+    box.appendChild(closeBtn);
+
+    panel.appendChild(box);
+
+    // 点击背景关闭
+    panel.addEventListener('click', (e) => {
+      if (e.target === panel) this._closeQuickVoicePanel();
+    });
+
+    // ESC 关闭
+    const onKey = (e) => {
+      if (e.code === 'Escape') this._closeQuickVoicePanel();
+    };
+    window.addEventListener('keydown', onKey);
+
+    document.body.appendChild(panel);
+    this._quickVoicePanelEl = panel;
+    this._quickVoicePanelOnKey = onKey;
+  }
+
+  _closeQuickVoicePanel() {
+    if (!this._quickVoicePanelEl) return;
+    if (this._quickVoicePanelOnKey) {
+      window.removeEventListener('keydown', this._quickVoicePanelOnKey);
+      this._quickVoicePanelOnKey = null;
+    }
+    if (this._quickVoicePanelEl.parentNode) {
+      this._quickVoicePanelEl.parentNode.removeChild(this._quickVoicePanelEl);
+    }
+    this._quickVoicePanelEl = null;
+    // 切换面板时停止试听语音
+    try { this.audio.stopSpeaking(); } catch(e) {}
+  }
+
+  /**
    * 场景关闭时清理资源，防止内存泄漏
    */
   _onShutdown() {
     // 移除 shutdown 事件监听器本身，避免重复触发
     this.events.off('shutdown', this._onShutdown, this);
+
+    // 清理快捷音色切换面板（避免场景切换时 DOM 残留）
+    if (this._quickVoicePanelEl) {
+      this._closeQuickVoicePanel();
+    }
 
     // 清理阶段结算的 setInterval（避免场景切换时内存泄漏）
     if (this._settlementTimer) {

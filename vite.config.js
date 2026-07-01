@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: '/',
+  base: '/luohammer-pixel-game/',
   build: {
     target: 'es2015',
     minify: 'terser',

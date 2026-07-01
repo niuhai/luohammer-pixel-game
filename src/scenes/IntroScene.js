@@ -292,14 +292,18 @@ export class IntroScene extends Phaser.Scene {
     this.time.delayedCall(0, () => {
       this._setupText(lineEls[0], LINES[0]);
       this._revealChars(lineEls[0], 600);
+      // 同步语音播报（force=true，无视 narration 开关）
+      if (this.audio) this.audio.speak(LINES[0], { force: true });
     });
     this.time.delayedCall(1000, () => {
       this._setupText(lineEls[1], LINES[1]);
       this._revealChars(lineEls[1], 600);
+      if (this.audio) this.audio.speak(LINES[1], { force: true });
     });
     this.time.delayedCall(2000, () => {
       this._setupText(lineEls[2], LINES[2]);
       this._revealChars(lineEls[2], 600);
+      if (this.audio) this.audio.speak(LINES[2], { force: true });
     });
 
     // 0.6 秒后可跳过
@@ -327,6 +331,9 @@ export class IntroScene extends Phaser.Scene {
   _finish(fade) {
     if (!this._skipEnabled || this._finished) return;
     this._finished = true;
+
+    // 跳过/结束时立即停止语音播报
+    if (this.audio) this.audio.stopSpeaking();
 
     // 标记开场动画已观看
     try {

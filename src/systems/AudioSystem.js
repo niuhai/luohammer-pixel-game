@@ -2,6 +2,62 @@
 let _sharedCtx = null;
 let _sharedMasterGain = null;
 
+/**
+ * 配音预设：通过 rate/pitch/voiceFilter 组合模拟不同朗读风格。
+ * 浏览器 TTS 仅能调用系统已安装语音，"罗永浩风格"为基于参数的近似模拟，
+ * 供用户试听后选择最合适的风格。
+ *
+ * voiceFilter 精确匹配常见中文 voice name（避免 "mei" 误匹配 Microsoft）：
+ *   女声: Huihui / Yaoyao（微软）、Tingting（苹果）、Hanhan / Xiaoxiao（百度）
+ *   男声: Kangkang / Yunyang（微软）、Liangliang（百度）、Yun（谷歌）
+ * 若 voiceFilter 都匹配失败，回退到任意中文 voice，
+ * 此时 rate/pitch 的明显差异仍能保证听感区分。
+ */
+export const VOICE_PRESETS = {
+  luo_style: {
+    key: 'luo_style',
+    label: '★罗永浩风格·中低音男声',
+    desc: '中低音调、稍慢语速、有节奏停顿，模仿罗永浩演讲风格',
+    rate: 0.85,
+    pitch: 0.85,
+    voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /kangkang|yunyang|liangliang|^yun$|male|男/i.test(v.name)
+  },
+  broadcast: {
+    key: 'broadcast',
+    label: '播音腔·沉稳男声',
+    desc: '更低音调、更慢语速，类似新闻播报',
+    rate: 0.78,
+    pitch: 0.72,
+    voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /kangkang|yunyang|liangliang|^yun$|male|男/i.test(v.name)
+  },
+  warm_female: {
+    key: 'warm_female',
+    label: '温和女声·叙事',
+    desc: '中音调、稍慢语速，适合剧情朗读',
+    rate: 0.92,
+    pitch: 1.10,
+    voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /huihui|yaoyao|tingting|hanhan|xiaoxiao|female|女/i.test(v.name)
+  },
+  young_female: {
+    key: 'young_female',
+    label: '明快女声·日常',
+    desc: '稍高音调、正常语速，适合轻快场景',
+    rate: 1.0,
+    pitch: 1.18,
+    voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /huihui|yaoyao|tingting|hanhan|xiaoxiao|female|女/i.test(v.name)
+  },
+  custom: {
+    key: 'custom',
+    label: '自定义音频·用户导入',
+    desc: '播放用户导入的录音文件（非 TTS）。适合测试自己录制的配音效果',
+    rate: 1.0,
+    pitch: 1.0,
+    voiceFilter: null  // 自定义预设不使用 TTS voice
+  }
+};
+
+const VOICE_PRESET_KEY = 'luohammer_voice_preset';
+
 export class AudioSystem {
   constructor(scene) {
     this.scene = scene;
@@ -21,6 +77,11 @@ export class AudioSystem {
     this._narrationEnabled = true; // 剧情朗读默认开启
     this._cachedVoices = [];       // 缓存TTS语音列表
     this._ttsResumeTimer = null;   // Chrome长文本bug修复定时器
+    this._customAudioUrl = null;  // 自定义音频 Blob URL
+    this._customAudioEl = null;   // 自定义音频 <audio> 元素
+    this._pendingSpeechEndCallbacks = []; // 朗读结束回调队列（用于剧情自动推进同步）
+    // 当前配音预设（持久化到 localStorage），默认为罗永浩风格（推荐）
+    this._voicePresetKey = 'luo_style';
     try {
       const saved = localStorage.getItem('luohammer_audio');
       if (saved !== null) this.enabled = saved === 'true';
@@ -28,9 +89,17 @@ export class AudioSystem {
       if (vol !== null) this.masterVolume = Math.max(0, Math.min(1, parseFloat(vol)));
       const narr = localStorage.getItem('luohammer_narration');
       if (narr !== null) this._narrationEnabled = narr === 'true';
+      const preset = localStorage.getItem(VOICE_PRESET_KEY);
+      if (preset && VOICE_PRESETS[preset]) this._voicePresetKey = preset;
     } catch(e) {}
     // 预加载TTS语音列表
     this._initVoices();
+    // 恢复已存的自定义音频（刷新后仍可用）
+    try {
+      const savedBase64 = localStorage.getItem('luohammer_custom_voice');
+      const savedType = localStorage.getItem('luohammer_custom_voice_type') || 'audio/mpeg';
+      if (savedBase64) this._loadCustomAudio(savedBase64, savedType);
+    } catch(e) {}
   }
 
   _initVoices() {
@@ -766,12 +835,24 @@ export class AudioSystem {
   /**
    * 朗读文本。使用浏览器内置 speechSynthesis API。
    * 自动选择中文语音，调整语速和音调以适配叙事风格。
+   * 朗读参数优先级：opts > 当前 voicePreset > 默认值。
    * @param {string} text - 要朗读的文本
-   * @param {object} opts - { rate, pitch, voiceName }
+   * @param {object} opts - { rate, pitch, voiceName, force } force=true 时无视 _narrationEnabled 开关强制朗读（用于试听）
    */
   speak(text, opts = {}) {
-    if (!this.enabled || !this._narrationEnabled) return;
-    if (!window.speechSynthesis || !text) return;
+    // force=true 时绕过 narrationEnabled 开关（供试听按钮使用）
+    const force = opts.force === true;
+    if (!this.enabled) return;
+    if (!force && !this._narrationEnabled) return;
+    if (!text) return;
+
+    // === 自定义音频预设：播放用户导入的音频文件而非 TTS ===
+    if (this._voicePresetKey === 'custom' && this._customAudioUrl) {
+      this._playCustomAudio();
+      return;
+    }
+
+    if (!window.speechSynthesis) return;
 
     // 停止上一段朗读
     window.speechSynthesis.cancel();
@@ -789,19 +870,32 @@ export class AudioSystem {
 
     if (!cleanText) return;
 
+    // 加载当前配音预设参数（opts 可覆盖）
+    const preset = VOICE_PRESETS[this._voicePresetKey] || VOICE_PRESETS.luo_style;
+
     const utter = new SpeechSynthesisUtterance(cleanText);
     utter.lang = 'zh-CN';
-    utter.rate = opts.rate || 0.95;
-    utter.pitch = opts.pitch || 0.95;
+    utter.rate = opts.rate != null ? opts.rate : preset.rate;
+    utter.pitch = opts.pitch != null ? opts.pitch : preset.pitch;
     utter.volume = this.masterVolume * 0.9;
 
     // 使用缓存的语音列表选择中文语音
     const voices = this._cachedVoices.length > 0 ? this._cachedVoices : window.speechSynthesis.getVoices();
-    const zhVoice = voices.find(v => v.lang.startsWith('zh')) ||
-                    voices.find(v => v.name.includes('Chinese')) ||
-                    voices.find(v => v.name.includes('中文'));
-    if (zhVoice) utter.voice = zhVoice;
 
+    // 优先按预设的 voiceFilter 选择匹配语音（如男声/女声）
+    let chosenVoice = null;
+    if (preset.voiceFilter && voices.length > 0) {
+      chosenVoice = voices.find(v => preset.voiceFilter(v));
+    }
+    // 回退：任意中文语音
+    if (!chosenVoice) {
+      chosenVoice = voices.find(v => v.lang && v.lang.startsWith('zh')) ||
+                    voices.find(v => v.name && v.name.includes('Chinese')) ||
+                    voices.find(v => v.name && v.name.includes('中文'));
+    }
+    if (chosenVoice) utter.voice = chosenVoice;
+
+    // 显式指定 voiceName 时覆盖（向后兼容 opts.voiceName）
     if (opts.voiceName) {
       const v = voices.find(v => v.name === opts.voiceName);
       if (v) utter.voice = v;
@@ -821,15 +915,158 @@ export class AudioSystem {
         clearInterval(this._ttsResumeTimer);
         this._ttsResumeTimer = null;
       }
+      this._flushSpeechEndCallbacks();
     };
     utter.onerror = () => {
       if (this._ttsResumeTimer) {
         clearInterval(this._ttsResumeTimer);
         this._ttsResumeTimer = null;
       }
+      // 出错也要触发回调，避免剧情卡死
+      this._flushSpeechEndCallbacks();
     };
 
     window.speechSynthesis.speak(utter);
+  }
+
+  /**
+   * 注册一次性回调：当前 TTS 朗读结束后触发。
+   * 用于剧情自动推进同步：打字完成后若 TTS 仍在朗读，注册此回调等其结束再推进。
+   * 若当前没有朗读，回调立即触发。
+   * @param {function} cb
+   */
+  onceSpeechEnd(cb) {
+    if (typeof cb !== 'function') return;
+    if (!this.isSpeaking() && !this._isCustomAudioPlaying()) {
+      // 当前无朗读，立即触发
+      try { cb(); } catch(e) {}
+      return;
+    }
+    this._pendingSpeechEndCallbacks.push(cb);
+  }
+
+  _flushSpeechEndCallbacks() {
+    const cbs = this._pendingSpeechEndCallbacks.splice(0);
+    cbs.forEach(cb => {
+      try { cb(); } catch(e) {}
+    });
+  }
+
+  _isCustomAudioPlaying() {
+    return this._customAudioEl && !this._customAudioEl.paused && !this._customAudioEl.ended;
+  }
+
+  /**
+   * 设置配音预设并持久化。供"配音试听"UI 调用。
+   * @param {string} key - VOICE_PRESETS 的 key
+   * @returns {boolean} 是否设置成功
+   */
+  setVoicePreset(key) {
+    if (!VOICE_PRESETS[key]) return false;
+    this._voicePresetKey = key;
+    try {
+      localStorage.setItem(VOICE_PRESET_KEY, key);
+    } catch(e) {}
+    return true;
+  }
+
+  /**
+   * 获取当前配音预设 key
+   */
+  getVoicePresetKey() {
+    return this._voicePresetKey;
+  }
+
+  /**
+   * 获取当前配音预设对象
+   */
+  getVoicePreset() {
+    return VOICE_PRESETS[this._voicePresetKey] || VOICE_PRESETS.luo_style;
+  }
+
+  /**
+   * 试听指定预设：用一段标准文本朗读一遍。
+   * @param {string} [key] - 预设 key，不传则试听当前预设
+   */
+  previewVoicePreset(key) {
+    const targetKey = key || this._voicePresetKey;
+    if (!VOICE_PRESETS[targetKey]) return;
+    // 临时切换到目标预设试听
+    const prev = this._voicePresetKey;
+    this._voicePresetKey = targetKey;
+    this.speak('人生总会有很多选择，在不同的路口，你会怎么选？', { force: true });
+    // 试听不持久化（除非用户点"应用"）
+    this._voicePresetKey = prev;
+  }
+
+  /**
+   * 查询指定预设实际匹配到的 voice 信息（供 UI 显示，让用户看到真实匹配结果）。
+   * @param {string} [key] - 预设 key，不传则查询当前预设
+   * @returns {{ matched: boolean, voiceName: string, voiceLang: string, isMale: boolean|null }}
+   */
+  getMatchedVoiceInfo(key) {
+    const targetKey = key || this._voicePresetKey;
+    const preset = VOICE_PRESETS[targetKey] || VOICE_PRESETS.luo_style;
+
+    // custom 预设：返回自定义音频状态而非 TTS voice 信息
+    if (targetKey === 'custom') {
+      return {
+        matched: this.hasCustomVoice(),
+        voiceName: this.hasCustomVoice() ? '已导入自定义音频' : '未导入音频',
+        voiceLang: '',
+        isMale: null,
+        expectMale: false
+      };
+    }
+
+    const voices = this._cachedVoices.length > 0 ? this._cachedVoices :
+                   (window.speechSynthesis ? window.speechSynthesis.getVoices() : []);
+
+    let chosen = null;
+    let matched = false;
+    if (preset.voiceFilter && voices.length > 0) {
+      chosen = voices.find(v => preset.voiceFilter(v));
+      if (chosen) matched = true;
+    }
+    if (!chosen) {
+      // 回退：任意中文 voice
+      chosen = voices.find(v => v.lang && v.lang.startsWith('zh')) ||
+              voices.find(v => v.name && v.name.includes('Chinese')) ||
+              voices.find(v => v.name && v.name.includes('中文'));
+    }
+
+    // 判断实际 voice 性别（基于 voice name 关键词）
+    let isMale = null;
+    if (chosen) {
+      const name = chosen.name || '';
+      if (/kangkang|yunyang|liangliang|^yun$|male|男/i.test(name)) isMale = true;
+      else if (/huihui|yaoyao|tingting|hanhan|xiaoxiao|female|女/i.test(name)) isMale = false;
+    }
+
+    return {
+      matched,                                          // 是否精确匹配到预设期望的 voice
+      voiceName: chosen ? chosen.name : '(无中文语音)',
+      voiceLang: chosen ? (chosen.lang || '') : '',
+      isMale,                                           // 实际 voice 的性别推断
+      expectMale: preset.voiceFilter ? /kangkang|yunyang|liangliang|^yun$|male|男/i.test(preset.voiceFilter.toString()) : false
+    };
+  }
+
+  /**
+   * 获取系统所有中文 voice 列表（供调试面板显示）
+   * @returns {Array<{name: string, lang: string, isMale: boolean|null}>}
+   */
+  listSystemZhVoices() {
+    const voices = this._cachedVoices.length > 0 ? this._cachedVoices :
+                   (window.speechSynthesis ? window.speechSynthesis.getVoices() : []);
+    const zh = voices.filter(v => v.lang && v.lang.startsWith('zh'));
+    return zh.map(v => {
+      let isMale = null;
+      const name = v.name || '';
+      if (/kangkang|yunyang|liangliang|^yun$|male|男/i.test(name)) isMale = true;
+      else if (/huihui|yaoyao|tingting|hanhan|xiaoxiao|female|女/i.test(name)) isMale = false;
+      return { name, lang: v.lang || '', isMale };
+    });
   }
 
   stopSpeaking() {
@@ -840,6 +1077,123 @@ export class AudioSystem {
       clearInterval(this._ttsResumeTimer);
       this._ttsResumeTimer = null;
     }
+    // 同步停止自定义音频播放
+    if (this._customAudioEl) {
+      try { this._customAudioEl.pause(); this._customAudioEl.currentTime = 0; } catch(e) {}
+    }
+  }
+
+  /**
+   * 导入自定义音频文件作为配音源
+   * @param {File} file - 用户上传的音频文件（mp3/wav/ogg/m4a 等）
+   * @returns {Promise<{ok: boolean, error?: string}>}
+   */
+  async importCustomVoice(file) {
+    if (!file) return { ok: false, error: '未选择文件' };
+    // 限制文件大小 2MB（localStorage 存 base64 约 2.7MB 上限）
+    const MAX_SIZE = 2 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      return { ok: false, error: `文件过大（${(file.size/1024/1024).toFixed(2)}MB），请控制在 2MB 以内` };
+    }
+    try {
+      // 读取为 base64 存入 localStorage（刷新后仍可用）
+      const base64 = await this._fileToBase64(file);
+      localStorage.setItem('luohammer_custom_voice', base64);
+      localStorage.setItem('luohammer_custom_voice_type', file.type || 'audio/mpeg');
+      // 立即加载到内存
+      this._loadCustomAudio(base64, file.type || 'audio/mpeg');
+      return { ok: true };
+    } catch(e) {
+      return { ok: false, error: '导入失败：' + (e.message || String(e)) };
+    }
+  }
+
+  /**
+   * 从 localStorage 恢复自定义音频
+   */
+  _loadCustomAudio(base64, type) {
+    if (!base64) {
+      this._customAudioUrl = null;
+      this._customAudioEl = null;
+      return;
+    }
+    // 释放旧的 URL
+    if (this._customAudioUrl) {
+      try { URL.revokeObjectURL(this._customAudioUrl); } catch(e) {}
+    }
+    // base64 → Blob → Object URL
+    try {
+      const byteString = atob(base64.split(',')[1] || base64);
+      const mime = type || (base64.match(/^data:([^;]+);/) || [])[1] || 'audio/mpeg';
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+      const blob = new Blob([ab], { type: mime });
+      this._customAudioUrl = URL.createObjectURL(blob);
+      this._customAudioEl = new Audio(this._customAudioUrl);
+      this._customAudioEl.volume = this.masterVolume * 0.9;
+    } catch(e) {
+      console.warn('[AudioSystem] loadCustomAudio failed:', e);
+      this._customAudioUrl = null;
+      this._customAudioEl = null;
+    }
+  }
+
+  /**
+   * 播放自定义音频（speak 的替代实现）
+   */
+  _playCustomAudio() {
+    if (!this._customAudioEl) return;
+    try {
+      this._customAudioEl.pause();
+      this._customAudioEl.currentTime = 0;
+      this._customAudioEl.volume = this.masterVolume * 0.9;
+      // 监听 ended 事件触发待处理回调（与 TTS utter.onend 行为一致）
+      const onEnded = () => {
+        this._customAudioEl.removeEventListener('ended', onEnded);
+        this._flushSpeechEndCallbacks();
+      };
+      this._customAudioEl.addEventListener('ended', onEnded);
+      this._customAudioEl.play().catch(e => {
+        console.warn('[AudioSystem] 自定义音频播放失败:', e);
+        // 播放失败也触发回调，避免剧情卡死
+        this._flushSpeechEndCallbacks();
+      });
+    } catch(e) {
+      console.warn('[AudioSystem] playCustomAudio error:', e);
+      this._flushSpeechEndCallbacks();
+    }
+  }
+
+  /**
+   * 判断是否已导入自定义音频
+   */
+  hasCustomVoice() {
+    return !!this._customAudioEl;
+  }
+
+  /**
+   * 清除自定义音频
+   */
+  clearCustomVoice() {
+    if (this._customAudioUrl) {
+      try { URL.revokeObjectURL(this._customAudioUrl); } catch(e) {}
+    }
+    this._customAudioUrl = null;
+    this._customAudioEl = null;
+    try {
+      localStorage.removeItem('luohammer_custom_voice');
+      localStorage.removeItem('luohammer_custom_voice_type');
+    } catch(e) {}
+  }
+
+  _fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('文件读取失败'));
+      reader.readAsDataURL(file);
+    });
   }
 
   /**

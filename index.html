@@ -1261,6 +1261,34 @@
       background: var(--color-bg-hover);
     }
 
+    /* === Voice Preset Quick Toggle (游戏内快捷切换音色) === */
+    .ui-voice-toggle {
+      position: fixed;
+      top: calc(env(safe-area-inset-top, 0px) + 1vh);
+      right: calc(2vw + (clamp(44px, 5vw, 52px) + 8px) * 3 + 80px);
+      height: clamp(44px, 5vh, 52px);
+      padding: 0 clamp(8px, 1.5vw, 14px);
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-bg-border);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: all 0.2s;
+      z-index: 15;
+      touch-action: manipulation;
+      font-size: clamp(11px, 1.5vw, 14px);
+      color: #888;
+      user-select: none;
+    }
+    .ui-voice-toggle.visible { display: flex; }
+    .ui-voice-toggle:hover {
+      border-color: var(--color-gold);
+      background: var(--color-bg-hover);
+      color: var(--color-gold);
+    }
+
     /* === Talent Selection === */
     .ui-talent-overlay {
       position: fixed;
@@ -4232,6 +4260,10 @@
     </div>
     <div class="ui-narration-toggle interactive" id="ui-narration-toggle">
       <span id="ui-narration-icon">朗读</span>
+    </div>
+    <!-- Voice Preset Quick Toggle (游戏内快捷切换音色) -->
+    <div class="ui-voice-toggle interactive" id="ui-voice-toggle" title="切换配音音色">
+      <span id="ui-voice-icon">音色</span>
     </div>
 
     <!-- Menu Confirm Modal -->
