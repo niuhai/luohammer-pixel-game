@@ -147,6 +147,91 @@ export class AudioSystem {
     return _sharedCtx;
   }
 
+  /**
+   * 获取所有可用的中文 TTS 语音列表（用于诊断）
+   * @returns {Array<{name: string, lang: string, isMale: boolean}>}
+   */
+  getVoiceList() {
+    const voices = this._cachedVoices.length > 0
+      ? this._cachedVoices
+      : (window.speechSynthesis?.getVoices() || []);
+
+    return voices
+      .filter(v => v.lang && v.lang.toLowerCase().startsWith('zh'))
+      .map(v => ({
+        name: v.name,
+        lang: v.lang,
+        isMale: this._isMaleVoice(v.name)
+      }));
+  }
+
+  /**
+   * 猜测语音是男声还是女声（启发式）
+   */
+  _isMaleVoice(name) {
+    if (!name) return null;
+    const lower = name.toLowerCase();
+    // 明确男声标识
+    if (/kangkang|yunyang|liangliang|yunxi|yunjian|male|男/.test(lower)) return true;
+    // 明确女声标识
+    if (/huihui|yaoyao|tingting|hanhan|xiaoxiao|yating|female|女/.test(lower)) return false;
+    // 无法判断
+    return null;
+  }
+
+  /**
+   * 获取指定预设实际会匹配到的语音信息（供 UI 显示诊断）
+   * @param {string} presetKey
+   * @returns {{voiceName: string, matched: boolean, isMale: boolean|null, expectMale: boolean}}
+   */
+  getMatchedVoiceInfo(presetKey) {
+    const preset = VOICE_PRESETS[presetKey];
+    if (!preset) {
+      return { voiceName: '未知预设', matched: false, isMale: null, expectMale: false };
+    }
+
+    const voices = this._cachedVoices.length > 0
+      ? this._cachedVoices
+      : (window.speechSynthesis?.getVoices() || []);
+
+    const zhVoices = voices
+      .filter(v => v.lang && v.lang.toLowerCase().startsWith('zh'))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    let chosenVoice = null;
+    let matched = false;
+
+    // 1. voiceFilter 匹配
+    if (preset.voiceFilter && zhVoices.length > 0) {
+      chosenVoice = zhVoices.find(v => preset.voiceFilter(v));
+      if (chosenVoice) matched = true;
+    }
+
+    // 2. 分桶
+    if (!chosenVoice && zhVoices.length >= 2 && preset.gender) {
+      const mid = Math.floor(zhVoices.length / 2);
+      const bucket = preset.gender === 'male' ? zhVoices.slice(0, mid) : zhVoices.slice(mid);
+      if (bucket.length > 0) {
+        chosenVoice = bucket[0];
+      }
+    }
+
+    // 3. 回退
+    if (!chosenVoice && zhVoices.length > 0) {
+      chosenVoice = zhVoices[0];
+    }
+
+    const expectMale = preset.gender === 'male';
+    const isMale = chosenVoice ? this._isMaleVoice(chosenVoice.name) : null;
+
+    return {
+      voiceName: chosenVoice ? chosenVoice.name : '无中文语音',
+      matched,
+      isMale,
+      expectMale
+    };
+  }
+
   /** 实际音量 = 主音量 × 类型比例 */
   _sfxVol(v) { return v * this.sfxVolume; }
   _bgmVol(v) { return v * this.bgmVolume; }
