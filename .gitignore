@@ -83,5 +83,8 @@ REVIEW_REPORT.md
 # Trae工作目录
 .trae/
 
+# Git worktree for deployment
+.worktrees/
+
 # 文档草稿（可选保留，按需删除此行）
 docs/
