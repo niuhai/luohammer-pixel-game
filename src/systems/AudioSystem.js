@@ -4,46 +4,47 @@ let _sharedMasterGain = null;
 
 /**
  * 配音预设：通过 rate/pitch/voiceFilter 组合模拟不同朗读风格。
- * 浏览器 TTS 仅能调用系统已安装语音，"罗永浩风格"为基于参数的近似模拟，
- * 供用户试听后选择最合适的风格。
  *
- * voiceFilter 精确匹配常见中文 voice name（避免 "mei" 误匹配 Microsoft）：
- *   女声: Huihui / Yaoyao（微软）、Tingting（苹果）、Hanhan / Xiaoxiao（百度）
- *   男声: Kangkang / Yunyang（微软）、Liangliang（百度）、Yun（谷歌）
- * 若 voiceFilter 都匹配失败，回退到任意中文 voice，
- * 此时 rate/pitch 的明显差异仍能保证听感区分。
+ * 浏览器 TTS 仅能调用系统已安装语音，跨浏览器兼容性策略：
+ * 1. 优先匹配原生男女声 voice name（覆盖微软/苹果/谷歌主流语音）
+ * 2. 匹配失败时，将中文 voice 列表按名称排序后"前半视为男声、后半视为女声"分桶
+ * 3. 若只有 1 个中文 voice，则完全依赖 rate/pitch 差异（差异已加大到 ±0.4）
  */
 export const VOICE_PRESETS = {
   luo_style: {
     key: 'luo_style',
     label: '★罗永浩风格·中低音男声',
     desc: '中低音调、稍慢语速、有节奏停顿，模仿罗永浩演讲风格',
-    rate: 0.85,
-    pitch: 0.85,
+    rate: 0.75,
+    pitch: 0.65,
+    gender: 'male',
     voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /kangkang|yunyang|liangliang|^yun$|male|男/i.test(v.name)
   },
   broadcast: {
     key: 'broadcast',
     label: '播音腔·沉稳男声',
     desc: '更低音调、更慢语速，类似新闻播报',
-    rate: 0.78,
-    pitch: 0.72,
+    rate: 0.68,
+    pitch: 0.55,
+    gender: 'male',
     voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /kangkang|yunyang|liangliang|^yun$|male|男/i.test(v.name)
   },
   warm_female: {
     key: 'warm_female',
     label: '温和女声·叙事',
     desc: '中音调、稍慢语速，适合剧情朗读',
-    rate: 0.92,
-    pitch: 1.10,
+    rate: 0.85,
+    pitch: 1.25,
+    gender: 'female',
     voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /huihui|yaoyao|tingting|hanhan|xiaoxiao|female|女/i.test(v.name)
   },
   young_female: {
     key: 'young_female',
     label: '明快女声·日常',
     desc: '稍高音调、正常语速，适合轻快场景',
-    rate: 1.0,
-    pitch: 1.18,
+    rate: 0.95,
+    pitch: 1.35,
+    gender: 'female',
     voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /huihui|yaoyao|tingting|hanhan|xiaoxiao|female|女/i.test(v.name)
   },
   custom: {
@@ -52,7 +53,8 @@ export const VOICE_PRESETS = {
     desc: '播放用户导入的录音文件（非 TTS）。适合测试自己录制的配音效果',
     rate: 1.0,
     pitch: 1.0,
-    voiceFilter: null  // 自定义预设不使用 TTS voice
+    gender: null,
+    voiceFilter: null
   }
 };
 
@@ -879,20 +881,33 @@ export class AudioSystem {
     utter.pitch = opts.pitch != null ? opts.pitch : preset.pitch;
     utter.volume = this.masterVolume * 0.9;
 
-    // 使用缓存的语音列表选择中文语音
+    // === 语音选择策略 ===
     const voices = this._cachedVoices.length > 0 ? this._cachedVoices : window.speechSynthesis.getVoices();
+    const zhVoices = voices
+      .filter(v => v.lang && v.lang.toLowerCase().startsWith('zh'))
+      .sort((a, b) => a.name.localeCompare(b.name)); // 稳定排序，便于分桶
 
-    // 优先按预设的 voiceFilter 选择匹配语音（如男声/女声）
     let chosenVoice = null;
-    if (preset.voiceFilter && voices.length > 0) {
-      chosenVoice = voices.find(v => preset.voiceFilter(v));
+
+    // 1. 优先按 voiceFilter 精确匹配
+    if (preset.voiceFilter && zhVoices.length > 0) {
+      chosenVoice = zhVoices.find(v => preset.voiceFilter(v));
     }
-    // 回退：任意中文语音
-    if (!chosenVoice) {
-      chosenVoice = voices.find(v => v.lang && v.lang.startsWith('zh')) ||
-                    voices.find(v => v.name && v.name.includes('Chinese')) ||
-                    voices.find(v => v.name && v.name.includes('中文'));
+
+    // 2. 分桶策略：多个中文 voice 时，按 gender 选前半/后半
+    if (!chosenVoice && zhVoices.length >= 2 && preset.gender) {
+      const mid = Math.floor(zhVoices.length / 2);
+      const bucket = preset.gender === 'male' ? zhVoices.slice(0, mid) : zhVoices.slice(mid);
+      if (bucket.length > 0) {
+        chosenVoice = bucket[0];
+      }
     }
+
+    // 3. 最终回退：任意中文 voice
+    if (!chosenVoice && zhVoices.length > 0) {
+      chosenVoice = zhVoices[0];
+    }
+
     if (chosenVoice) utter.voice = chosenVoice;
 
     // 显式指定 voiceName 时覆盖（向后兼容 opts.voiceName）
