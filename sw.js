@@ -1,15 +1,13 @@
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = `luohammer-${CACHE_VERSION}`;
 
+// 只预缓存核心 HTML，避免路径问题
 const PRECACHE_ASSETS = [
-  './',
   './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'
 ];
-
-const OFFLINE_FALLBACK = './index.html';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -31,12 +29,9 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-
   if (request.method !== 'GET') return;
-
+  
   const url = new URL(request.url);
-
-  // 只缓存同源资源，避免缓存第三方接口/统计脚本
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(cacheFirst(request));
@@ -45,10 +40,7 @@ self.addEventListener('fetch', (event) => {
 async function cacheFirst(request) {
   const cache = await caches.open(CACHE_NAME);
   const cached = await cache.match(request);
-
-  if (cached) {
-    return cached;
-  }
+  if (cached) return cached;
 
   try {
     const response = await fetch(request);
@@ -57,8 +49,9 @@ async function cacheFirst(request) {
     }
     return response;
   } catch (error) {
+    // 导航请求失败时返回缓存的 index.html
     if (request.mode === 'navigate') {
-      const fallback = await cache.match(OFFLINE_FALLBACK);
+      const fallback = await cache.match('./index.html');
       if (fallback) return fallback;
     }
     throw error;
