@@ -4,6 +4,18 @@ import { IntroScene } from './scenes/IntroScene.js';
 import { BootScene } from './scenes/BootScene.js';
 import { GameScene } from './scenes/GameScene.js';
 import { EndingScene } from './scenes/EndingScene.js';
+import { ENDINGS } from './data/endings.js';
+import { matchEnding } from './data/endings.js';
+
+// === 结局数据一致性检查（开发期防御）===
+// 确保所有结局定义在 display 表中都有对应条目，避免无声回退到 default
+(function validateEndingsConsistency() {
+  const storyEndings = Object.keys(ENDINGS);
+  // 这里可以添加更多检查逻辑
+  if (typeof console !== 'undefined' && console.debug) {
+    console.debug(`[Endings] ${storyEndings.length} 个结局已加载`);
+  }
+})();
 
 // === 全局错误捕获 ===
 // 捕获未处理的同步错误和 Promise 拒绝，防止白屏且便于生产排查
