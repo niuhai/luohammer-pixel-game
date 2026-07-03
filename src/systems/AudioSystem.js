@@ -70,6 +70,29 @@ export const VOICE_PRESETS = {
 
 const VOICE_PRESET_KEY = 'luohammer_voice_preset';
 
+/**
+ * Edge TTS 神经语音映射（微软免费在线 TTS，效果更好、男女分明）
+ * 格式: zh-CN-{Name}Neural
+ * 可在 https://tts.travisvn.com/ 试听所有语音
+ */
+const EDGE_TTS_VOICES = {
+  luo_style: 'zh-CN-YunxiNeural',       // 云希 - 男声，自然流畅，适合演讲风格
+  broadcast: 'zh-CN-YunjianNeural',     // 云健 - 男声，沉稳有力，适合播报
+  warm_female: 'zh-CN-XiaoxiaoNeural',   // 晓晓 - 女声，温暖亲切
+  young_female: 'zh-CN-XiaoyiNeural'     // 晓伊 - 女声，年轻明快
+};
+
+/** Edge TTS 速率映射（转换为百分比字符串） */
+const EDGE_TTS_RATE_MAP = {
+  luo_style: '-15%',
+  broadcast: '-25%',
+  warm_female: '-10%',
+  young_female: 'default'
+};
+
+/** Edge TTS 库实例（懒加载） */
+let _edgeTTSInstance = null;
+
 export class AudioSystem {
   constructor(scene) {
     this.scene = scene;
@@ -94,6 +117,10 @@ export class AudioSystem {
     this._pendingSpeechEndCallbacks = []; // 朗读结束回调队列（用于剧情自动推进同步）
     // 当前配音预设（持久化到 localStorage），默认为罗永浩风格（推荐）
     this._voicePresetKey = 'luo_style';
+    /** 是否使用 Edge TTS（在线神经语音，效果更好、男女分明） */
+    this._useEdgeTTS = true;
+    /** Edge TTS 朗读结束回调 */
+    this._edgeTTSEndCallbacks = [];
     try {
       const saved = localStorage.getItem('luohammer_audio');
       if (saved !== null) this.enabled = saved === 'true';
@@ -103,6 +130,9 @@ export class AudioSystem {
       if (narr !== null) this._narrationEnabled = narr === 'true';
       const preset = localStorage.getItem(VOICE_PRESET_KEY);
       if (preset && VOICE_PRESETS[preset]) this._voicePresetKey = preset;
+      // 读取 Edge TTS 开关偏好
+      const edge = localStorage.getItem('luohammer_edge_tts');
+      if (edge !== null) this._useEdgeTTS = edge === 'true';
     } catch(e) {}
     // 预加载TTS语音列表
     this._initVoices();

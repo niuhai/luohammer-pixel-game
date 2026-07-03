@@ -2090,13 +2090,34 @@ export class GameScene extends Phaser.Scene {
     if (currentNode && currentNode.historyNote) {
       // 历史对照音效
       try { this.audio.playHistoryCard(); } catch(e) {}
+
+      // 记录本局解锁的历史真相（去重），供结局回顾使用
+      if (!this.state.unlockedHistoryNotes) this.state.unlockedHistoryNotes = [];
+      const nodeId = this.state.currentNode;
+      if (!this.state.unlockedHistoryNotes.some(h => h.nodeId === nodeId)) {
+        this.state.unlockedHistoryNotes.push({
+          nodeId,
+          actSub: currentNode.actSub || '',
+          note: currentNode.historyNote
+        });
+      }
+
       // 显示「历史真相」按钮，玩家可选择查看或跳过
+      // onRead 回调：玩家点击查看时，记录为已读
+      const onRead = () => {
+        if (!this.state.readHistoryNotes) this.state.readHistoryNotes = [];
+        if (!this.state.readHistoryNotes.includes(nodeId)) {
+          this.state.readHistoryNotes.push(nodeId);
+          try { this.save.save(this._serializeState()); } catch(e) {}
+        }
+      };
+
       this.dialog.showHistoryNoteButton(currentNode.historyNote, () => {
         // 关闭 overlay 后继续加载下一节点
         try { this.audio.playTransition(); } catch(e) {}
         // 修复：在黑屏中点切换场景内容，而非淡出后再切换
         this.transition.play(() => { this.loadNode(nextNodeId); }, () => {});
-      });
+      }, onRead);
     } else {
       try { this.audio.playTransition(); } catch(e) {}
       this.transition.play(() => { this.loadNode(nextNodeId); }, () => {});

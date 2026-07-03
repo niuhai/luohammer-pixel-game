@@ -882,10 +882,13 @@ export class DialogSystem {
    * 在选择完成后、下一节点加载前出现，点击后展示 historyNote
    * @param {string} historyNote - 历史真相文本
    * @param {Function} onContinue - 关闭按钮/继续后的回调
+   * @param {Function} [onRead] - 玩家点击查看历史真相时触发的回调（用于标记已读）
    */
-  showHistoryNoteButton(historyNote, onContinue) {
+  showHistoryNoteButton(historyNote, onContinue, onRead) {
     this._historyNote = historyNote;
     this._historyNoteContinue = onContinue;
+    this._historyNoteOnRead = onRead || null;
+    this._historyNoteReadFired = false; // 防止 onRead 多次触发
     this._historyNoteConsumed = false; // 防止 onContinue 被多次调用
 
     // 清理之前的自动消失计时器
@@ -925,6 +928,11 @@ export class DialogSystem {
         if (this._historyNoteTimer) {
           clearTimeout(this._historyNoteTimer);
           this._historyNoteTimer = null;
+        }
+        // 触发 onRead 回调（标记为已读），仅触发一次
+        if (!this._historyNoteReadFired) {
+          this._historyNoteReadFired = true;
+          if (this._historyNoteOnRead) this._historyNoteOnRead();
         }
         this._showHistoryNoteOverlay(historyNote);
       };
@@ -1058,6 +1066,7 @@ export class DialogSystem {
     const overlay = document.getElementById('ui-history-note-overlay');
     if (overlay) overlay.classList.remove('visible');
     this._historyNoteContinue = null;
+    this._historyNoteOnRead = null;
     // 隐藏下半屏点击捕获层
     if (this.touchLayer) this.touchLayer.classList.remove('visible');
     // 移除 DOM 事件监听器（通过 AbortController 一次性移除所有）

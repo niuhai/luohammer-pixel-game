@@ -1219,8 +1219,9 @@
       align-items: center;
       justify-content: center;
       z-index: 100;
+      pointer-events: none;
     }
-    .ui-menu-confirm.visible { display: flex; }
+    .ui-menu-confirm.visible { display: flex; pointer-events: auto; }
     .ui-menu-confirm-box {
       background: var(--color-bg-panel);
       border: 2px solid var(--color-gold);
@@ -2107,6 +2108,17 @@
       50% {
         box-shadow: 0 0 18px rgba(240, 192, 64, 0.45);
         border-color: rgba(240, 192, 64, 1);
+      }
+    }
+    /* 历史真相未读高亮闪烁动画 */
+    @keyframes ending-history-pulse {
+      0%, 100% {
+        box-shadow: 0 0 4px rgba(240, 192, 64, 0.25);
+        background: rgba(240, 192, 64, 0.10);
+      }
+      50% {
+        box-shadow: 0 0 14px rgba(240, 192, 64, 0.55);
+        background: rgba(240, 192, 64, 0.22);
       }
     }
     .ui-ending-btn-primary:hover {

@@ -671,6 +671,32 @@ export class EndingScene extends Phaser.Scene {
     };
 
     addMoreItem('决策回顾', () => this.toggleDecisionReview());
+
+    // === 历史真相回顾 ===
+    // 未读历史真相高亮提示玩家查看
+    const unlockedNotes = (this.state && this.state.unlockedHistoryNotes) || [];
+    const readNotes = (this.state && this.state.readHistoryNotes) || [];
+    const unreadCount = unlockedNotes.filter(h => !readNotes.includes(h.nodeId)).length;
+    const historyBtnLabel = unreadCount > 0
+      ? `▤ 历史真相回顾 ★${unreadCount} 未读`
+      : `▤ 历史真相回顾 (${unlockedNotes.length})`;
+    const historyBtn = document.createElement('button');
+    historyBtn.className = 'ui-ending-btn ui-ending-btn-sub' + (unreadCount > 0 ? ' has-unread' : '');
+    historyBtn.textContent = historyBtnLabel;
+    historyBtn.addEventListener('click', () => {
+      moreMenu.style.display = 'none';
+      moreBtn.textContent = '更多 ▾';
+      this._showHistoryReview();
+    });
+    if (unreadCount > 0) {
+      // 高亮闪烁样式（未读提示）
+      historyBtn.style.borderColor = 'var(--color-gold)';
+      historyBtn.style.color = 'var(--color-gold)';
+      historyBtn.style.background = 'rgba(240,192,64,0.15)';
+      historyBtn.style.animation = 'ending-history-pulse 1.5s ease-in-out infinite';
+    }
+    moreMenu.appendChild(historyBtn);
+
     addMoreItem('分享卡', () => this.generateShareCard());
     addMoreItem('复制分享文案', () => this.copyShareText());
     addMoreItem('人生地图', () => this.showLifeMap());
@@ -800,6 +826,106 @@ export class EndingScene extends Phaser.Scene {
 
   _hideDecisionReview() {
     const panel = document.getElementById('ui-review-panel');
+    if (panel) panel.remove();
+  }
+
+  /**
+   * 显示历史真相回顾面板
+   * 列出本局所有解锁的历史真相，未读的高亮提示
+   */
+  _showHistoryReview() {
+    this._hideHistoryReview();
+
+    const unlockedNotes = (this.state && this.state.unlockedHistoryNotes) || [];
+    const readNotes = (this.state && this.state.readHistoryNotes) || [];
+    const overlay = document.getElementById('ui-ending-overlay');
+
+    const panel = document.createElement('div');
+    panel.id = 'ui-history-review-panel';
+    panel.style.cssText = `
+      position: absolute; inset: 0; background: rgba(0,0,0,0.85);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 60; pointer-events: auto;
+    `;
+
+    const panelContent = document.createElement('div');
+    panelContent.style.cssText = `
+      background: #0d0d1a; border: 2px solid var(--color-gold); padding: 20px;
+      width: min(720px, 92vw); max-height: 80vh; overflow-y: auto;
+      position: relative;
+    `;
+
+    // 标题
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size: 14px; color: var(--color-gold); text-align: center; margin-bottom: 6px; font-weight: 700;';
+    title.textContent = '▤ 历史真相回顾';
+    panelContent.appendChild(title);
+
+    // 副标题：统计信息
+    const subtitle = document.createElement('div');
+    const unreadCount = unlockedNotes.filter(h => !readNotes.includes(h.nodeId)).length;
+    subtitle.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); text-align: center; margin-bottom: 12px;';
+    subtitle.innerHTML = `共 ${unlockedNotes.length} 篇 · 已读 ${unlockedNotes.length - unreadCount} · 未读 <span style="color: var(--color-gold);">${unreadCount}</span>`;
+    panelContent.appendChild(subtitle);
+
+    // 列表
+    if (unlockedNotes.length === 0) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'font-size: 11px; color: var(--color-text-secondary); text-align: center; padding: 30px 10px;';
+      empty.textContent = '本局未解锁任何历史真相';
+      panelContent.appendChild(empty);
+    } else {
+      unlockedNotes.forEach((item, idx) => {
+        const isRead = readNotes.includes(item.nodeId);
+        const row = document.createElement('div');
+        row.style.cssText = `
+          padding: 10px 12px; margin-bottom: 8px; font-size: 11px; line-height: 1.6;
+          border: 1px solid ${isRead ? '#333' : 'var(--color-gold)'};
+          background: ${isRead ? 'rgba(18,18,42,0.5)' : 'rgba(240,192,64,0.08)'};
+          color: ${isRead ? 'var(--color-text-secondary)' : '#e8d5a3'};
+          ${!isRead ? 'box-shadow: 0 0 8px rgba(240,192,64,0.2);' : ''}
+        `;
+
+        const header = document.createElement('div');
+        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;';
+        const label = document.createElement('span');
+        label.style.cssText = 'font-size: 11px; font-weight: 700; color: ' + (isRead ? 'var(--color-text-secondary)' : 'var(--color-gold)');
+        label.textContent = `◇ ${item.actSub || '未知章节'}`;
+        header.appendChild(label);
+
+        const tag = document.createElement('span');
+        if (!isRead) {
+          tag.style.cssText = 'font-size: 9px; color: var(--color-gold); border: 1px solid var(--color-gold); padding: 1px 6px; animation: ending-history-pulse 1.5s ease-in-out infinite;';
+          tag.textContent = '★ 未读';
+        } else {
+          tag.style.cssText = 'font-size: 9px; color: #5a5a6a;';
+          tag.textContent = '已读';
+        }
+        header.appendChild(tag);
+        row.appendChild(header);
+
+        const body = document.createElement('div');
+        body.style.cssText = 'font-size: 11px; line-height: 1.7; color: ' + (isRead ? 'var(--color-text-secondary)' : '#e8d5a3');
+        body.textContent = item.note;
+        row.appendChild(body);
+
+        panelContent.appendChild(row);
+      });
+    }
+
+    // 关闭按钮
+    const closeBtn = document.createElement('div');
+    closeBtn.style.cssText = 'position: absolute; top: 8px; right: 12px; font-size: 14px; color: var(--color-gold); cursor: pointer; padding: 4px 8px;';
+    closeBtn.textContent = 'X';
+    closeBtn.addEventListener('click', () => { this._hideHistoryReview(); });
+    panelContent.appendChild(closeBtn);
+
+    panel.appendChild(panelContent);
+    overlay.appendChild(panel);
+  }
+
+  _hideHistoryReview() {
+    const panel = document.getElementById('ui-history-review-panel');
     if (panel) panel.remove();
   }
 
@@ -1545,6 +1671,12 @@ export class EndingScene extends Phaser.Scene {
     const reviewPanel = document.getElementById('ui-review-panel');
     if (reviewPanel && reviewPanel.parentNode) {
       reviewPanel.parentNode.removeChild(reviewPanel);
+    }
+
+    // 移除历史真相回顾面板（如果存在）
+    const historyReviewPanel = document.getElementById('ui-history-review-panel');
+    if (historyReviewPanel && historyReviewPanel.parentNode) {
+      historyReviewPanel.parentNode.removeChild(historyReviewPanel);
     }
   }
 
