@@ -27,20 +27,36 @@ window.addEventListener('unhandledrejection', (e) => {
   e.preventDefault?.();
 });
 
-const config = {
-  type: Phaser.CANVAS,
-  width: GAME_WIDTH,
-  height: GAME_HEIGHT,
-  pixelArt: true,
-  roundPixels: true,
-  backgroundColor: 0x0a0a0a,
-  scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-    resolution: 1 // Fixed at 1 for performance — avoids high-DPI buffer scaling issues
-  },
-  scene: [BootScene, IntroScene, GameScene, EndingScene]
-};
+// === 移动端动态缩放策略 ===
+// 竖屏时动态缩小 game height 使 Canvas 自适应屏幕宽度，不再强制横屏
+function getResponsiveConfig() {
+  const isPortrait = window.matchMedia('(orientation: portrait)').matches;
+  const isMobile = window.innerWidth < 768;
+  // 竖屏移动设备：调整显示高度以适配竖屏（16:9 → 可兼容竖屏 9:16）
+  const mobilePortrait = isPortrait && isMobile;
+  return {
+    type: Phaser.CANVAS,
+    width: GAME_WIDTH,
+    height: GAME_HEIGHT,
+    pixelArt: true,
+    roundPixels: true,
+    backgroundColor: 0x0a0a0a,
+    scale: {
+      mode: mobilePortrait ? Phaser.Scale.FIT : Phaser.Scale.FIT,
+      autoCenter: Phaser.Scale.CENTER_BOTH,
+      resolution: 1 // Fixed at 1 for performance — avoids high-DPI buffer scaling issues
+    },
+    scene: [BootScene, IntroScene, GameScene, EndingScene],
+    // 竖屏标记，供 scene 读取
+    callbacks: {
+      preBoot: (game) => {
+        game.registry.set('isPortraitMobile', mobilePortrait);
+      }
+    }
+  };
+}
+
+const config = getResponsiveConfig();
 
 const game = new Phaser.Game(config);
 window.game = game;

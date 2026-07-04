@@ -836,6 +836,11 @@ export class AudioSystem {
       clearTimeout(this._crossfadeTimer);
       this._crossfadeTimer = null;
     }
+    // 清理 fadeOut 定时器
+    if (this._fadeOutTimer) {
+      clearTimeout(this._fadeOutTimer);
+      this._fadeOutTimer = null;
+    }
     // 不再持有osc引用，通过将bgmGain立即设为0来静音正在播放的音符
     // （osc会在1个pattern周期内自然结束，不会泄漏）
     if (this._bgmGain) {
@@ -853,12 +858,20 @@ export class AudioSystem {
    */
   fadeOutBGM(duration = 1.0) {
     if (!this._bgmGain || !this._bgmPlaying) return;
+    // 清理之前可能存在的 fadeOut 定时器，避免场景切换时泄漏
+    if (this._fadeOutTimer) {
+      clearTimeout(this._fadeOutTimer);
+      this._fadeOutTimer = null;
+    }
     try {
       const ctx = this._getCtx();
       this._bgmGain.gain.cancelScheduledValues(ctx.currentTime);
       this._bgmGain.gain.setValueAtTime(this._bgmGain.gain.value, ctx.currentTime);
       this._bgmGain.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
-      setTimeout(() => this.stopBGM(), duration * 1000 + 100);
+      this._fadeOutTimer = setTimeout(() => {
+        this._fadeOutTimer = null;
+        this.stopBGM();
+      }, duration * 1000 + 100);
     } catch(e) {
       this.stopBGM();
     }

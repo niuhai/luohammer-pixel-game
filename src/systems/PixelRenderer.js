@@ -1064,11 +1064,24 @@ export class PixelRenderer {
 
   /**
    * 通过 camera shake 实现屏幕震动（不影响 UI 层）
+   * 带防抖：若上一次抖动尚未结束且新强度不更高，则跳过，避免叠加造成持续狂抖
    * @param {number} intensity - 震动强度（像素）
    * @param {number} duration - 震动时长 ms
    */
   cameraShake(intensity = 4, duration = 200) {
-    this.scene.cameras.main.shake(duration, intensity / 1000);
+    const cam = this.scene.cameras.main;
+    const shakeEffect = cam.shakeEffect;
+    // Phaser 的 shakeEffect 有 isRunning 标志
+    if (shakeEffect && shakeEffect.isRunning) {
+      // 当前已有抖动进行中，仅在更强时覆盖，避免叠加眩晕
+      if (intensity <= (this._currentShakeIntensity || 0)) return;
+    }
+    this._currentShakeIntensity = intensity;
+    cam.shake(duration, intensity / 1000);
+    // 抖动结束后清除记录
+    this.scene.time.delayedCall(duration, () => {
+      if (this._currentShakeIntensity === intensity) this._currentShakeIntensity = 0;
+    });
   }
 
   /**
@@ -1120,17 +1133,18 @@ export class PixelRenderer {
     }
 
     if (tier === 3) {
-      // 压力满：持续抖动 + 红色闪烁
+      // 压力满：周期性抖动 + 红色闪烁
+      // 间隔从 500ms 调至 1500ms，避免持续狂抖导致玩家眩晕；强度也降低
       const now = this.scene.time.now;
-      if (!this._lastCriticalShakeTime || now - this._lastCriticalShakeTime >= 500) {
-        this.cameraShake(4, 200);
+      if (!this._lastCriticalShakeTime || now - this._lastCriticalShakeTime >= 1500) {
+        this.cameraShake(3, 150);
         this._lastCriticalShakeTime = now;
       }
     } else if (tier === 2) {
-      // 压力极高：暗角 + 每3秒抖动一次
+      // 压力极高：暗角 + 每5秒抖动一次（缩短单次时长）
       const now = this.scene.time.now;
-      if (!this._lastPressureShakeTime || now - this._lastPressureShakeTime >= 3000) {
-        this.cameraShake(2, 150);
+      if (!this._lastPressureShakeTime || now - this._lastPressureShakeTime >= 5000) {
+        this.cameraShake(2, 100);
         this._lastPressureShakeTime = now;
       }
     }

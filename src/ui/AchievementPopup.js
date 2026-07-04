@@ -752,8 +752,9 @@ export class AchievementPopup {
    */
   _playFlashEffect(onComplete) {
     // 屏幕震动（复用 Phaser 场景的相机震动，不属于弹窗自身的 Phaser 资源）
+    // 时长从 600ms 缩短至 250ms，避免抖动过长影响剧情阅读
     if (this.scene && this.scene.cameras && this.scene.cameras.main) {
-      try { this.scene.cameras.main.shake(600, 0.008); } catch (e) {}
+      try { this.scene.cameras.main.shake(250, 0.005); } catch (e) {}
     }
 
     // 闪烁 3 次

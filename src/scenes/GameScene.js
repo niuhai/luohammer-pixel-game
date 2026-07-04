@@ -72,8 +72,103 @@ export class GameScene extends Phaser.Scene {
   })();
 
   preload() {
-    for (const a of CHARACTER_ASSETS) this.load.image(a.key, a.url);
-    for (const a of SCENE_ASSETS) this.load.image(a.key, a.url);
+    // 懒加载策略：首屏只加载序章必需资源（classroom 场景 + standing 立绘）
+    // 其余资源在 _renderNode 时按需加载 + _preloadAdjacentScenes 后台预读
+    this.load.image('bg-classroom', 'assets/characters/scene-classroom-v2.webp');
+    this.load.image('char-standing', 'assets/characters/luo-standing-v2-nobg.webp');
+  }
+
+  // === 资源懒加载辅助 ===
+  // type/pose → url 反查表（避免每次循环查找 SCENE_ASSETS/CHARACTER_ASSETS）
+  static _SCENE_URL_BY_TYPE = (() => {
+    const m = {};
+    for (const a of SCENE_ASSETS) m[a.type] = a.url;
+    return m;
+  })();
+  static _CHAR_URL_BY_POSE = (() => {
+    const m = {};
+    for (const a of CHARACTER_ASSETS) m[a.pose] = a.url;
+    return m;
+  })();
+
+  // 已发起但尚未完成的加载去重表（key → Promise），避免并发重复加载
+  _loadingPromises = new Map();
+
+  /**
+   * 异步确保某个场景背景纹理已加载。
+   * 已存在 → 立即 resolve；已发起 → 复用同一 Promise；未加载 → 触发 load。
+   * @param {string} sceneType 场景类型（classroom/stage/...）
+   * @returns {Promise<void>}
+   */
+  _ensureSceneTexture(sceneType) {
+    const assetKey = `bg-${sceneType}`;
+    if (this.textures.exists(assetKey)) return Promise.resolve();
+
+    // 已在加载中：复用 Promise
+    if (this._loadingPromises.has(assetKey)) {
+      return this._loadingPromises.get(assetKey);
+    }
+
+    const url = GameScene._SCENE_URL_BY_TYPE[sceneType];
+    if (!url) return Promise.resolve(); // 无对应资源，drawBackground 会用 Graphics 兜底
+
+    const p = new Promise((resolve) => {
+      this.load.once(`filecomplete-image-${assetKey}`, () => resolve());
+      this.load.image(assetKey, url);
+      // 失败也要 resolve，避免卡住流程（drawBackground 会自动降级）
+      this.load.once(`loaderror`, () => resolve());
+      if (!this.load.isLoading()) this.load.start();
+    });
+    this._loadingPromises.set(assetKey, p);
+    p.finally(() => this._loadingPromises.delete(assetKey));
+    return p;
+  }
+
+  /**
+   * 异步确保某个角色姿态纹理已加载。
+   * @param {string} pose 姿态（standing/angry/young/...）
+   * @returns {Promise<void>}
+   */
+  _ensureCharacterTexture(pose) {
+    const assetKey = `char-${pose}`;
+    if (this.textures.exists(assetKey)) return Promise.resolve();
+    if (this._loadingPromises.has(assetKey)) {
+      return this._loadingPromises.get(assetKey);
+    }
+    const url = GameScene._CHAR_URL_BY_POSE[pose];
+    if (!url) return Promise.resolve();
+
+    const p = new Promise((resolve) => {
+      this.load.once(`filecomplete-image-${assetKey}`, () => resolve());
+      this.load.image(assetKey, url);
+      this.load.once(`loaderror`, () => resolve());
+      if (!this.load.isLoading()) this.load.start();
+    });
+    this._loadingPromises.set(assetKey, p);
+    p.finally(() => this._loadingPromises.delete(assetKey));
+    return p;
+  }
+
+  /**
+   * 后台预读当前节点选项指向的下一节点场景资源（fire-and-forget，不阻塞渲染）。
+   * 玩家点选项时，对应场景图通常已在缓存中，切换无感知。
+   * 同一节点最多预读 N 个相邻场景（默认上限 4，避免一次性触发过多请求）。
+   */
+  _preloadAdjacentScenes(node) {
+    if (!node.choices || !node.choices.length) return;
+    const seen = new Set();
+    let count = 0;
+    for (const c of node.choices) {
+      if (count >= 4) break;
+      if (!c || !c.next) continue;
+      const nextNode = STORY[c.next];
+      if (!nextNode || !nextNode.sceneType) continue;
+      if (seen.has(nextNode.sceneType)) continue;
+      seen.add(nextNode.sceneType);
+      // 仅触发加载，不等待完成
+      this._ensureSceneTexture(nextNode.sceneType);
+      count++;
+    }
   }
 
   init(data) {
@@ -384,12 +479,12 @@ export class GameScene extends Phaser.Scene {
       this._hideMenuConfirm();
       // 自动保存
       try { this.save.save(this._serializeState()); } catch(e) {}
-      // 停止BGM
-      try { this.audio.fadeOutBGM(0.6); } catch(e) {}
-      // 返回标题
-      this.time.delayedCall(300, () => {
-        this.scene.start('BootScene');
-      });
+      // 清理可能干扰的定时器，然后直接切换场景
+      try { this.time.removeAllEvents(); } catch(e) {}
+      // 停止BGM（非阻塞，新场景会重新创建 AudioSystem）
+      try { this.audio.fadeOutBGM(0.3); } catch(e) {}
+      // 直接返回标题（不使用 delayedCall，避免被 shutdown 时的 removeAllEvents 清除）
+      this.scene.start('BootScene');
     };
 
     if (this.menuToggleEl) {
@@ -628,8 +723,9 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * 渲染节点
+   * async：渲染前会异步等待场景背景 + 角色立绘纹理加载完成，避免出现 Graphics 兜底闪烁
    */
-  _renderNode(node) {
+  async _renderNode(node) {
     // 标记节点为已读（用于快进功能）
     try { SaveSystem.markNodeSeen(this.state.currentNode); } catch(e) {}
 
@@ -648,8 +744,8 @@ export class GameScene extends Phaser.Scene {
       } catch(e) {}
     }
 
-    this.pixelRenderer.drawBackground(node.sceneType);
-
+    // === 资源懒加载：先确保当前节点所需纹理就绪再渲染 ===
+    // 并行加载场景背景 + 角色立绘，避免串行等待
     const poseMap = {
       'classroom': 'sitting', 'lecture': 'speaking', 'office': 'sitting',
       'stage': 'speaking', 'livestream': 'sitting', 'lab': 'standing',
@@ -657,9 +753,18 @@ export class GameScene extends Phaser.Scene {
       'fridge_smash': 'angry', 'talkshow': 'speaking', 'court': 'standing'
     };
     const pose = poseMap[node.sceneType] || 'standing';
-
-    // 根据节点 mood 字段、状态属性与场景类型推断角色情绪纹理
     const mood = this._inferMood(node);
+    // 实际生效的姿态：mood 优先（如 young/middle/livestream），否则用场景对应 pose
+    const effectivePose = mood || pose;
+
+    await Promise.all([
+      this._ensureSceneTexture(node.sceneType),
+      this._ensureCharacterTexture(effectivePose)
+    ]);
+
+    // 资源就绪后开始渲染（PixelRenderer 仍会兜底处理意外缺失的纹理）
+    this.pixelRenderer.drawBackground(node.sceneType);
+
     const targetTexture = this._resolveMoodTexture(mood, pose);
 
     const renderer = this.pixelRenderer;
@@ -668,7 +773,6 @@ export class GameScene extends Phaser.Scene {
 
     if (!hasSprite) {
       // 首次显示：直接用目标纹理创建角色
-      const effectivePose = mood || pose;
       renderer.drawCharacter(effectivePose);
       this._layoutCharacter(pose);
     } else if (currentTexture !== targetTexture) {
@@ -678,6 +782,9 @@ export class GameScene extends Phaser.Scene {
       // 纹理未变：仅更新布局（呼吸动画等可能随 pose 改变）
       this._layoutCharacter(pose);
     }
+
+    // === 后台预读相邻节点的场景资源，玩家点选项时已就绪 ===
+    this._preloadAdjacentScenes(node);
 
     const charInfo = CHAR_INFO[this.state.currentNode] || ['罗远', ''];
     // 动态名字解析：早期阶段 → 小罗，后期阶段 → 老罗

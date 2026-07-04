@@ -229,34 +229,59 @@
       display: block;
     }
 
-    /* 竖屏提示 */
+    /* 竖屏提示 - 非阻塞式提示条（不再遮罩全屏） */
     #rotate-hint {
       display: none;
       position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: var(--color-bg-dark);
-      z-index: 99999;
+      top: 0; left: 0; right: 0;
+      z-index: 99990;
+      background: rgba(10, 10, 26, 0.92);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       justify-content: center;
       align-items: center;
-      flex-direction: column;
+      gap: 12px;
       color: var(--color-gold);
+      padding: 8px 16px;
       text-align: center;
-      padding: 20px;
+      border-bottom: 1px solid rgba(240, 192, 64, 0.2);
     }
-    #rotate-hint .icon { font-size: 48px; margin-bottom: 16px; }
-    #rotate-hint .title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
-    #rotate-hint .text { font-size: 14px; color: var(--color-text-secondary); }
+    #rotate-hint .icon {
+      font-size: 20px;
+      animation: rotateHintPulse 2s ease-in-out infinite;
+    }
+    @keyframes rotateHintPulse {
+      0%, 100% { opacity: 0.6; transform: rotate(0deg); }
+      50% { opacity: 1; transform: rotate(90deg); }
+    }
+    #rotate-hint .title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--color-gold);
+      white-space: nowrap;
+    }
+    #rotate-hint .text {
+      font-size: 11px;
+      color: var(--color-text-secondary);
+      display: none;
+    }
     #rotate-hint button {
-      margin-top: 20px;
-      padding: 10px 24px;
-      background: var(--color-gold);
-      color: var(--color-bg-dark);
-      border: none;
-      font-size: 14px;
+      padding: 6px 16px;
+      background: rgba(240, 192, 64, 0.15);
+      color: var(--color-gold);
+      border: 1px solid rgba(240, 192, 64, 0.4);
+      font-size: 11px;
       cursor: pointer;
       font-family: 'Luohammer UI', "Microsoft YaHei", "PingFang SC", sans-serif;
       min-width: 44px;
-      min-height: 44px;
+      min-height: 32px;
+      white-space: nowrap;
+      border-radius: 2px;
+      transition: all 0.2s;
+    }
+    #rotate-hint button:hover {
+      background: rgba(240, 192, 64, 0.25);
+      border-color: var(--color-gold);
     }
     #rotate-hint.hidden { display: none !important; }
 
@@ -278,6 +303,13 @@
       -webkit-tap-highlight-color: transparent;
     }
     #dialog-touch-layer.visible { display: block; }
+
+    /* 竖屏模式下触摸热区适配 */
+    @media (orientation: portrait) and (max-width: 768px) {
+      #dialog-touch-layer {
+        height: 55vh;
+      }
+    }
 
     /* ===== DOM UI Overlay ===== */
     #ui-overlay {
@@ -4202,6 +4234,132 @@
       50% { transform: scale(1.2); }
       100% { transform: scale(1); opacity: 1; }
     }
+
+    /* ========================================
+     * 竖屏模式全局适配（微信等无法横屏场景）
+     * ======================================== */
+    @media (orientation: portrait) and (max-width: 768px) {
+      /* 整体布局：竖屏时 Canvas 区域自适应，UI 元素缩小 */
+      body {
+        align-items: flex-start;
+        padding-top: 40px; /* 给顶部提示条留空间 */
+      }
+
+      /* 对话框缩小，避免遮挡过多场景 */
+      .ui-dialog {
+        max-height: 35vh;
+        padding: 6px 10px;
+        min-height: 60px;
+      }
+      .ui-dialog-name {
+        font-size: 11px;
+      }
+      .ui-dialog-text {
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      /* 选项按钮更紧凑 */
+      .ui-choice-btn {
+        min-height: 40px;
+        padding: 8px 12px;
+      }
+      .ui-choice-btn .ui-choice-text {
+        font-size: 12px;
+      }
+
+      /* 属性条缩小并移至左上 */
+      .ui-stats {
+        top: calc(env(safe-area-inset-top, 0px) + 40px);
+        right: 4px;
+        gap: 2px;
+      }
+      .ui-stat-item {
+        gap: 3px;
+      }
+      .ui-stat-label {
+        font-size: 9px;
+        min-width: 24px;
+      }
+      .ui-stat-bar-bg {
+        width: 50px;
+        height: 6px;
+      }
+
+      /* 章节信息缩小 */
+      .ui-chapter-name {
+        font-size: 10px;
+      }
+      .ui-chapter-sub {
+        font-size: 9px;
+      }
+      .ui-progress {
+        width: 70px;
+        height: 3px;
+      }
+
+      /* 顶部按钮缩小 */
+      .ui-sound-toggle,
+      .ui-menu-toggle {
+        width: 36px;
+        height: 36px;
+      }
+      .ui-menu-toggle {
+        right: calc(2vw + 44px);
+      }
+      .ui-narration-toggle {
+        height: 36px;
+        padding: 0 8px;
+        font-size: 10px;
+        right: calc(2vw + 90px);
+      }
+
+      /* 5+选项面板优化 */
+      .ui-choices.layout-panel {
+        max-height: 45vh;
+        width: 95vw;
+      }
+      .ui-choices.layout-panel .ui-choice-btn {
+        padding: 10px;
+      }
+
+      /* 结局页适配 */
+      .ui-ending-overlay {
+        padding: 60px 4px 4px;
+      }
+      .ui-ending-stats {
+        width: 95vw;
+      }
+
+      /* 随机事件适配 */
+      .ui-random-event-card {
+        width: 95vw;
+        max-width: 360px;
+      }
+    }
+
+    /* 超小屏幕进一步压缩（高度 < 600px） */
+    @media (orientation: portrait) and (max-height: 600px) {
+      body {
+        padding-top: 36px;
+      }
+      .ui-dialog {
+        max-height: 30vh;
+        padding: 4px 8px;
+        min-height: 48px;
+      }
+      .ui-dialog-text {
+        font-size: 11px;
+      }
+      .ui-choice-btn {
+        min-height: 36px;
+        padding: 6px 10px;
+      }
+      .ui-stats-bar-bg {
+        width: 40px;
+        height: 5px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -4216,12 +4374,11 @@
     </div>
   </div>
 
-  <!-- 竖屏提示 -->
+  <!-- 竖屏提示 - 非阻塞式顶部提示条 -->
   <div id="rotate-hint">
-    <div class="icon">[ ⇔ ]</div>
-    <div class="title">横屏体验更佳</div>
-    <div class="text">请旋转手机至横屏模式</div>
-    <button id="rotate-hint-dismiss" type="button">继续竖屏游玩</button>
+    <span class="icon">[ ⇔ ]</span>
+    <span class="title">横屏体验更佳</span>
+    <button id="rotate-hint-dismiss" type="button">竖屏继续</button>
   </div>
 
   <!-- 下半屏点击捕获层（移动端对话框热区扩展） -->
@@ -4281,16 +4438,18 @@
       <span id="ui-voice-icon">音色</span>
     </div>
 
-    <!-- Menu Confirm Modal -->
-    <div class="ui-menu-confirm" id="ui-menu-confirm">
-      <div class="ui-menu-confirm-box">
-        <div class="ui-menu-confirm-text">确定返回标题菜单吗？<br><small>当前进度已自动保存。</small></div>
-        <div class="ui-menu-confirm-btns">
-          <button class="ui-menu-confirm-btn" id="ui-menu-cancel">继续游戏</button>
-          <button class="ui-menu-confirm-btn primary" id="ui-menu-ok">返回菜单</button>
-        </div>
+  </div><!-- end of ui-overlay -->
+
+  <!-- Menu Confirm Modal (移出 ui-overlay 避免层叠上下文限制 z-index) -->
+  <div class="ui-menu-confirm" id="ui-menu-confirm">
+    <div class="ui-menu-confirm-box">
+      <div class="ui-menu-confirm-text">确定返回标题菜单吗？<br><small>当前进度已自动保存。</small></div>
+      <div class="ui-menu-confirm-btns">
+        <button class="ui-menu-confirm-btn" id="ui-menu-cancel">继续游戏</button>
+        <button class="ui-menu-confirm-btn primary" id="ui-menu-ok">返回菜单</button>
       </div>
     </div>
+  </div>
 
     <!-- Talent Selection -->
     <div class="ui-talent-overlay" id="ui-talent-overlay">
@@ -4485,7 +4644,6 @@
         </div>
       </div>
     </div>
-  </div>
 
   <!-- Achievement Particles Overlay -->
   <div id="achievement-particles-overlay" class="achievement-particles-overlay"></div>

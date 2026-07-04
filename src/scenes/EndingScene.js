@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { ENDINGS, STORY } from '../data/story.js';
-import { COLORS, GAME_WIDTH, GAME_HEIGHT, FONTS, ENDING_SCENE_MAP } from '../config.js';
+import { COLORS, GAME_WIDTH, GAME_HEIGHT, FONTS, ENDING_SCENE_MAP, SCENE_ASSETS } from '../config.js';
 import { PixelRenderer } from '../systems/PixelRenderer.js';
 import { AudioSystem } from '../systems/AudioSystem.js';
 import { SaveSystem } from '../systems/SaveSystem.js';
@@ -22,6 +22,21 @@ export class EndingScene extends Phaser.Scene {
     this.shareCardVisible = false;
     this._lifeMapCloseBound = false;
     this._lifeMapEventsBound = false;
+  }
+
+  /**
+   * 懒加载结局专属背景图：只加载当前结局需要的那一张。
+   * 之前 GameScene.preload 会一次性加载全部 5 张结局图（约 1MB），
+   * 现在按需加载，单次结局只需 1 张图。
+   */
+  preload() {
+    const sceneType = ENDING_SCENE_MAP[this.endingKey];
+    if (!sceneType) return;
+    const assetKey = `bg-${sceneType}`;
+    if (this.textures.exists(assetKey)) return; // 已加载（玩家游戏中预读过）
+    const asset = SCENE_ASSETS.find(a => a.type === sceneType);
+    if (!asset) return;
+    this.load.image(assetKey, asset.url);
   }
 
   create() {
