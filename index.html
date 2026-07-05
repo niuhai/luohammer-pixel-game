@@ -1163,10 +1163,10 @@
     /* === Sound Toggle === */
     .ui-sound-toggle {
       position: fixed;
-      top: calc(1vh + env(safe-area-inset-top, 0px));
+      top: calc(0.5vh + env(safe-area-inset-top, 0px));
       right: 2vw;
-      width: clamp(44px, 5vw, 52px);
-      height: clamp(44px, 5vh, 52px);
+      width: clamp(30px, 3.5vw, 38px);
+      height: clamp(30px, 3.5vh, 38px);
       background: var(--color-bg-panel);
       border: 1px solid var(--color-bg-border);
       display: none;
@@ -1182,10 +1182,10 @@
     /* === Menu Toggle (ESC) === */
     .ui-menu-toggle {
       position: fixed;
-      top: calc(1vh + env(safe-area-inset-top, 0px));
-      right: calc(2vw + clamp(44px, 5vw, 52px) + 8px);
-      width: clamp(44px, 5vw, 52px);
-      height: clamp(44px, 5vh, 52px);
+      top: calc(0.5vh + env(safe-area-inset-top, 0px));
+      right: calc(2vw + clamp(30px, 3.5vw, 38px) + 6px);
+      width: clamp(30px, 3.5vw, 38px);
+      height: clamp(30px, 3.5vh, 38px);
       background: var(--color-bg-panel);
       border: 1px solid var(--color-bg-border);
       display: none;
@@ -1196,7 +1196,7 @@
       transition: all 0.2s;
       z-index: 15;
       touch-action: manipulation;
-      font-size: clamp(11px, 1.6vw, 14px);
+      font-size: clamp(10px, 1.2vw, 12px);
       color: #ccc;
       font-family: 'Luohammer UI', monospace;
     }
@@ -1217,16 +1217,16 @@
     }
 
     .ui-sound-icon {
-      font-size: clamp(12px, 1.8vw, 16px);
+      font-size: clamp(10px, 1.3vw, 13px);
     }
 
     /* === Narration Toggle === */
     .ui-narration-toggle {
       position: fixed;
-      top: calc(env(safe-area-inset-top, 0px) + 1vh);
-      right: calc(2vw + (clamp(44px, 5vw, 52px) + 8px) * 2);
-      height: clamp(44px, 5vh, 52px);
-      padding: 0 clamp(8px, 1.5vw, 14px);
+      top: calc(env(safe-area-inset-top, 0px) + 0.5vh);
+      right: calc(2vw + (clamp(30px, 3.5vw, 38px) + 6px) * 2);
+      height: clamp(30px, 3.5vh, 38px);
+      padding: 0 clamp(6px, 1vw, 10px);
       background: var(--color-bg-panel);
       border: 1px solid var(--color-bg-border);
       display: none;
@@ -1237,7 +1237,7 @@
       transition: all 0.2s;
       z-index: 15;
       touch-action: manipulation;
-      font-size: clamp(11px, 1.5vw, 14px);
+      font-size: clamp(9px, 1.1vw, 11px);
       color: #888;
       user-select: none;
     }
@@ -1300,10 +1300,10 @@
     /* === Voice Preset Quick Toggle (游戏内快捷切换音色) === */
     .ui-voice-toggle {
       position: fixed;
-      top: calc(env(safe-area-inset-top, 0px) + 1vh);
-      right: calc(2vw + (clamp(44px, 5vw, 52px) + 8px) * 3 + 80px);
-      height: clamp(44px, 5vh, 52px);
-      padding: 0 clamp(8px, 1.5vw, 14px);
+      top: calc(env(safe-area-inset-top, 0px) + 0.5vh);
+      right: calc(2vw + (clamp(30px, 3.5vw, 38px) + 6px) * 3 + 60px);
+      height: clamp(30px, 3.5vh, 38px);
+      padding: 0 clamp(6px, 1vw, 10px);
       background: var(--color-bg-panel);
       border: 1px solid var(--color-bg-border);
       display: none;
@@ -1314,7 +1314,7 @@
       transition: all 0.2s;
       z-index: 15;
       touch-action: manipulation;
-      font-size: clamp(11px, 1.5vw, 14px);
+      font-size: clamp(9px, 1.1vw, 11px);
       color: #888;
       user-select: none;
     }
@@ -4301,16 +4301,23 @@
       /* 顶部按钮缩小 */
       .ui-sound-toggle,
       .ui-menu-toggle {
-        width: 36px;
-        height: 36px;
+        width: 26px;
+        height: 26px;
       }
       .ui-menu-toggle {
-        right: calc(2vw + 44px);
+        right: calc(2vw + 32px);
+        font-size: 9px;
       }
       .ui-narration-toggle {
-        height: 36px;
-        padding: 0 8px;
-        font-size: 10px;
+        height: 26px;
+        padding: 0 5px;
+        font-size: 8px;
+        right: calc(2vw + 62px);
+      }
+      .ui-voice-toggle {
+        height: 26px;
+        padding: 0 5px;
+        font-size: 8px;
         right: calc(2vw + 90px);
       }
 
