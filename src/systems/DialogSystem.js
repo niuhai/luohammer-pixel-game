@@ -708,7 +708,7 @@ export class DialogSystem {
       return;
     }
     // 若 TTS 正在朗读，等其结束；否则用 setTimeout 给视觉缓冲
-    if (this.audio.isSpeaking() || (typeof this.audio._isCustomAudioPlaying === 'function' && this.audio._isCustomAudioPlaying())) {
+    if (this.audio.isSpeaking()) {
       this.audio.onceSpeechEnd(action);
     } else {
       setTimeout(action, delayMs);

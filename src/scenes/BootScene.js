@@ -313,15 +313,16 @@ export class BootScene extends Phaser.Scene {
     subtitle.style.cssText = 'font-size: 11px; color: var(--color-text-secondary); text-align: center; margin-bottom: 6px; line-height: 1.5;';
     panel.appendChild(subtitle);
 
-    // 标注当前 TTS 引擎状态（避免评委误判为功能损坏）
+    // 系统语音由设备提供，明确说明跨平台差异。
     const ttsNote = document.createElement('div');
-    ttsNote.textContent = '当前为系统 TTS 引擎，神经语音（Edge TTS）规划中';
+    ttsNote.textContent = '使用当前设备的中文系统语音，实际音色会因系统与浏览器而异';
     ttsNote.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); text-align: center; margin-bottom: 14px; line-height: 1.5; opacity: 0.7;';
     panel.appendChild(ttsNote);
 
     // 预设列表
     presets.forEach(preset => {
       const row = document.createElement('div');
+      row.className = 'ui-voice-preset';
       row.style.cssText = [
         'display: flex',
         'align-items: center',
@@ -339,6 +340,7 @@ export class BootScene extends Phaser.Scene {
       left.style.cssText = 'flex: 1; padding-right: 10px;';
 
       const name = document.createElement('div');
+      name.className = 'ui-voice-preset-name';
       name.style.cssText = 'font-size: 13px; color: var(--color-gold); font-weight: 700; margin-bottom: 3px;';
       name.textContent = (preset.key === currentKey ? '★ ' : '') + preset.label;
       left.appendChild(name);
@@ -348,18 +350,14 @@ export class BootScene extends Phaser.Scene {
       desc.textContent = preset.desc;
       left.appendChild(desc);
 
-      // 实际匹配到的 voice 信息（让用户看到系统真实匹配结果，便于诊断"男声变女声"问题）
+      // 告知用户当前实际使用的系统语音，避免把预设误解为固定音色。
       const voiceInfo = this.audio.getMatchedVoiceInfo(preset.key);
       const matchedEl = document.createElement('div');
       matchedEl.style.cssText = 'font-size: 9px; margin-top: 4px; line-height: 1.4;';
-      const genderLabel = voiceInfo.isMale === true ? '男声' :
-                          voiceInfo.isMale === false ? '女声' : '未知';
-      const expectLabel = voiceInfo.expectMale ? '期望男声' : '期望女声';
-      const matchedOk = voiceInfo.matched &&
-                        ((voiceInfo.expectMale && voiceInfo.isMale === true) ||
-                         (!voiceInfo.expectMale && voiceInfo.isMale === false));
-      matchedEl.style.color = matchedOk ? 'var(--color-success-text)' : 'var(--color-danger-text)';
-      matchedEl.textContent = `→ ${voiceInfo.voiceName} [${genderLabel}/${expectLabel}${voiceInfo.matched ? '/匹配' : '/回退'}]`;
+      matchedEl.style.color = 'var(--color-text-muted)';
+      matchedEl.textContent = voiceInfo.voiceName === '(无中文语音)'
+        ? '当前设备将使用默认系统语音'
+        : `实际语音：${voiceInfo.voiceName}`;
       left.appendChild(matchedEl);
 
       row.appendChild(left);
@@ -436,91 +434,6 @@ export class BootScene extends Phaser.Scene {
     ].join(';');
     closeBtn.addEventListener('click', () => this._voicePanelCleanup());
     panel.appendChild(closeBtn);
-
-    // === 自定义音频导入区 ===
-    const importSection = document.createElement('div');
-    importSection.style.cssText = 'margin: 14px 0 6px; padding-top: 10px; border-top: 1px dashed rgba(154, 138, 106, 0.3);';
-    importSection.innerHTML = `
-      <div style="font-size: 11px; color: var(--color-gold, #f0c040); margin-bottom: 4px;">♪ 自定义音频导入</div>
-      <div style="font-size: 9px; color: var(--color-text-secondary); line-height: 1.5; margin-bottom: 8px;">
-        导入你录制的音频文件（mp3/wav/ogg/m4a，≤2MB）。<br>
-        导入后选择"自定义音频"预设，所有语音将播放该音频（非 TTS）。<br>
-        <span style="color: var(--color-danger-text);">注意：浏览器无法用少量样本克隆声音，每段文本需单独录制。</span>
-      </div>
-    `;
-    panel.appendChild(importSection);
-
-    // 隐藏文件选择器
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = 'audio/*,.mp3,.wav,.ogg,.m4a,.aac';
-    fileInput.style.display = 'none';
-    panel.appendChild(fileInput);
-
-    const importBtn = document.createElement('button');
-    importBtn.textContent = this.audio.hasCustomVoice() ? '♪ 重新导入音频' : '♪ 导入音频文件';
-    importBtn.style.cssText = 'background: rgba(120, 80, 30, 0.6); color: var(--color-gold); border: 1px solid var(--color-gold-border); padding: 8px 12px; font-size: 11px; cursor: pointer; margin-right: 8px; font-family: inherit;';
-    importBtn.addEventListener('click', () => fileInput.click());
-    panel.appendChild(importBtn);
-
-    fileInput.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const result = await this.audio.importCustomVoice(file);
-      if (result.ok) {
-        importBtn.textContent = '♪ 重新导入音频';
-        const status = document.createElement('div');
-        status.style.cssText = 'font-size: 10px; color: var(--color-success-text); margin-top: 6px;';
-        status.textContent = `✓ 导入成功：${file.name}（${(file.size/1024).toFixed(1)}KB）。选择"自定义音频"预设试听。`;
-        panel.appendChild(status);
-        // 同步刷新已存在的 custom 预设行（如果已渲染）
-      } else {
-        const err = document.createElement('div');
-        err.style.cssText = 'font-size: 10px; color: var(--color-danger-text); margin-top: 6px;';
-        err.textContent = `✗ ${result.error}`;
-        panel.appendChild(err);
-      }
-    });
-
-    // 清除按钮（仅在已导入时显示）
-    if (this.audio.hasCustomVoice()) {
-      const clearBtn = document.createElement('button');
-      clearBtn.textContent = '清除';
-      clearBtn.style.cssText = 'background: rgba(120, 30, 30, 0.4); color: var(--color-danger-text); border: 1px solid #803030; padding: 8px 12px; font-size: 11px; cursor: pointer; font-family: inherit;';
-      clearBtn.addEventListener('click', () => {
-        this.audio.clearCustomVoice();
-        importBtn.textContent = '♪ 导入音频文件';
-        const status = document.createElement('div');
-        status.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); margin-top: 6px;';
-        status.textContent = '已清除自定义音频';
-        panel.appendChild(status);
-      });
-      panel.appendChild(clearBtn);
-    }
-
-    // === 系统可用中文语音调试区（帮助用户了解为什么男声可能匹配到女声）===
-    const zhVoices = this.audio.listSystemZhVoices();
-    if (zhVoices.length > 0) {
-      const debugTitle = document.createElement('div');
-      debugTitle.textContent = `系统可用中文语音（${zhVoices.length} 个）`;
-      debugTitle.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); margin: 14px 0 6px; padding-top: 10px; border-top: 1px dashed rgba(154, 138, 106, 0.3);';
-      panel.appendChild(debugTitle);
-
-      zhVoices.forEach(v => {
-        const vRow = document.createElement('div');
-        vRow.style.cssText = 'font-size: 9px; color: var(--color-text-muted); padding: 2px 0; line-height: 1.4;';
-        const gLabel = v.isMale === true ? '男' : v.isMale === false ? '女' : '?';
-        vRow.textContent = `· [${gLabel}] ${v.name} (${v.lang})`;
-        panel.appendChild(vRow);
-      });
-
-      if (zhVoices.every(v => v.isMale !== true)) {
-        const warn = document.createElement('div');
-        warn.style.cssText = 'font-size: 9px; color: var(--color-danger-text); margin-top: 6px; line-height: 1.5;';
-        warn.textContent = '⚠ 你的系统未检测到中文男声 voice。男声预设将回退到默认女声，仅通过调低音调/语速模拟。';
-        panel.appendChild(warn);
-      }
-    }
 
     document.body.appendChild(panel);
 

@@ -98,4 +98,24 @@ test.describe('首次游玩流程', () => {
     await expect(page.locator('#ui-boot-buttons button', { hasText: '开始游戏' })).toBeVisible();
     await expect(page.locator('#ui-boot-buttons button', { hasText: '继续游戏' })).toHaveCount(0);
   });
+
+  test('标题页与配音面板展示完整产品信息', async ({ page }) => {
+    await expect(page.locator('#ui-boot-overlay')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('.ui-boot-version')).toHaveText('v1.1.0 · 完整体验版');
+
+    const voiceBtn = page.locator('#ui-boot-buttons button', { hasText: '配音试听' });
+    await expect(voiceBtn).toContainText('沉稳男声·演讲');
+    await voiceBtn.click();
+
+    const panel = page.locator('.ui-voice-panel');
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText('使用当前设备的中文系统语音');
+    await expect(panel.locator('.ui-voice-preset-name')).toHaveText([
+      '★ 沉稳男声·演讲',
+      '播音腔·沉稳男声',
+      '温和女声·叙事',
+      '明快女声·日常'
+    ]);
+    await expect(panel.locator('button', { hasText: '试听' })).toHaveCount(4);
+  });
 });

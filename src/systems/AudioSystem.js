@@ -13,8 +13,8 @@ let _sharedMasterGain = null;
 export const VOICE_PRESETS = {
   luo_style: {
     key: 'luo_style',
-    label: '★罗永浩风格·中低音男声',
-    desc: '中低音调、稍慢语速、有节奏停顿，模仿罗永浩演讲风格',
+    label: '沉稳男声·演讲',
+    desc: '中低音调、稍慢语速、有节奏停顿，适合关键剧情',
     rate: 0.85,          // 匹配到语音时的语速
     pitch: 0.80,         // 匹配到语音时的音调
     rateNoMatch: 0.78,   // 无匹配时的替代值
@@ -54,24 +54,10 @@ export const VOICE_PRESETS = {
     pitchNoMatch: 1.30,
     gender: 'female',
     voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /huihui|yaoyao|tingting|hanhan|xiaoxiao|female|女/i.test(v.name)
-  },
-  custom: {
-    key: 'custom',
-    label: '自定义音频·用户导入',
-    desc: '播放用户导入的录音文件（非 TTS）。适合测试自己录制的配音效果',
-    rate: 1.0,
-    pitch: 1.0,
-    rateNoMatch: 1.0,
-    pitchNoMatch: 1.0,
-    gender: null,
-    voiceFilter: null
   }
 };
 
 const VOICE_PRESET_KEY = 'luohammer_voice_preset';
-
-/** Edge TTS 库实例（懒加载） */
-const _edgeTTSInstance = null;
 
 export class AudioSystem {
   constructor(scene) {
@@ -98,17 +84,10 @@ export class AudioSystem {
     this._voiceChangeHandler = null;
     this._previousVoiceChangeHandler = null;
     this._ttsResumeTimer = null;   // Chrome长文本bug修复定时器
-    this._customAudioUrl = null;  // 自定义音频 Blob URL
-    this._customAudioEl = null;   // 自定义音频 <audio> 元素
-    this._customAudioEndedHandler = null;
     this._pendingSpeechEndCallbacks = []; // 朗读结束回调队列（用于剧情自动推进同步）
     this._sceneShutdownHandler = null;
-    // 当前配音预设（持久化到 localStorage），默认为罗永浩风格（推荐）
+    // 当前配音预设（持久化到 localStorage），默认使用沉稳男声
     this._voicePresetKey = 'luo_style';
-    /** 是否使用 Edge TTS（在线神经语音，效果更好、男女分明） */
-    this._useEdgeTTS = true;
-    /** Edge TTS 朗读结束回调 */
-    this._edgeTTSEndCallbacks = [];
     try {
       const saved = localStorage.getItem('luohammer_audio');
       if (saved !== null) this.enabled = saved === 'true';
@@ -118,18 +97,9 @@ export class AudioSystem {
       if (narr !== null) this._narrationEnabled = narr === 'true';
       const preset = localStorage.getItem(VOICE_PRESET_KEY);
       if (preset && VOICE_PRESETS[preset]) this._voicePresetKey = preset;
-      // 读取 Edge TTS 开关偏好
-      const edge = localStorage.getItem('luohammer_edge_tts');
-      if (edge !== null) this._useEdgeTTS = edge === 'true';
     } catch(e) {}
     // 预加载TTS语音列表
     this._initVoices();
-    // 恢复已存的自定义音频（刷新后仍可用）
-    try {
-      const savedBase64 = localStorage.getItem('luohammer_custom_voice');
-      const savedType = localStorage.getItem('luohammer_custom_voice_type') || 'audio/mpeg';
-      if (savedBase64) this._loadCustomAudio(savedBase64, savedType);
-    } catch(e) {}
 
     // AudioSystem 自己持有的浏览器资源必须跟随场景关闭。
     // 统一在此绑定，覆盖 Scene 提前 return、异常兜底等调用方来不及手动 destroy 的路径。
@@ -993,12 +963,6 @@ export class AudioSystem {
     if (!force && !this._narrationEnabled) return;
     if (!text) return;
 
-    // === 自定义音频预设：播放用户导入的音频文件而非 TTS ===
-    if (this._voicePresetKey === 'custom' && this._customAudioUrl) {
-      this._playCustomAudio();
-      return;
-    }
-
     if (!window.speechSynthesis) return;
 
     // 停止上一段朗读
@@ -1108,7 +1072,7 @@ export class AudioSystem {
    */
   onceSpeechEnd(cb) {
     if (typeof cb !== 'function') return;
-    if (!this.isSpeaking() && !this._isCustomAudioPlaying()) {
+    if (!this.isSpeaking()) {
       // 当前无朗读，立即触发
       try { cb(); } catch(e) {}
       return;
@@ -1121,10 +1085,6 @@ export class AudioSystem {
     cbs.forEach(cb => {
       try { cb(); } catch(e) {}
     });
-  }
-
-  _isCustomAudioPlaying() {
-    return this._customAudioEl && !this._customAudioEl.paused && !this._customAudioEl.ended;
   }
 
   /**
@@ -1179,17 +1139,6 @@ export class AudioSystem {
     const targetKey = key || this._voicePresetKey;
     const preset = VOICE_PRESETS[targetKey] || VOICE_PRESETS.luo_style;
 
-    // custom 预设：返回自定义音频状态而非 TTS voice 信息
-    if (targetKey === 'custom') {
-      return {
-        matched: this.hasCustomVoice(),
-        voiceName: this.hasCustomVoice() ? '已导入自定义音频' : '未导入音频',
-        voiceLang: '',
-        isMale: null,
-        expectMale: false
-      };
-    }
-
     const voices = this._cachedVoices.length > 0 ? this._cachedVoices :
                    (window.speechSynthesis ? window.speechSynthesis.getVoices() : []);
 
@@ -1223,23 +1172,6 @@ export class AudioSystem {
     };
   }
 
-  /**
-   * 获取系统所有中文 voice 列表（供调试面板显示）
-   * @returns {Array<{name: string, lang: string, isMale: boolean|null}>}
-   */
-  listSystemZhVoices() {
-    const voices = this._cachedVoices.length > 0 ? this._cachedVoices :
-                   (window.speechSynthesis ? window.speechSynthesis.getVoices() : []);
-    const zh = voices.filter(v => v.lang && v.lang.startsWith('zh'));
-    return zh.map(v => {
-      let isMale = null;
-      const name = v.name || '';
-      if (/kangkang|yunyang|liangliang|^yun$|male|男/i.test(name)) isMale = true;
-      else if (/huihui|yaoyao|tingting|hanhan|xiaoxiao|female|女/i.test(name)) isMale = false;
-      return { name, lang: v.lang || '', isMale };
-    });
-  }
-
   stopSpeaking() {
     if (window.speechSynthesis) {
       window.speechSynthesis.cancel();
@@ -1248,150 +1180,6 @@ export class AudioSystem {
       clearInterval(this._ttsResumeTimer);
       this._ttsResumeTimer = null;
     }
-    // 同步停止自定义音频播放
-    if (this._customAudioEl) {
-      try { this._customAudioEl.pause(); this._customAudioEl.currentTime = 0; } catch(e) {}
-    }
-    this._detachCustomAudioEndedHandler();
-  }
-
-  /**
-   * 导入自定义音频文件作为配音源
-   * @param {File} file - 用户上传的音频文件（mp3/wav/ogg/m4a 等）
-   * @returns {Promise<{ok: boolean, error?: string}>}
-   */
-  async importCustomVoice(file) {
-    if (!file) return { ok: false, error: '未选择文件' };
-    // 限制文件大小 2MB（localStorage 存 base64 约 2.7MB 上限）
-    const MAX_SIZE = 2 * 1024 * 1024;
-    if (file.size > MAX_SIZE) {
-      return { ok: false, error: `文件过大（${(file.size/1024/1024).toFixed(2)}MB），请控制在 2MB 以内` };
-    }
-    try {
-      // 读取为 base64 存入 localStorage（刷新后仍可用）
-      const base64 = await this._fileToBase64(file);
-      localStorage.setItem('luohammer_custom_voice', base64);
-      localStorage.setItem('luohammer_custom_voice_type', file.type || 'audio/mpeg');
-      // 立即加载到内存
-      this._loadCustomAudio(base64, file.type || 'audio/mpeg');
-      return { ok: true };
-    } catch(e) {
-      return { ok: false, error: '导入失败：' + (e.message || String(e)) };
-    }
-  }
-
-  /**
-   * 从 localStorage 恢复自定义音频
-   */
-  _loadCustomAudio(base64, type) {
-    this._releaseCustomAudioResources();
-    if (!base64) {
-      return;
-    }
-    // base64 → Blob → Object URL
-    try {
-      const byteString = atob(base64.split(',')[1] || base64);
-      const mime = type || (base64.match(/^data:([^;]+);/) || [])[1] || 'audio/mpeg';
-      const ab = new ArrayBuffer(byteString.length);
-      const ia = new Uint8Array(ab);
-      for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
-      const blob = new Blob([ab], { type: mime });
-      this._customAudioUrl = URL.createObjectURL(blob);
-      this._customAudioEl = new Audio(this._customAudioUrl);
-      this._customAudioEl.volume = this.masterVolume * 0.9;
-    } catch(e) {
-      console.warn('[AudioSystem] loadCustomAudio failed:', e);
-      this._customAudioUrl = null;
-      this._customAudioEl = null;
-    }
-  }
-
-  /**
-   * 播放自定义音频（speak 的替代实现）
-   */
-  _playCustomAudio() {
-    if (!this._customAudioEl) return;
-    try {
-      this._detachCustomAudioEndedHandler();
-      this._customAudioEl.pause();
-      this._customAudioEl.currentTime = 0;
-      this._customAudioEl.volume = this.masterVolume * 0.9;
-      // 监听 ended 事件触发待处理回调（与 TTS utter.onend 行为一致）
-      const audioEl = this._customAudioEl;
-      const onEnded = () => {
-        audioEl.removeEventListener('ended', onEnded);
-        if (this._customAudioEndedHandler === onEnded) {
-          this._customAudioEndedHandler = null;
-        }
-        this._flushSpeechEndCallbacks();
-      };
-      this._customAudioEndedHandler = onEnded;
-      audioEl.addEventListener('ended', onEnded);
-      audioEl.play().catch(e => {
-        this._detachCustomAudioEndedHandler();
-        console.warn('[AudioSystem] 自定义音频播放失败:', e);
-        // 播放失败也触发回调，避免剧情卡死
-        this._flushSpeechEndCallbacks();
-      });
-    } catch(e) {
-      console.warn('[AudioSystem] playCustomAudio error:', e);
-      this._flushSpeechEndCallbacks();
-    }
-  }
-
-  _detachCustomAudioEndedHandler() {
-    if (!this._customAudioEl || !this._customAudioEndedHandler) return;
-    try {
-      this._customAudioEl.removeEventListener('ended', this._customAudioEndedHandler);
-    } catch(e) {}
-    this._customAudioEndedHandler = null;
-  }
-
-  /**
-   * 释放当前场景创建的 Blob URL 与 <audio> 监听器，但保留 localStorage 原始数据，
-   * 下一场景需要时会重新构建自己的播放实例。
-   */
-  _releaseCustomAudioResources() {
-    this._detachCustomAudioEndedHandler();
-    if (this._customAudioEl) {
-      try {
-        this._customAudioEl.pause();
-        this._customAudioEl.currentTime = 0;
-        this._customAudioEl.src = '';
-      } catch(e) {}
-    }
-    if (this._customAudioUrl) {
-      try { URL.revokeObjectURL(this._customAudioUrl); } catch(e) {}
-    }
-    this._customAudioUrl = null;
-    this._customAudioEl = null;
-  }
-
-  /**
-   * 判断是否已导入自定义音频
-   */
-  hasCustomVoice() {
-    return !!this._customAudioEl;
-  }
-
-  /**
-   * 清除自定义音频
-   */
-  clearCustomVoice() {
-    this._releaseCustomAudioResources();
-    try {
-      localStorage.removeItem('luohammer_custom_voice');
-      localStorage.removeItem('luohammer_custom_voice_type');
-    } catch(e) {}
-  }
-
-  _fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(new Error('文件读取失败'));
-      reader.readAsDataURL(file);
-    });
   }
 
   /**
@@ -1481,7 +1269,6 @@ export class AudioSystem {
     this.stopBGM();
     this.stopSpeaking();
     this._pendingSpeechEndCallbacks = [];
-    this._releaseCustomAudioResources();
     // 注意：不 close 共享 AudioContext（避免场景切换时反复创建/关闭触发 Chrome 限制）
     // 仅清理本实例引用；共享 ctx 由模块级 _sharedCtx 保留，页面卸载时自动释放
     this.ctx = null;

@@ -72,7 +72,6 @@
     }
   },
   "dependencies": {
-    "@kingdanx/edge-tts-browser": "^1.0.0",
     "phaser": "^3.80.1"
   },
   "devDependencies": {

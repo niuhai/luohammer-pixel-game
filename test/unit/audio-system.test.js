@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AudioSystem } from '../../src/systems/AudioSystem.js';
-
-const ORIGINAL_CREATE_OBJECT_URL = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
-const ORIGINAL_REVOKE_OBJECT_URL = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
+import { AudioSystem, VOICE_PRESETS } from '../../src/systems/AudioSystem.js';
 
 class SceneEvents {
   constructor() {
@@ -66,16 +63,6 @@ describe('AudioSystem - 跨场景生命周期', () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     delete window.speechSynthesis;
-    if (ORIGINAL_CREATE_OBJECT_URL) {
-      Object.defineProperty(URL, 'createObjectURL', ORIGINAL_CREATE_OBJECT_URL);
-    } else {
-      delete URL.createObjectURL;
-    }
-    if (ORIGINAL_REVOKE_OBJECT_URL) {
-      Object.defineProperty(URL, 'revokeObjectURL', ORIGINAL_REVOKE_OBJECT_URL);
-    } else {
-      delete URL.revokeObjectURL;
-    }
   });
 
   it('场景 shutdown 会取消多音符尾音并移除语音监听器', () => {
@@ -115,43 +102,19 @@ describe('AudioSystem - 跨场景生命周期', () => {
     expect(second.getVoiceList().map(v => v.name)).toEqual(['新语音']);
   });
 
-  it('场景关闭会释放自定义音频 Blob URL 与 ended 监听器', async () => {
-    class FakeAudio extends EventTarget {
-      constructor(src) {
-        super();
-        this.src = src;
-        this.paused = true;
-        this.ended = false;
-        this.currentTime = 0;
-        this.volume = 1;
-        this.pause = vi.fn(() => { this.paused = true; });
-        this.play = vi.fn(async () => { this.paused = false; });
-      }
-    }
-
-    vi.stubGlobal('Audio', FakeAudio);
-    const createObjectURL = vi.fn(() => 'blob:voice-preview');
-    const revokeObjectURL = vi.fn();
-    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL });
-    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL });
-    localStorage.setItem('luohammer_custom_voice', 'data:audio/mpeg;base64,QQ==');
-    localStorage.setItem('luohammer_custom_voice_type', 'audio/mpeg');
-
-    const events = new SceneEvents();
-    const audio = new AudioSystem({ events });
-    const audioEl = audio._customAudioEl;
-    const removeListener = vi.spyOn(audioEl, 'removeEventListener');
-    audio._voicePresetKey = 'custom';
-    audio.speak('试听', { force: true });
-    await Promise.resolve();
-
-    events.emit('shutdown');
-
-    expect(audioEl.pause).toHaveBeenCalled();
-    expect(removeListener).toHaveBeenCalledWith('ended', expect.any(Function));
-    expect(revokeObjectURL).toHaveBeenCalledWith('blob:voice-preview');
-    expect(audio._customAudioEl).toBeNull();
-    expect(audio._customAudioUrl).toBeNull();
+  it('配音预设保持四种明确且可辨识的系统语音风格', () => {
+    expect(Object.keys(VOICE_PRESETS)).toEqual([
+      'luo_style',
+      'broadcast',
+      'warm_female',
+      'young_female'
+    ]);
+    expect(Object.values(VOICE_PRESETS).map(preset => preset.label)).toEqual([
+      '沉稳男声·演讲',
+      '播音腔·沉稳男声',
+      '温和女声·叙事',
+      '明快女声·日常'
+    ]);
   });
 
   it('六个人生阶段映射到六套可辨识且有效的 BGM 动机', () => {
