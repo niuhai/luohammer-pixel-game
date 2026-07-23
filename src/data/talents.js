@@ -449,7 +449,7 @@ export const TALENTS = [
   {
     id: 'achievement_hunter',
     name: '成就猎人',
-    desc: '"成就越多，实力越强（解锁30个成就解锁）"',
+    desc: '"每解锁一个成就，当前最低的基础属性 +1（每局最多5次）"',
     icon: '★',
     rarity: 'legendary',
     effects: { pride: 1, wealth: 1, reputation: 1, trust: 1 },
@@ -547,4 +547,58 @@ export function applyTalentEffects(baseState, talents) {
   }
 
   return state;
+}
+
+export const ACHIEVEMENT_HUNTER_MAX_BONUSES = 5;
+
+const ACHIEVEMENT_HUNTER_ATTRS = [
+  { key: 'pride', name: '理想' },
+  { key: 'wealth', name: '财富' },
+  { key: 'reputation', name: '名声' },
+  { key: 'trust', name: '信任' }
+];
+
+/**
+ * 应用“成就猎人”被动：每次解锁成就时，将当前最低的基础属性 +1。
+ * 采用最低属性优先，避免把已经领先的属性继续滚雪球；每局最多触发 5 次。
+ *
+ * @param {object} baseState 当前游戏状态
+ * @returns {{ state: object, applied: boolean, attr?: string, attrName?: string, count?: number, newValue?: number }}
+ */
+export function applyAchievementHunterBonus(baseState) {
+  const specials = baseState.talentSpecials || [];
+  if (!specials.includes('achievement_hunter_bonus')) {
+    return { state: baseState, applied: false };
+  }
+
+  const currentCount = Number.isInteger(baseState.achievementHunterBonusCount)
+    ? Math.max(0, baseState.achievementHunterBonusCount)
+    : 0;
+  if (currentCount >= ACHIEVEMENT_HUNTER_MAX_BONUSES) {
+    return { state: baseState, applied: false };
+  }
+
+  const candidates = ACHIEVEMENT_HUNTER_ATTRS.filter(({ key }) => (baseState[key] ?? 5) < 10);
+  if (candidates.length === 0) {
+    return { state: baseState, applied: false };
+  }
+
+  const target = candidates.reduce((lowest, candidate) => {
+    const lowestValue = baseState[lowest.key] ?? 5;
+    const candidateValue = baseState[candidate.key] ?? 5;
+    return candidateValue < lowestValue ? candidate : lowest;
+  });
+
+  const state = { ...baseState };
+  state[target.key] = Math.min(10, (state[target.key] ?? 5) + 1);
+  state.achievementHunterBonusCount = currentCount + 1;
+
+  return {
+    state,
+    applied: true,
+    attr: target.key,
+    attrName: target.name,
+    count: state.achievementHunterBonusCount,
+    newValue: state[target.key]
+  };
 }

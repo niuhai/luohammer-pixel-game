@@ -29,7 +29,7 @@ export const SPECIAL_LABELS = {
   pressure_crash_halved: '压力崩溃时属性损失减半',
   pressure_gain_halved: '压力增长减半',
   trust_check_bonus: '信任≥5时检定自动加成',
-  achievement_hunter_bonus: '解锁成就越多，属性加成越强'
+  achievement_hunter_bonus: '每解锁一个成就，当前最低基础属性 +1（每局最多5次）'
 };
 
 export class TalentSystem {

@@ -13,7 +13,12 @@ import { showSaveLoadPanel } from '../ui/SaveLoadPanel.js';
 import { AchievementPopup, isHiddenAchievement, addAchievementToStorage, HIDDEN_ACHIEVEMENTS, ALL_ACHIEVEMENTS, loadUnlockedHiddenEndings, addHiddenEndingToStorage, addEndingToStorage, findAchievementDef, getAchievementScore, checkComboAchievements, loadUnlockedAchievements } from '../ui/AchievementPopup.js';
 import { TalentSystem } from '../systems/TalentSystem.js';
 import { RandomEventSystem } from '../systems/RandomEventSystem.js';
-import { drawTalents, applyTalentEffects } from '../data/talents.js';
+import {
+  drawTalents,
+  applyTalentEffects,
+  applyAchievementHunterBonus,
+  ACHIEVEMENT_HUNTER_MAX_BONUSES
+} from '../data/talents.js';
 import { matchEnding } from '../data/endings.js';
 import { getStageByNodeId, STAGES } from '../data/stages.js';
 import { applyEffects, checkPressureCrash, checkThresholdTriggers, checkComboTriggers, checkFlagConsequences, createInitialState, ATTRIBUTES } from '../data/effects.js';
@@ -2050,6 +2055,8 @@ export class GameScene extends Phaser.Scene {
           this.audio.playAchievement();
         }
       } catch(e) {}
+
+      this._applyAchievementHunterBonus();
     });
 
     // 隐藏成就检测
@@ -2213,6 +2220,8 @@ export class GameScene extends Phaser.Scene {
       this.meta.addAchievementScore(score);
     }
 
+    this._applyAchievementHunterBonus();
+
     // === 检查里程碑奖励与组合成就 ===
     this._checkAchievementMilestones();
     this._checkComboAchievements();
@@ -2234,9 +2243,30 @@ export class GameScene extends Phaser.Scene {
       this.meta.addAchievementScore(score);
     }
 
+    this._applyAchievementHunterBonus();
+
     // === 检查里程碑奖励与组合成就 ===
     this._checkAchievementMilestones();
     this._checkComboAchievements();
+  }
+
+  /**
+   * 触发传奇天赋“成就猎人”的即时成长反馈。
+   * 纯数值决策由 talents.js 负责，这里只同步场景状态与玩家可见反馈。
+   */
+  _applyAchievementHunterBonus() {
+    const result = applyAchievementHunterBonus(this.state);
+    if (!result.applied) return;
+
+    this.state = result.state;
+    if (this.stats) this.stats.update(this.state);
+    if (result.attr) this._flashStatBar(result.attr, 1);
+    try {
+      toast.success(
+        `★ 成就猎人：${result.attrName} +1（${result.count}/${ACHIEVEMENT_HUNTER_MAX_BONUSES}）`,
+        3200
+      );
+    } catch(e) {}
   }
 
   /**
@@ -2316,6 +2346,7 @@ export class GameScene extends Phaser.Scene {
           if (this.meta && combo.score) {
             this.meta.addAchievementScore(combo.score);
           }
+          this._applyAchievementHunterBonus();
           // 延迟显示，避免与普通成就弹窗冲突
           this._trackedTimeout(() => {
             try {

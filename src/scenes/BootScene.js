@@ -105,6 +105,11 @@ export class BootScene extends Phaser.Scene {
         continueBtn.textContent = '继续游戏';
         continueBtn.addEventListener('click', () => {
           const state = save.load();
+          // 存档校验失败（节点改名/数据损坏）：提示用户而非静默进入新游戏
+          if (!state) {
+            try { toast('存档已损坏或不兼容当前版本，请重新开始', 3500); } catch (e) {}
+            return;
+          }
           this.audio.fadeOutBGM(0.5);
           overlay.classList.remove('visible');
           this.scene.start('GameScene', { state });

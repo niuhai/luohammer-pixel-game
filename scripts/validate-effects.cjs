@@ -28,6 +28,22 @@ const ATTRIBUTES = {
   trust:       { name: '公众信任', min: 0, max: 10 },
 };
 
+// 只用于记录玩家叙事选择、不参与 effects/ending 判定的 flag。
+// 与 validate-story.mjs 的 NARRATIVE_FLAGS 保持一致，避免两个门禁对同一数据给出相反结论。
+const NARRATIVE_FLAGS = new Set([
+  'grandma_church',
+  'first_love_letter',
+  'first_love_confess',
+  'philosophy_geek',
+  'literature_dream',
+  'idealism_refined',
+  'pragmatic_compromise',
+  'all_repay',
+  'donated_school',
+  'humor_shield',
+  'public_milestone',
+]);
+
 // ─── 从 story 文件中提取 effects 和 flags ─────────────────────────────
 
 const storyDir = path.resolve(__dirname, '../src/data/story');
@@ -234,21 +250,28 @@ function validate() {
   console.log('─'.repeat(60));
 
   const missingFlags = [];
+  const narrativeFlags = [];
 
   for (const sf of allStoryFlags) {
-    if (!handledFlags.has(sf.flag)) {
+    if (NARRATIVE_FLAGS.has(sf.flag)) {
+      narrativeFlags.push(sf);
+    } else if (!handledFlags.has(sf.flag)) {
       missingFlags.push(sf);
     }
   }
 
   if (missingFlags.length === 0) {
-    console.log('  ✓ 所有 story flag 在 effects.js 中均有对应处理');
+    console.log('  ✓ 所有机制 flag 在 effects.js/endings.js 中均有对应处理');
   } else {
     errorCount += missingFlags.length;
-    console.log(`  ✗ 发现 ${missingFlags.length} 个 flag 在 effects.js 中无对应处理：`);
+    console.log(`  ✗ 发现 ${missingFlags.length} 个机制 flag 在 effects.js/endings.js 中无对应处理：`);
     for (const mf of missingFlags) {
       console.log(`    - [${mf.file}:${mf.line}] flag: '${mf.flag}'`);
     }
+  }
+  if (narrativeFlags.length > 0) {
+    const uniqueNarrativeFlags = [...new Set(narrativeFlags.map(item => item.flag))];
+    console.log(`  ℹ ${uniqueNarrativeFlags.length} 个叙事记录 flag 无需机制处理：${uniqueNarrativeFlags.join(', ')}`);
   }
   console.log();
 
