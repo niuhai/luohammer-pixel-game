@@ -87,13 +87,24 @@ test.describe('首次游玩流程', () => {
 
     // 对话框可能在打字机效果中，给一定时间
     await expect(page.locator('#ui-dialog')).toHaveClass(/visible/, { timeout: 10_000 });
+    const dialogFontSize = await page.locator('#ui-dialog-text').evaluate(
+      element => parseFloat(getComputedStyle(element).fontSize)
+    );
+    expect(dialogFontSize).toBeGreaterThanOrEqual(14);
     const dialogVisible = await page.locator('#ui-dialog').isVisible().catch(() => false);
     const choicesVisible = await page.locator('#ui-choices .ui-choice-btn').first().isVisible().catch(() => false);
     expect(dialogVisible || choicesVisible).toBeTruthy();
 
     // === 6. 点击首个选项，验证状态变化 ===
     if (choicesVisible) {
-      await page.locator('#ui-choices .ui-choice-btn').first().click();
+      const firstChoice = page.locator('#ui-choices .ui-choice-btn').first();
+      const choiceMetrics = await firstChoice.evaluate(element => ({
+        fontSize: parseFloat(getComputedStyle(element.querySelector('.ui-choice-text')).fontSize),
+        height: element.getBoundingClientRect().height
+      }));
+      expect(choiceMetrics.fontSize).toBeGreaterThanOrEqual(14);
+      expect(choiceMetrics.height).toBeGreaterThanOrEqual(44);
+      await firstChoice.click();
       await page.waitForTimeout(2000);
       // 仍在游戏中
       const stillInGame = await page.locator('#ui-chapter').isVisible();
