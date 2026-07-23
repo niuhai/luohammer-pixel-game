@@ -3083,6 +3083,11 @@ export class GameScene extends Phaser.Scene {
     if (this.menuConfirmEl) this.menuConfirmEl.classList.remove('visible');
     // 清理检定动画遮罩（防止场景切换时残留）
     document.querySelectorAll('.check-animation-overlay').forEach(el => el.remove());
+    // 清理杀手时刻"6亿"数字 DOM 元素 + 阶段结算 overlay（防止 _trackedTimeout 被清除后残留）
+    document.querySelectorAll('.ui-settlement-overlay').forEach(el => el.remove());
+    document.querySelectorAll('div').forEach(el => {
+      if (el.textContent === '¥600,000,000' && el.style.zIndex === '10000') el.remove();
+    });
     if (this._uiAbortController) {
       this._uiAbortController.abort();
       this._uiAbortController = null;
