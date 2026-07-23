@@ -4,7 +4,7 @@ export const NODES = {
   act2_launch: {
     act: '第四章',
     actSub: '牛博网上线的日子 2006.7.31',
-    sceneType: SCENE_TYPES.OFFICE,
+    sceneType: SCENE_TYPES.OFFICE_BUSY,
     character: '小罗',
     text: `2006年7月31日，牛博网正式上线。你坐在电脑前，手指悬在回车键上方迟迟不敢按——就像按下核按钮，按下之后世界就不可逆了。你给牛博网定了一条铁律：不删帖、不审查、让所有声音都能被听见。
 
@@ -12,10 +12,10 @@ export const NODES = {
 
 <b>种子已经埋下去了，至于能不能发芽——那是老天爷的事。但你不埋，就永远不会有芽。</b>`,
     choices: [
-      { label: `"坚持不删帖！哪怕只活三个月，也要活得像个人！"`, next: 'act2_a', effects: { pride: 1, wealth: 0, reputation: 0 } },
-      { label: `"先活下来再说……活着才能发声。"`, next: 'act2_a', effects: { pride: -1, wealth: 1, reputation: 0 } },
-      { label: `"先小范围测试，口碑好了再公开。"`, next: 'act2_a', effects: { pride: 1, wealth: -1, reputation: 0 } },
-      { label: `"先拉作者入驻，让平台有灵魂。"`, next: 'act2_writer', effects: { reputation: 1, pride: 0, wealth: -1 } }
+      { label: `"坚持不删帖！哪怕只活三个月，也要活得像个人！"`, next: 'act2_a', effects: { pride: 1, wealth: 0, reputation: 0, trust: 1 } },
+      { label: `"先活下来再说……活着才能发声。"`, next: 'act2_a', effects: { pride: -1, wealth: 1, reputation: 0, failures: 1 } },
+      { label: `"先小范围测试，口碑好了再公开。"`, next: 'act2_a', effects: { pride: 1, wealth: -1, reputation: -1 } },
+      { label: `"先拉作者入驻，让平台有灵魂。"`, next: 'act2_writer', effects: { reputation: 1, pride: -1, wealth: -1 } }
     ],
     historyNote: `历史上，牛博网2006年7月31日正式上线，老罗坚持“不删帖不审查”原则。在那个年代，几乎所有平台都在删帖，“不删帖”三个字本身就是一种反抗。上线初期访问量很低，但很快因为内容质量吸引了大量用户。牛博网的存在证明了“不删帖也能做出好平台”——这个证明，比平台本身活得更久。后来牛博网虽然只存活了不到三年，但它成了中国互联网言论自由史上的一个坐标。老罗后来回忆：“三个月就三个月，总比活着闭嘴强。”`,
     progress: 36
@@ -23,7 +23,7 @@ export const NODES = {
   act2_writer: {
     act: '第四章',
     actSub: '韩寒柴静等作者入驻 2006-2007',
-    sceneType: SCENE_TYPES.OFFICE,
+    sceneType: SCENE_TYPES.OFFICE_BUSY,
     character: '小罗',
     text: `牛博网上线后，你开始四处拉作者。你翻遍通讯录，第一个就拨给了韩寒：“来牛博网开博吧，这里不删帖。”韩寒沉默了几秒：“真的不删？不是那种‘原则上不删’吧？”你说：“我拿人格担保，一个字都不删。”韩寒笑了：“行，就冲你这句话，我来。”
 
@@ -31,9 +31,9 @@ export const NODES = {
 
 <b>你看着后台数据，心想：不删帖，也能活。但你隐隐觉得，每一个留下的字，都是一份将来要还的债。</b>`,
     choices: [
-      { label: `"好内容就是护城河！继续拉更多作者。"`, next: 'act2_a', effects: { reputation: 2, wealth: 0, pride: 0 } },
-      { label: `"得想办法变现——理想养不活自己。"`, next: 'act2_a', effects: { pride: 0, wealth: 1, reputation: 0 } },
-      { label: `"自己多写吧，我的声音就是最好的内容。"`, next: 'act2_a', effects: { pride: 1, wealth: -1, reputation: 0 } }
+      { label: `"好内容就是护城河！继续拉更多作者。"`, next: 'act2_a', effects: { reputation: 2, wealth: 0, pride: -1 } },
+      { label: `"得想办法变现——理想养不活自己。"`, next: 'act2_a', effects: { pride: -1, wealth: 1, reputation: -1 } },
+      { label: `"自己多写吧，我的声音就是最好的内容。"`, next: 'act2_a', effects: { pride: 1, wealth: -1, reputation: -1 } }
     ],
     historyNote: `历史上，韩寒、柴静、连岳、梁文道等确实入驻了牛博网。这些人的到来让“不删帖”不再是一个人的倔强，而是一群人的共识——当中国最优秀的头脑选择同一个平台，那个平台就成了一个时代的缩影。韩寒后来回忆：“当时觉得老罗这人挺有意思，敢说不删帖，我就试试。”牛博网因其高质量内容和不删帖原则迅速走红，但“不删帖”这个承诺最终也成了压垮它的重量。这段合作揭示了一个悖论：最吸引你的东西，往往也是最先要付出代价的东西。`,
     progress: 37
@@ -41,7 +41,7 @@ export const NODES = {
   act2_a: {
     act: '第四章',
     actSub: '牛博网 · 理想主义的乌托邦 2006-2008',
-    sceneType: SCENE_TYPES.OFFICE,
+    sceneType: SCENE_TYPES.OFFICE_BUSY,
     character: '小罗',
     text: `牛博网上线后，韩寒、柴静、连岳、梁文道……中国最敢说话的知识分子都来了。2008年4月日访问量突破百万。牛博网成了那个时代最纯粹的公共讨论空间——“不删帖”就是城墙。
 
@@ -49,8 +49,8 @@ export const NODES = {
 
 <b>宣言说出口只需要一秒，但守住它，需要一辈子。而一辈子，是由无数个“一秒钟”组成的。</b>`,
     choices: [
-      { label: `"删帖保平安。平台活着才能保护更多人。"`, next: 'act2_censor1', effects: { pride: -2, wealth: 1, reputation: -1 } },
-      { label: `"不删！这是牛博网的底线，有些东西比活着重要。"`, next: 'act2_fight', effects: { pride: 3, wealth: -1, reputation: 3, achievement: '不妥协', icon: '⚔' } }
+      { label: `"删帖保平安。平台活着才能保护更多人。"`, next: 'act2_censor1', effects: { pride: -2, wealth: 1, reputation: -1, failures: 1, trust: -1 } },
+      { label: `"不删！这是牛博网的底线，有些东西比活着重要。"`, next: 'act2_fight', effects: { pride: 2, wealth: -1, reputation: 2, achievement: '不妥协', icon: '⚔', trust: 1 } }
     ],
     historyNote: `历史上，老罗选择了不删帖。牛博网存在的唯一理由就是“不删帖”——如果删了，牛博网跟新浪搜狐有什么区别？区别就是：我们曾经不一样。这个选择让牛博网多次被约谈、被关停服务器，最终在2009年1月被彻底关闭。但老罗从不后悔——他说：“牛博网死得干干净净，比活着苟且好。”牛博网的生死定义了老罗此后面对所有压力时的默认姿态：宁可站着死，不愿跪着活。后来做锤子手机、直播还债，他都是同一个逻辑。`,
     progress: 38
@@ -66,9 +66,9 @@ export const NODES = {
 
 <b>你放下电话，手在发抖。“再联系”三个字像一把悬在头顶的钝刀——恐惧最残忍的地方不是它来了，而是它让你等。</b>`,
     choices: [
-      { label: `"不删！这是牛博网的底线，大不了关站，也比跪着活强。"`, next: 'act2_fight', effects: { pride: 2, wealth: 0, reputation: 0 } },
-      { label: `"删了吧……胳膊拧不过大腿，先保住平台。"`, next: 'act2_down', effects: { pride: -2, wealth: 1, reputation: 0 } },
-      { label: `"审查越来越严了，还有更多被封的内容……"`, next: 'act2_censor2', effects: { "pride": 0, "wealth": 0, "reputation": -1 } }
+      { label: `"不删！这是牛博网的底线，大不了关站，也比跪着活强。"`, next: 'act2_fight', effects: { pride: 2, wealth: 0, reputation: 0, trust: 1 } },
+      { label: `"删了吧……胳膊拧不过大腿，先保住平台。"`, next: 'act2_down', effects: { pride: -2, wealth: 1, reputation: 0, failures: 1, trust: -1 } },
+      { label: `"审查越来越严了，还有更多被封的内容……"`, next: 'act2_censor2', effects: { "pride": 0, "wealth": 0, "reputation": -1, failures: 1 } }
     ],
     historyNote: `历史上，牛博网确实多次被约谈要求删帖。约谈事件揭示了理想主义在现实面前的脆弱——不是理想不够坚定，而是代价不只是你一个人的，你的团队、你的家人、你的作者，都会被波及。老罗每次都拒绝，他的理由很简单：“如果我删了，那我跟那些删帖的平台有什么区别？”这种硬刚的态度让牛博网成了互联网上的一座孤岛——既是灯塔，也是靶子。最终，这座孤岛被海水淹没了。但老罗后来想明白了一件事：灯塔的意义不在于永远亮着，而在于它亮的时候，有人看见了方向。`,
     progress: 39
@@ -84,8 +84,8 @@ export const NODES = {
 
 <b>代码再自由，也跑在别人的服务器上；思想再奔放，也受制于那根随时可以被拔掉的网线。</b>`,
     choices: [
-      { label: `"继续抗争！换服务器也要撑住！就算只剩一个人也要站着！"`, next: 'act2_fight', effects: { pride: 2, wealth: 0, reputation: 0, failures: 1 } },
-      { label: `"服务器都没了，硬撑只会拖累更多人……先妥协保住平台。"`, next: 'act2_down', effects: { pride: -1, wealth: 1, reputation: 0 } },
+      { label: `"继续抗争！换服务器也要撑住！就算只剩一个人也要站着！"`, next: 'act2_fight', effects: { pride: 2, wealth: 0, reputation: 0, failures: 1, trust: 1 } },
+      { label: `"服务器都没了，硬撑只会拖累更多人……先妥协保住平台。"`, next: 'act2_down', effects: { pride: -1, wealth: 1, reputation: 0, failures: 1 } },
       { label: `"把敏感内容用隐喻和段子包装，审查看不懂但读者看得懂。"`, next: 'act2_fight', effects: { pride: 1, wealth: 0, reputation: -1 } }
     ],
     historyNote: `历史上，牛博网的服务器确实被物理拔线过。拔线事件让所有人看到了“互联网自由”的物理边界——代码再自由，也跑在别人的服务器上；思想再奔放，也受制于那根随时可以被拔掉的网线。老罗四处找新的托管商，但没人敢接——在那个年代，托管牛博网意味着可能被牵连。老罗后来感慨：“你以为互联网是虚拟的，但拔你线的那只手，是实实在在的。”这次拔线事件成了中国互联网审查史上的一个标志性时刻——它让更多人意识到，线上的自由需要线下的制度保障。`,
@@ -102,9 +102,9 @@ export const NODES = {
 
 <b>2009年1月9日，牛博网被彻底关停。服务器停了的那天，屏幕上白得像一张遗书。但你知道，有些东西没有归零——你说过的那些话，还在某个角落被人记着。</b>`,
     choices: [
-      { label: `"愤怒抗争！发动舆论施压，争取重新开放——哪怕只有万分之一的可能！"`, next: 'act2_b', effects: { pride: 1, wealth: -2, reputation: 2, failures: 1 } },
+      { label: `"愤怒抗争！发动舆论施压，争取重新开放——哪怕只有万分之一的可能！"`, next: 'act2_b', effects: { pride: 1, wealth: -2, reputation: 2, failures: 1, trust: 1 } },
       { label: `"转行吧。开个英语培训学校，用另一种方式改变世界。"`, next: 'act2_b', effects: { pride: -1, wealth: 1, reputation: 0 } },
-      { label: `"算了，不跟他们斗了，关站走人。"`, next: 'act2_gone', effects: { "pride": -1, "wealth": 0, "reputation": 0 } }
+      { label: `"算了，不跟他们斗了，关站走人。"`, next: 'act2_gone', effects: { "pride": -1, "wealth": 0, "reputation": 0, failures: 1 } }
     ],
     historyNote: `历史上，牛博网确实因坚持不删帖而被关停。这件事用最残酷的方式证明了一个道理：理想主义的代价，从来不只是一个人在扛。团队成员有人因为牛博网丢了工作，有人被请去喝茶，有人不得不搬家——他们的痛苦是真实的，他们的牺牲是无名的，而他们没有选择这条路，是你替他们选的。老罗后来回忆：“牛博网是我做过的最理想主义的事，也是最天真的事。”但牛博网留下的遗产比它存在的时间更长久——那些在牛博网上发出的声音，至今仍在互联网的某个角落被人引用。`,
     progress: 41
@@ -122,7 +122,7 @@ export const NODES = {
     choices: [
       { label: `"不甘心！我要想办法重新开放牛博网，哪怕从头再来。"`, next: 'act2_b', effects: { pride: 1, wealth: -1, reputation: 1, failures: 1 } },
       { label: `"算了，理想主义也得吃饭。开英语培训学校吧，先活下来。"`, next: 'act2_b', effects: { pride: -1, wealth: 1, reputation: 0 } },
-      { label: `"关了就关了……换个阵地继续，说话的人才重要。"`, next: 'act2_b', effects: { pride: 1, wealth: 0, reputation: -1 } }
+      { label: `"关了就关了……换个阵地继续，说话的人才重要。"`, next: 'act2_b', effects: { pride: 1, wealth: 0, reputation: -1, failures: 1 } }
     ],
     historyNote: `历史上，老罗选择了不删帖，牛博网被关停。但即使删帖也未必能保住平台——那个年代很多网站都遭遇了同样的命运。牛博网的死揭示了一个残酷的真相：妥协换不来安全，只会让你在失去一切之后，还失去自己。天涯、猫眼、牛博网，删帖的和不删帖的，最后都没了。区别只在于：有些东西死得体面，有些东西活着窝囊。老罗后来总结：“我见过太多人为了保住什么而一点点退让，最后什么都没保住，连自己都丢了。牛博网至少死得干干净净。”`,
     progress: 41
@@ -138,9 +138,9 @@ export const NODES = {
 
 <b>你对自己说：小罗，这条路走不通，不代表所有路都走不通。关上一扇门的人，终会为你打开另一扇窗——前提是，你还在走。</b>`,
     choices: [
-      { label: `"牛博网虽然关了，但理想没有死！换条路继续走——只要我还在，那把火就不会灭。"`, next: 'act2_b', effects: { pride: 1, reputation: 1, wealth: 0 } },
+      { label: `"牛博网虽然关了，但理想没有死！换条路继续走——只要我还在，那把火就不会灭。"`, next: 'act2_b', effects: { pride: 1, reputation: 1, wealth: 0, trust: 1, pressure: -1 } },
       { label: `"理想主义太天真了，还是先务实一点，养活自己再说。"`, next: 'act2_b', effects: { pride: -1, wealth: 1, reputation: 0 } },
-      { label: `"把牛博网的文章整理成书吧……文字比网站活得久，纸比服务器坚固。"`, next: 'act2_b', effects: { pride: 1, wealth: -1, reputation: 0 } }
+      { label: `"把牛博网的文章整理成书吧……文字比网站活得久，纸比服务器坚固。"`, next: 'act2_b', effects: { pride: 1, wealth: -1, reputation: -1 } }
     ],
     historyNote: `历史上，牛博网确实在2009年1月9日被彻底关停。牛博网之死之所以重要，不是因为一个网站死了——网站每天都在死；而是因为它证明了一件事：有些声音，即使被强行消音，也不会真正消失，它们会变成别的东西继续存在。老罗后来回忆：“牛博网是我做过的最理想主义的事，也是最天真的事。”后来有人问老罗后不后悔，他说：“后悔什么？我唯一后悔的是，没能撑得更久一点。”——而“撑得更久一点”，是所有理想主义者共同的遗憾。`,
     progress: 42
@@ -148,7 +148,7 @@ export const NODES = {
   act2_b: {
     act: '第五章',
     actSub: '老罗英语培训 · 海报天才 2008-2011',
-    sceneType: SCENE_TYPES.OFFICE,
+    sceneType: SCENE_TYPES.OFFICE_BUSY,
     character: '小罗',
     text: `2008年7月，你创办了“老罗英语培训学校”。牛博网关了，你把那股无处安放的劲儿全砸进了新事业——像一头受伤的兽，找了个新的洞穴舔伤口，但眼睛始终盯着外面的旷野。你亲自写海报文案，因为太穷，请不起广告公司。
 
@@ -156,10 +156,10 @@ export const NODES = {
 
 <b>学校每年招生稳定，口碑不错，但直到2011年也只有一个财年盈利。你心里一直有个声音在响：这不是终点。你只是在这里歇脚，等风来。</b>`,
     choices: [
-      { label: `"培训学校挺好的，稳定赚钱，别折腾了——人生能有几年安稳日子？"`, next: 'ending_comfort', effects: { pride: -2, wealth: 2, reputation: 0 }, flag: 'stayed_xinfang', maxAttr: { pride: 5 } },
-      { label: `"一块钱听八次课！先做营销再想做手机——文案是我的武器。"`, next: 'act2_school', effects: { pride: 2, wealth: -1, reputation: 1 } },
-      { label: `"有个学生因为牛博网改变了人生……"`, next: 'act2_student', effects: { "pride": 1, "wealth": 0, "reputation": 1 } },
-      { label: `"把牛博网的精神延续下去——换个战场不换信仰。"`, next: 'act2_poster', effects: { pride: 1, wealth: 0, reputation: 0 } }
+      { label: `"培训学校挺好的，稳定赚钱，别折腾了——人生能有几年安稳日子？"`, next: 'ending_comfort', effects: { pride: -2, wealth: 2, reputation: 0, pressure: -1 }, flag: 'stayed_xinfang', maxAttr: { pride: 5 } },
+      { label: `"一块钱听八次课！先做营销再想做手机——文案是我的武器。"`, next: 'act2_school', effects: { pride: 2, wealth: -1, reputation: 1, pressure: 1 } },
+      { label: `"有个学生因为牛博网改变了人生……"`, next: 'act2_student', effects: { "pride": 1, "wealth": 0, "reputation": 1, "pressure": 1 } },
+      { label: `"把牛博网的精神延续下去——换个战场不换信仰。"`, next: 'act2_poster', effects: { pride: 1, wealth: 0, reputation: -1, pressure: 1 } }
     ],
     historyNote: `历史上，老罗英语培训学校的海报文案确实刷爆了北京地铁。“一块钱听八次课”成为营销经典案例，被无数商学院拿去当教材。地铁海报证明了老罗的文案能力不是吹的——他真的能用一句话撬动市场，把文字变成流量，把流量变成生意。但好文案能打开门，不一定能留住人。老罗后来承认：“培训学校是我做过的最无聊的事，但它让我活了下来。活着，才有资格谈理想。”后来，正是这种“活着但不甘心”的状态，把他推向了手机行业——不甘心，是所有冒险的起点。`,
     progress: 45
@@ -167,7 +167,7 @@ export const NODES = {
   act2_school: {
     act: '第五章',
     actSub: '培训学校开业第一天 2008.7',
-    sceneType: SCENE_TYPES.OFFICE,
+    sceneType: SCENE_TYPES.OFFICE_BUSY,
     character: '小罗',
     text: `2008年7月，“老罗英语培训学校”开业了。开业那天你站在门口，看着崭新的招牌，心里五味杂陈——不是甜，是苦的，酸的，涩的，什么味都有。半年前你还在牛博网指挥百万流量，现在你站在一间租来的教室门口，数着能坐多少个学生。从改变世界的理想主义者，到教人背单词的培训校长——这落差比延边到北京还大。
 
@@ -175,8 +175,8 @@ export const NODES = {
 
 <b>牛博网关了，你小罗没有关。只要人还站着，故事就没有结束。而你的故事，才刚刚翻到下一章。</b>`,
     choices: [
-      { label: `"好好做培训！用教育改变更多人的命运，这也是理想。"`, next: 'act2_poster', effects: { pride: 1, wealth: 0, reputation: 0 } },
-      { label: `"培训只是过渡，我的目标还是更大的事——不能在这里安顿下来。"`, next: 'act2_poster', effects: { wealth: 1, pride: 0, reputation: 0 } },
+      { label: `"好好做培训！用教育改变更多人的命运，这也是理想。"`, next: 'act2_poster', effects: { pride: 1, wealth: 0, reputation: -1, pressure: 1 } },
+      { label: `"培训只是过渡，我的目标还是更大的事——不能在这里安顿下来。"`, next: 'act2_poster', effects: { wealth: 1, pride: -1, reputation: -1 } },
       { label: `"培训只是跳板……我要用赚的钱和影响力做更大的事。"`, next: 'act2_poster', effects: { pride: 0, wealth: 1, reputation: -1 } }
     ],
     historyNote: `历史上，老罗英语培训学校2008年7月开业。这件事标志着老罗从“理想主义者”到“现实创业者”的身份转换——但他的心里，从来没有真正接受过这个转换，身体在教室，灵魂还在牛博网。老罗亲自参与运营，但直到2011年也只有一个财年盈利。他后来对朋友说：“我每天站在讲台上教英语，脑子里想的却是另一件事。”后来，正是这种“身在曹营心在汉”的状态，让他做出了人生最大胆的决定——做手机。不安分的人，终究不会安分。`,
@@ -195,9 +195,9 @@ export const NODES = {
 
 <b>文字不能立刻打开门，但只要你一直敲，门总有一天会为你的坚持让路。</b>`,
     choices: [
-      { label: `"一个学生也要认真教！口碑是最好的广告，好内容自己会说话。"`, next: 'act2_poster', effects: { pride: 1, reputation: 1, wealth: 0 } },
-      { label: `"得赶紧想办法招生，光靠口碑太慢了——得用文案炸开局面。"`, next: 'act2_poster', effects: { wealth: 1, pride: 0, reputation: 0 } },
-      { label: `"学生少正好……我可以用更多时间打磨课程内容。"`, next: 'act2_poster', effects: { pride: 1, wealth: -1, reputation: 0 } }
+      { label: `"一个学生也要认真教！口碑是最好的广告，好内容自己会说话。"`, next: 'act2_poster', effects: { pride: 1, reputation: 1, wealth: 0, trust: 1, pressure: -1 } },
+      { label: `"得赶紧想办法招生，光靠口碑太慢了——得用文案炸开局面。"`, next: 'act2_poster', effects: { wealth: 1, pride: -1, reputation: -1 } },
+      { label: `"学生少正好……我可以用更多时间打磨课程内容。"`, next: 'act2_poster', effects: { pride: 1, wealth: -1, reputation: -1, pressure: 1 } }
     ],
     historyNote: `历史上，老罗英语培训学校开业初期确实招生困难。正是这种困境逼出了老罗的文案天赋——他后来靠刷爆地铁的海报打开了局面。困境不是绝境，绝境是放弃，困境是还没找到路。他后来回忆那段日子：“最难的不是没有学生，是你知道你能教好，但没人给你机会证明——这种有劲使不出的感觉，比没有劲还难受。”这也促使他写出了“一块钱听八次课”的海报——用文案降低门槛，让更多人走进来。后来这张海报成了营销教科书级别的案例，但老罗说：“文案写得再好，卖的还是英语课。我真正想卖的东西，还没找到。”`,
     progress: 45
@@ -205,7 +205,7 @@ export const NODES = {
   act2_dream: {
     act: '第五章',
     actSub: '想做手机的念头越来越强 2011',
-    sceneType: SCENE_TYPES.OFFICE,
+    sceneType: SCENE_TYPES.OFFICE_BUSY,
     character: '小罗',
     text: `培训学校每年招生稳定，口碑不错，但直到2011年也只有一个财年盈利。你心里一直有个声音在响，越来越响，像鼓点一样催你，像心跳一样逼你：我要做手机。
 
@@ -215,7 +215,7 @@ export const NODES = {
 
 <b>梦想不是被说服的，它是被憋不住的。你越压抑它，它越会逼你开口。</b>`,
     choices: [
-      { label: `"去做手机！哪怕倾家荡产，也要试一次——不试才是真正的倾家荡产。"`, next: 'act_fridge_start', effects: { pride: 2, wealth: 0, reputation: 0 }, requires: { pride: 4 } },
+      { label: `"去做手机！哪怕倾家荡产，也要试一次——不试才是真正的倾家荡产。"`, next: 'act_fridge_start', effects: { pride: 2, wealth: 0, reputation: -1, pressure: 2 }, requires: { pride: 4 } },
       { label: `"做手机太疯狂了，培训学校虽然无聊但至少安稳。"`, next: 'ending_comfort', effects: { pride: -2, wealth: 2, reputation: 0 }, flag: 'stayed_xinfang', maxAttr: { pride: 5 } },
       { label: `"不急着做手机……先做一个手机ROM试试水。"`, next: 'act_fridge_start', effects: { pride: 0, wealth: 1, reputation: -1 } }
     ],
@@ -225,7 +225,7 @@ export const NODES = {
   act2_poster: {
     act: '第五章',
     actSub: '海报文案 · "一块钱听八次课" 2009',
-    sceneType: SCENE_TYPES.OFFICE,
+    sceneType: SCENE_TYPES.OFFICE_BUSY,
     character: '小罗',
     text: `你坐在办公室里，对着一张白纸发呆。培训学校刚开业，没什么钱打广告，你得靠文案杀出一条血路——这条路只有你自己能走，因为只有你自己知道，那些文字不是写出来的，是逼出来的。
 
@@ -235,9 +235,9 @@ export const NODES = {
 
 <b>好文案能打开一扇门，但门后是不是你想要的世界，只有跨过去才知道。</b>`,
     choices: [
-      { label: `"继续做培训，把学校做大做强。手机那是科技巨头的事，我够不着。"`, next: 'ending_comfort', effects: { pride: -1, wealth: 2, reputation: 1 }, flag: 'stayed_xinfang', maxAttr: { pride: 5 } },
-      { label: `"西门子冰箱门关不严？我要去维权！顺便见见雷军——有些事，得先砸开再说。"`, next: 'act_fridge_start', effects: { pride: 2, wealth: -1, reputation: 1, achievement: '文案之神', icon: '✎' } },
-      { label: `"我还有一个更大的梦想……"`, next: 'act2_dream', effects: { "pride": 1, "wealth": 0, "reputation": 0 } }
+      { label: `"继续做培训，把学校做大做强。手机那是科技巨头的事，我够不着。"`, next: 'ending_comfort', effects: { pride: -1, wealth: 2, reputation: 1 }, flag: 'stayed_xinfang', maxAttr: { pride: 4, wealth: 4 } },
+      { label: `"西门子冰箱门关不严？我要去维权！顺便见见雷军——有些事，得先砸开再说。"`, next: 'act_fridge_start', effects: { pride: 2, wealth: -1, reputation: 1, pressure: 1, achievement: '文案之神', icon: '✎' } },
+      { label: `"我还有一个更大的梦想……"`, next: 'act2_dream', effects: { "pride": 1, "wealth": 0, "reputation": -1, "pressure": 1 } }
     ],
     historyNote: `历史上，“一块钱听八次课”的海报成为营销教科书级别的案例。地铁海报证明了老罗的文案能力不仅能打动人心，还能直接转化为商业价值——这在营销界是极其罕见的，大多数文案要么好看没用，要么有用不好看，老罗的文案又好看又有用。但好文案能打开门，不一定能留住人。老罗的文案能力后来被公认是中国最好的之一。但他自己却说：“文案写得再好，卖的还是英语课。我真正想卖的东西，还没找到。”这种不安分，最终把他推向了手机行业——也推向了人生最大的赌局。后来他回忆：“那张海报是我文案生涯的巅峰，也是我英语培训生涯的巅峰——两个巅峰，同一个天花板。”`,
     progress: 47

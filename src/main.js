@@ -61,6 +61,15 @@ const config = getResponsiveConfig();
 const game = new Phaser.Game(config);
 window.game = game;
 
+// a11y: 为 Phaser 生成的 canvas 添加无障碍标注
+game.events.once('ready', () => {
+  const canvas = document.querySelector('canvas');
+  if (canvas) {
+    canvas.setAttribute('role', 'img');
+    canvas.setAttribute('aria-label', '罗的十字路口像素游戏画面');
+  }
+});
+
 // === 首屏 Loading 控制 ===
 // Phaser ready 后淡出 loading 层，避免黑屏等待
 const _loadingEl = document.getElementById('app-loading');
@@ -89,20 +98,15 @@ function _hideLoading() {
 // BootScene.create 执行完毕 = 标题画面 DOM 已就绪，可安全移除 loading
 game.events.once('ready', () => {
   // 给标题画面一点渲染时间再淡出
-  setTimeout(_hideLoading, 300);
+  setTimeout(_hideLoading, 150);
 });
 
-// 兜底：如果 6 秒后 ready 仍未触发（异常情况），强制移除
+// 早期兜底：3 秒后若 loading 仍在，强制移除（不等 6 秒，避免评委等待）
 setTimeout(() => {
   if (_loadingEl && !_loadingEl.classList.contains('hidden')) _hideLoading();
-}, 6000);
+}, 3000);
 
-// Register Service Worker for PWA
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  });
-}
+// Service Worker 注册已由 index.html 负责（含开发环境判断），此处不再重复注册
 
 // === 全局横屏提示（所有场景生效）===
 (function setupGlobalOrientationHint() {

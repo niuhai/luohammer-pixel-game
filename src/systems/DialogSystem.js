@@ -2,10 +2,10 @@ import { getCharacterColor } from '../config.js';
 import { SaveSystem } from './SaveSystem.js';
 
 const SETTINGS_KEY = 'luohammer_dialog_settings';
-// 每字间隔 ms：慢 / 中 / 快
-// 调慢为的是让打字速度匹配 TTS 朗读节奏（TTS 中文约 200~250ms/字），
-// 解决"字幕比语音快"导致玩家来不及感受情绪的问题。
-const TYPING_SPEEDS = [220, 140, 80];
+// 每字间隔 ms：慢 / 中(标准) / 快
+// 标准 30ms 流畅不拖沓；慢档 60ms 供细品；快档 12ms 供速读。
+// 按 S 键循环切换三档。情绪化打字速度在此基础上动态调整。
+const TYPING_SPEEDS = [60, 30, 12];
 const TYPING_SPEED_LABELS = ['慢', '中', '快'];
 
 export class DialogSystem {
@@ -224,7 +224,7 @@ export class DialogSystem {
   /**
    * 从 localStorage 读取用户偏好
    * 默认关闭自动播放（autoPlay=false），让玩家自主掌控节奏；
-   * 默认慢速档（typingSpeedIdx=0，220ms/字）以匹配 TTS 朗读节奏。
+   * 默认中速档（typingSpeedIdx=1，30ms/字）保证流畅阅读体验。
    * 旧用户若已显式保存过偏好，仍尊重其选择。
    */
   _loadSettings() {
@@ -240,7 +240,7 @@ export class DialogSystem {
         }
       }
     } catch (e) {}
-    return { autoPlay: false, typingSpeedIdx: 0 };
+    return { autoPlay: false, typingSpeedIdx: 1 };
   }
 
   /**
@@ -280,7 +280,7 @@ export class DialogSystem {
     const sentences = [];
     for (const seg of preSegments) {
       // 使用更健壮的正则：匹配非断句符号的字符序列，后跟可选的断句符号
-      const regex = /[^。！？!?\.]+[。！？!?\.]*/g;
+      const regex = /[^。！？!?.]+[。！？!?.]*/g;
       let match;
       while ((match = regex.exec(seg)) !== null) {
         const s = match[0].trim();
@@ -289,8 +289,8 @@ export class DialogSystem {
       // 如果正则没匹配到任何内容（极端情况），将整段作为一个句子
       if (sentences.length === 0 || sentences[sentences.length - 1] !== seg.trim()) {
         // 检查是否有遗漏的文本
-        const matched = (seg.match(/[^。！？!?\.]+[。！？!?\.]*/g) || []).join('');
-        const remainder = seg.replace(/[^。！？!?\.]+[。！？!?\.]*/g, '').trim();
+        const matched = (seg.match(/[^。！？!?.]+[。！？!?.]*/g) || []).join('');
+        const remainder = seg.replace(/[^。！？!?.]+[。！？!?.]*/g, '').trim();
         if (remainder) sentences.push(remainder);
       }
     }
@@ -617,8 +617,8 @@ export class DialogSystem {
    * @returns {number} 基础间隔毫秒数
    */
   _getMoodBaseInterval() {
-    const fastSpeed = TYPING_SPEEDS[2]; // 40ms
-    const slowSpeed = TYPING_SPEEDS[0]; // 120ms
+    const fastSpeed = TYPING_SPEEDS[2]; // 12ms
+    const slowSpeed = TYPING_SPEEDS[0]; // 60ms
     const mood = this._currentMood;
     if (mood === 'angry') return fastSpeed * 0.7;
     if (mood === 'depressed') return slowSpeed * 1.5;

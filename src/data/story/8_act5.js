@@ -12,8 +12,8 @@ export const NODES = {
     choices: [
       { label: `"去找钱晨，跪也要把他留下来——没有他，技术团队就是一盘散沙。"`, next: 'act5_alibaba', effects: { pride: -1, wealth: 0, reputation: 1 } },
       { label: `"吴德周必须来——钱晨是功臣，但锤子需要能打硬仗的新鲜血液。"`, next: 'act5_people', effects: { pride: 1, wealth: 0, reputation: -1, achievement: '铁腕CEO', icon: '▣' } },
-      { label: `"也许该换个赛道了——手机做不下去不代表什么都做不下去。"`, next: 'act5_abandon', effects: {"pride":-2,"wealth":0,"reputation":-1} },
-      { label: `"把这段经历写出来——用文字反击命运，也许故事本身就是武器。"`, next: 'act5_alibaba', effects: { pride: 0, wealth: 0, reputation: 1 } }
+      { label: `"也许该换个赛道了——手机做不下去不代表什么都做不下去。"`, next: 'act5_abandon', effects: {"pride":-2,"wealth":0,"reputation":-1,"failures":1} },
+      { label: `"把这段经历写出来——用文字反击命运，也许故事本身就是武器。"`, next: 'act5_alibaba', effects: { pride: 0, wealth: 0, reputation: 1, trust: 1 } }
     ],
     historyNote: `历史上钱晨确实因老罗偷偷挖吴德周而辞职。钱晨是老罗三顾茅庐从摩托罗拉请来的技术灵魂，他的离去让锤子失去了最核心的硬件研发能力，也失去了T1时代“对称美学”的设计基因。老罗自掏16万包机飞上海面谈吴德周，吴德周最终加入，但代价是整个技术团队的信任裂痕再也无法弥合。后来钱晨再未回归手机行业，而锤子此后再也没有做出T1那样让人惊艳的设计——M1被老罗自己称为“工业史上的耻辱”。一个人走了，带走的不只是他的能力，还有他代表的那段岁月里所有人相信的东西。这件事之所以重要，是因为它揭示了一个理想主义创业者最痛苦的悖论：为了活下去，你不得不背叛那些最早陪你活的人。阿里弃投的背景同样关键：2016年锤子账面净资产仅剩约20万元，老罗将205万股股权质押给阿里寻求融资，却在半年等待后被明确弃投，这成为锤子资金链断裂的导火索之一。后来阿里选择投资了魅族——同样小众，但团队更稳定。资本从来不是只看方向，它看的是你能不能活到方向实现的那一天。`,
     progress: 91
@@ -26,9 +26,9 @@ export const NODES = {
     text: `你把205万股股权质押给阿里，飞到杭州等了一整天。对方说“我们内部讨论一下”。\n\n回到北京，等了一个月，两个月，三个月——阿里迟迟不打款。跟投机构全在观望，谁也不敢先出手。你每天盯着银行账户，余额从20万变成15万变成10万，像看着一个倒计时器一秒一秒地走。\n\n员工开始私下打听“公司是不是要倒了”，供应商的电话一个接一个催货款。你想起唐岩当年凑的900万——原来最折磨人的不是被拒绝，是被吊着。一个“再等等”比一句“不行”更让人窒息：“不行”至少让你死心，“再等等”让你每天醒来都以为今天有救，然后每天睡前都知道又白等了一天。\n\n<b>半年，180天，你被“再等等”三个字吊在半空——比死更难受的是半死不活。</b>`,
     choices: [
       { label: `"继续等——阿里投了就是翻盘，大机构的钱值得等。"`, next: 'act5_people', effects: { pride: 1, wealth: 0, reputation: 0 } },
-      { label: `"不能把命悬在别人手里——边等边找别的出路。"`, next: 'act5_people', effects: { pride: -1, wealth: 0, reputation: 0 } },
-      { label: `"去找唐岩，他当年帮过我，也许还有办法。"`, next: 'act5_people', effects: { pride: 0, wealth: 0, reputation: -1 } },
-      { label: `"阿里不投就找别人，中国又不是只有一家投资公司。"`, next: 'act5_people', effects: { pride: 1, wealth: -1, reputation: 0 } }
+      { label: `"不能把命悬在别人手里——边等边找别的出路。"`, next: 'act5_people', effects: { pride: -1, wealth: 0, reputation: 0, failures: 1 } },
+      { label: `"去找唐岩，他当年帮过我，也许还有办法。"`, next: 'act5_people', effects: { pride: 0, wealth: 0, reputation: -1, failures: 1 } },
+      { label: `"阿里不投就找别人，中国又不是只有一家投资公司。"`, next: 'act5_people', effects: { pride: 1, wealth: -1, reputation: 0, failures: 1 } }
     ],
     historyNote: `历史上老罗确实飞杭州找阿里，质押了205万股股权等救命。阿里投资委员会对锤子的评估结论是：团队动荡、供应链脆弱、品牌太小众——风险过高。但阿里没有直接拒绝，而是用“拖延”代替“否决”。这种“软杀死”比直接拒绝更残忍——它不给你痛快，只给你漫长的窒息。后来这种“拖延式弃投”成为投资圈的潜规则——不说不投，只是永远在“内部讨论”。半年的空等待消耗了锤子最后的现金流，也彻底击溃了其他跟投机构的信心。这件事之所以重要，是因为它让老罗看清了资本的本质：投资人不是救世主，他们是锦上添花的人，而锤子当时连“锦”都快没了。后来老罗在直播带货时自嘲：“阿里没投我，可能是我人生的转折点——如果投了，我也许还在做手机，就不会去直播还债了。”`,
     progress: 89
@@ -43,7 +43,7 @@ export const NODES = {
       { label: `"还没死就不能认输——只要还有一口气，就还有翻盘的可能，死撑到底！"`, next: 'act5_people', effects: { pride: 1, wealth: 0, reputation: 0, failures: 1 } },
       { label: `"也许该认了——先活下来再说，留得青山在。"`, next: 'act5_people', effects: { pride: -1, wealth: 0, reputation: 0, failures: 1 } },
       { label: `"阿里不投，就去找别的钱——总有人会看到锤子的价值。"`, next: 'act5_people', effects: { pride: 0, wealth: 0, reputation: 0 } },
-      { label: `"把遭遇公开，用舆论倒逼投资人回心转意。"`, next: 'act5_people', effects: { pride: 1, wealth: 0, reputation: -1 } }
+      { label: `"把遭遇公开，用舆论倒逼投资人回心转意。"`, next: 'act5_people', effects: { pride: 1, wealth: 0, reputation: -1, failures: 1, trust: -1 } }
     ],
     historyNote: `历史上阿里弃投锤子的核心原因是投资委员会认为锤子“团队不稳定、供应链风险高、品牌体量太小”。弃投后，锤子的估值从巅峰期的26亿暴跌至不足5亿，创始团队的股权几乎归零。讽刺的是，阿里后来投资了魅族——同样小众，但团队更稳定。有时候投资人不投你，不是不看好方向，是不看好你这个人。后来老罗在直播中苦笑：“阿里弃投那天，我才真正理解了什么叫‘资本寒冬’——不是没有钱，是钱不给你。”弃投的正式确认，宣告锤子失去了最后一根外部救命稻草。这件事之所以重要，是因为它把老罗逼上了绝路：要么认栽退出，要么自己造血。而正是这种绝境，让他后来做出了坚果Pro和直播带货这两次关键的翻盘。`,
     progress: 90
@@ -57,10 +57,10 @@ export const NODES = {
 
 <b>那扇门关上的不只是一扇门，是一段你再也回不去的岁月。</b>`,
     choices: [
-      { label: `"向钱晨道歉，但吴德周必须来——公司要活下去，不能只靠情怀。"`, next: 'act5_people', effects: { pride: 1, wealth: 0, reputation: 0 } },
-      { label: `"也许我不该瞒他——但话已出口，人已挖来，回不了头了，只能往前走。"`, next: 'act5_people', effects: { pride: 0, wealth: 0, reputation: -1 } },
+      { label: `"向钱晨道歉，但吴德周必须来——公司要活下去，不能只靠情怀。"`, next: 'act5_people', effects: { pride: 1, wealth: 0, reputation: 0, trust: 1 } },
+      { label: `"也许我不该瞒他——但话已出口，人已挖来，回不了头了，只能往前走。"`, next: 'act5_people', effects: { pride: 0, wealth: 0, reputation: -1, failures: 1, trust: -1 } },
       { label: `"让吴德周和钱晨当面谈，也许他们能找到共事的方式。"`, next: 'act5_people', effects: { pride: 0, wealth: 0, reputation: 0 } },
-      { label: `"给钱晨打电话，哪怕他不再回来，至少把话说开——有些结，不解开会卡一辈子。"`, next: 'act5_people', effects: { pride: -1, wealth: 0, reputation: 1 } }
+      { label: `"给钱晨打电话，哪怕他不再回来，至少把话说开——有些结，不解开会卡一辈子。"`, next: 'act5_people', effects: { pride: -1, wealth: 0, reputation: 1, trust: 1, pressure: -1 } }
     ],
     historyNote: `历史上钱晨因老罗偷偷挖吴德周而辞职。创业公司“换血”的残酷代价——你需要新能力来活命，但引入新人的过程必然伤害旧人，而旧人往往是最早相信你的人。钱晨是锤子T1工业设计的灵魂，他坚持的“对称美学”定义了锤子的品牌气质。他走后，锤子的设计语言逐渐向主流妥协——M1被老罗自己称为“工业史上的耻辱”。吴德周带来了供应链能力，但锤子再也没做出T1那样让人惊艳的设计。钱晨辞职后逐渐淡出手机行业，而老罗此后多次公开提及此事，语气中始终带着遗憾。这件事之所以重要，是因为它象征着锤子“理想主义设计基因”的断裂：钱晨走后，锤子不再是那个为了“对称美学”可以死磕到底的团队，而变成了一个向生存妥协的团队。`,
     progress: 91
@@ -75,11 +75,26 @@ export const NODES = {
 <b>有时候，活下去本身就是最大的胜利，哪怕代价是亲手埋葬那个理想的自己。</b>`,
     choices: [
       { label: `"M1长得像iPhone，这是对锤子理念的背叛——宁可倒闭也不抄袭。"`, next: 'ending_bankrupt_early', effects: { pride: 2, wealth: -2, reputation: 1, failures: 1 }, flag: 'killed_m1', requires: { pride: 6 } },
-      { label: `"耻辱就耻辱吧——活人才能翻盘，死人连耻辱的资格都没有。"`, next: 'act5_b', effects: { pride: -2, wealth: 2, reputation: -1, achievement: '忍辱负重', icon: '◉' } },
+      { label: `"耻辱就耻辱吧——活人才能翻盘，死人连耻辱的资格都没有。"`, next: 'act5_m1', effects: { pride: -2, wealth: 2, reputation: -1, failures: 1, trust: -1, achievement: '忍辱负重', icon: '◉' } },
       { label: `"千难万险，这一路到底经历了什么？"`, next: 'act5_qianchen', effects: {"pride":0,"wealth":0,"reputation":0} },
-      { label: `"找钱晨当面谈，哪怕留不住人也要保住这段关系——有些东西比公司更重要。"`, next: 'act5_qianchen', effects: { pride: 0, wealth: 0, reputation: 1 } }
+      { label: `"找钱晨当面谈，哪怕留不住人也要保住这段关系——有些东西比公司更重要。"`, next: 'act5_qianchen', effects: { pride: 0, wealth: 0, reputation: 1, trust: 1 } }
     ],
     historyNote: `历史上老罗选择了发布M1，并亲口称其为“锤子工业史上的耻辱”。M1放弃了锤子标志性的对称设计和实体按键，转而采用类似iPhone的圆形Home键和大众化外观，等于亲手否定了自己最引以为傲的东西。但正是这款“耻辱之作”让锤子活了下来——首批50万台一个月卖光，营收超过此前所有机型之和。后来老罗在采访中说：“M1是我最不想回忆的产品，但如果没有M1，就没有后来的坚果Pro。”有时候，活下去本身就是最大的胜利，哪怕代价是丢掉灵魂。这件事之所以重要，是因为它标志着老罗从“理想主义者”向“现实主义者”的妥协：为了生存，他亲手埋葬了那个“只做完美产品”的自己。而“在功夫与颜值之后，我们有了肌肉”这句发布会台词，也成为理想主义向现实妥协的经典注脚。后来老罗多次承认，M1的“耻辱”是锤子得以延续的火种——没有这次低头，就没有后续的坚果Pro和成都融资。`,
+    progress: 92
+  },
+  act5_m1: {
+    act: '第十二章',
+    actSub: 'M1大卖之后 · 耻辱与救赎 2016',
+    sceneType: SCENE_TYPES.OFFICE,
+    character: '小罗',
+    text: `M1首批50万台一周售罄。财务总监说，这是锤子成立以来单月营收最高的一个月——你终于不用再为发工资失眠了。\n\n但深夜的办公室里，你把一台M1翻来覆去地看。圆形Home键、大众化外观、没有对称设计、没有实体三键——它和iPhone的区别，连你自己都分不清。钱晨如果在，绝不会允许这款产品问世。但钱晨走了，吴德周来了，这就是代价。\n\n你想起T1发布会上你说"我不是为了赢，我是为了认真"。现在你赢了市场，却输了那个"认真"的自己。\n\n供应商打电话来催加单，经销商要求追加进货——所有人都在庆祝。只有你对着镜子，看着那张越来越陌生的脸。M1救了锤子的命，也亲手杀死了那个"只做完美产品"的罗永浩。\n\n现在，账上终于有钱了。问题是：这笔耻辱换来的钱，你打算怎么花？\n\n<b>活下来只是第一步——真正的问题是，活下来之后，你还是不是当初那个你。</b>`,
+    choices: [
+      { label: `"这笔钱要用来证明锤子还能做出好设计——下一款必须找回对称美学，耻辱不能再犯。"`, next: 'act5_b', effects: { pride: 2, wealth: -1, reputation: 1, trust: 1 } },
+      { label: `"市场已经说话了——继续做大众化产品，活下去比什么都重要，设计以后再说。"`, next: 'act5_b', effects: { pride: -1, wealth: 1, reputation: -1, trust: -1 } },
+      { label: `"M1证明了锤子能赚钱——现在该用这笔钱做点更大的事，改变世界的那种。"`, next: 'act5_b', effects: { pride: 1, wealth: -1, reputation: 1 } },
+      { label: `"先把债还了、把团队稳住——别想太多，一步一步来。"`, next: 'act5_b', effects: { pride: 0, wealth: 1, reputation: 0, pressure: -1 } }
+    ],
+    historyNote: `历史上M1（名为"锤子M1"）是锤子科技在2016年10月发布的产品，放弃了标志性的对称设计和实体三键，转而采用类似iPhone的圆形Home键和大众化外观。老罗在发布会上坦言"在功夫与颜值之后，我们有了肌肉"，并多次私下称M1为"工业史上的耻辱"。但正是这款"耻辱之作"让锤子活了下来——M1首批50万台迅速售罄，营收超过此前所有机型之和。后来老罗在采访中说："M1是我最不想回忆的产品，但如果没有M1，就没有后来的坚果Pro。"M1的成功带来了一个深刻的悖论：妥协换来了生存，但生存下来的那个锤子，已经不再是那个"只做完美产品"的锤子。这笔"耻辱换来的钱"后来大部分被投入坚果Pro研发和TNT项目——前者让锤子迎来了最后的巅峰，后者则成为压垮锤子的最后一根稻草。`,
     progress: 92
   },
 
@@ -93,7 +108,7 @@ export const NODES = {
     character: '小罗',
     text: `M1大卖，锤子起死回生。2017年坚果Pro发布，“漂亮得不像实力派”刷爆朋友圈，销量破百万台——这是锤子成立以来最风光的时刻。\n\n你站在台上，看着台下欢呼的人群，恍惚间以为回到了T1发布那天。但这次不一样：T1是狂喜，坚果Pro是劫后余生的庆幸。\n\n成都市政府伸出橄榄枝：10亿融资，条件是总部迁到成都。几乎同时，你脑子里诞生了一个疯狂的想法：做TNT，用语音+触控取代键盘鼠标，重新定义人机交互。\n\n你站在人生的十字路口：左边是稳扎稳打继续做手机，右边是押上一切赌一个改变世界的机会。回光返照最残忍的地方在于：它让你以为天亮了，其实只是闪电。闪电照亮的不是前路，是悬崖。`,
     choices: [
-      { label: `"接受10亿，但稳扎稳打——all in下一代手机，不做TNT，活着比什么都重要。"`, next: 'ending_moderate_success', effects: { pride: 0, wealth: 3, reputation: 2 }, flag: 'conservative_funding', maxAttr: { pride: 5 } },
+      { label: `"接受10亿，但稳扎稳打——all in下一代手机，不做TNT，活着比什么都重要。"`, next: 'ending_moderate_success', effects: { pride: 0, wealth: 3, reputation: 2, pressure: -1 }, flag: 'conservative_funding', maxAttr: { pride: 5 } },
       { label: `"接受投资，all in TNT——乔布斯改变了手机，我要改变电脑！"`, next: 'act5_nutpro', effects: { pride: 2, wealth: 0, reputation: 1 } },
       { label: `"10亿是救命钱，不是赌注——先让公司站稳，再谈理想。"`, next: 'ending_venture_capitalist', effects: { pride: -1, wealth: 3, reputation: 1, achievement: '资本的力量', icon: '▣' }, flag: 'became_investor', requires: { reputation: 5 } },
       { label: `"去成都，那里有新的机会。"`, next: 'act5_chengdu', effects: {"pride":0,"wealth":0,"reputation":0} }
@@ -113,7 +128,7 @@ export const NODES = {
 
 <b>巅峰之所以危险，不是因为你站得高，而是因为你开始相信，风会永远往你这边吹。</b>`,
     choices: [
-      { label: `"坚果Pro证明了锤子能成——乘胜追击，做更好的手机！"`, next: 'act6_bird', effects: { pride: 2, wealth: 0, reputation: 1 } },
+      { label: `"坚果Pro证明了锤子能成——乘胜追击，做更好的手机！"`, next: 'act6_bird', effects: { pride: 2, wealth: 0, reputation: 1, trust: 1 } },
       { label: `"趁卖得好赶紧赚钱，别再赌了——回光返照不是复活，见好就收才是智慧。"`, next: 'act6_bird', effects: { pride: -1, wealth: 1, reputation: 0 } },
       { label: `"坚果Pro的成功让我重新思考——也许该趁势做点更大的事？"`, next: 'act6_bird', effects: { pride: 1, wealth: 0, reputation: 0 } },
       { label: `"趁势融资！坚果Pro证明了我们能成，现在是拿钱的最好时机。"`, next: 'act6_bird', effects: { pride: 0, wealth: 1, reputation: -1 } }

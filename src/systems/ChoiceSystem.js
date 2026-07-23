@@ -161,7 +161,7 @@ export class ChoiceSystem {
     balance.innerHTML = `
       <svg viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
         <line x1="100" y1="10" x2="100" y2="50" stroke="#666" stroke-width="2"/>
-        <line x1="40" y1="20" x2="160" y2="20" stroke="#F0C040" stroke-width="2" class="balance-beam"/>
+        <line x1="40" y1="20" x2="160" y2="20" stroke="var(--color-gold)" stroke-width="2" class="balance-beam"/>
         <circle cx="40" cy="20" r="6" fill="#444" class="balance-left"/>
         <circle cx="160" cy="20" r="6" fill="#444" class="balance-right"/>
       </svg>

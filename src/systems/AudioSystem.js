@@ -91,7 +91,7 @@ const EDGE_TTS_RATE_MAP = {
 };
 
 /** Edge TTS 库实例（懒加载） */
-let _edgeTTSInstance = null;
+const _edgeTTSInstance = null;
 
 export class AudioSystem {
   constructor(scene) {
@@ -209,59 +209,6 @@ export class AudioSystem {
     return null;
   }
 
-  /**
-   * 获取指定预设实际会匹配到的语音信息（供 UI 显示诊断）
-   * @param {string} presetKey
-   * @returns {{voiceName: string, matched: boolean, isMale: boolean|null, expectMale: boolean}}
-   */
-  getMatchedVoiceInfo(presetKey) {
-    const preset = VOICE_PRESETS[presetKey];
-    if (!preset) {
-      return { voiceName: '未知预设', matched: false, isMale: null, expectMale: false };
-    }
-
-    const voices = this._cachedVoices.length > 0
-      ? this._cachedVoices
-      : (window.speechSynthesis?.getVoices() || []);
-
-    const zhVoices = voices
-      .filter(v => v.lang && v.lang.toLowerCase().startsWith('zh'))
-      .sort((a, b) => a.name.localeCompare(b.name));
-
-    let chosenVoice = null;
-    let matched = false;
-
-    // 1. voiceFilter 匹配
-    if (preset.voiceFilter && zhVoices.length > 0) {
-      chosenVoice = zhVoices.find(v => preset.voiceFilter(v));
-      if (chosenVoice) matched = true;
-    }
-
-    // 2. 分桶
-    if (!chosenVoice && zhVoices.length >= 2 && preset.gender) {
-      const mid = Math.floor(zhVoices.length / 2);
-      const bucket = preset.gender === 'male' ? zhVoices.slice(0, mid) : zhVoices.slice(mid);
-      if (bucket.length > 0) {
-        chosenVoice = bucket[0];
-      }
-    }
-
-    // 3. 回退
-    if (!chosenVoice && zhVoices.length > 0) {
-      chosenVoice = zhVoices[0];
-    }
-
-    const expectMale = preset.gender === 'male';
-    const isMale = chosenVoice ? this._isMaleVoice(chosenVoice.name) : null;
-
-    return {
-      voiceName: chosenVoice ? chosenVoice.name : '无中文语音',
-      matched,
-      isMale,
-      expectMale
-    };
-  }
-
   /** 实际音量 = 主音量 × 类型比例 */
   _sfxVol(v) { return v * this.sfxVolume; }
   _bgmVol(v) { return v * this.bgmVolume; }
@@ -376,14 +323,6 @@ export class AudioSystem {
   }
 
   /**
-   * 页面翻转 —— 快速的"沙沙"声 + 短促高音，模拟翻页。
-   */
-  playPageFlip() {
-    this._playNoise(0.06, 0.06);
-    setTimeout(() => this._playTone(1200, 0.03, 'sine', 0.04), 30);
-  }
-
-  /**
    * 天赋选中 —— 闪亮的确认音，带回响。
    */
   playTalentSelect() {
@@ -416,33 +355,6 @@ export class AudioSystem {
         await ctx.resume();
       }
     } catch (e) {}
-  }
-
-  /**
-   * 按钮悬停 —— 极轻微的提示音，防抖200ms。
-   */
-  playButtonHover() {
-    if (!this.enabled) return;
-    const now = performance.now();
-    if (now - this._lastHoverTime < 200) return;
-    this._lastHoverTime = now;
-    this._playTone(1400, 0.015, 'sine', 0.02);
-  }
-
-  /**
-   * 按钮按下 —— 短促低音反馈。
-   */
-  playButtonDown() {
-    this._playTone(440, 0.03, 'square', 0.04);
-  }
-
-  /**
-   * 存档/读档 —— 数据写入/读取的确认音。
-   */
-  playSave() {
-    this._playTone(660, 0.06, 'triangle', 0.06);
-    setTimeout(() => this._playTone(880, 0.06, 'triangle', 0.06), 50);
-    setTimeout(() => this._playTone(1100, 0.1, 'sine', 0.05), 100);
   }
 
   // ============================================================
@@ -745,6 +657,32 @@ export class AudioSystem {
           {freq:330,dur:0.4,type:'sine',vol:0.06},
           {freq:262,dur:0.6,type:'sine',vol:0.05},
           {freq:0,dur:0.5},
+        ];
+      case 'gameplay_dark':
+        // 至暗时刻：低沉压抑的锯齿波下行，缓慢节奏
+        return [
+          [{freq:110,dur:0.6,type:'sawtooth',vol:0.05},{freq:55,dur:0.6,type:'triangle',vol:0.03}],
+          {freq:0,dur:0.3},
+          [{freq:98,dur:0.6,type:'sawtooth',vol:0.04},{freq:49,dur:0.6,type:'triangle',vol:0.03}],
+          {freq:0,dur:0.3},
+          {freq:87,dur:0.8,type:'sawtooth',vol:0.04},
+          {freq:0,dur:0.5},
+          [{freq:98,dur:0.5,type:'sawtooth',vol:0.04},{freq:49,dur:0.5,type:'triangle',vol:0.03}],
+          {freq:0,dur:0.4},
+        ];
+      case 'gameplay_hopeful':
+        // 还债/新生：温暖上扬的正弦波，带节奏感
+        return [
+          [{freq:262,dur:0.3,type:'sine',vol:0.06},{freq:131,dur:0.3,type:'triangle',vol:0.03}],
+          {freq:0,dur:0.15},
+          [{freq:330,dur:0.3,type:'sine',vol:0.06},{freq:165,dur:0.3,type:'triangle',vol:0.03}],
+          {freq:0,dur:0.15},
+          [{freq:392,dur:0.35,type:'sine',vol:0.07},{freq:196,dur:0.35,type:'triangle',vol:0.03}],
+          {freq:0,dur:0.2},
+          [{freq:330,dur:0.3,type:'sine',vol:0.05},{freq:165,dur:0.3,type:'triangle',vol:0.03}],
+          {freq:0,dur:0.15},
+          [{freq:262,dur:0.4,type:'sine',vol:0.05},{freq:131,dur:0.4,type:'triangle',vol:0.03}],
+          {freq:0,dur:0.3},
         ];
       case 'ending_default':
         // 默认结局：中性偏庄重，三角波+低八度
@@ -1402,10 +1340,10 @@ export class AudioSystem {
       case 'startup':
         return 'gameplay';
       case 'dark':
+        return 'gameplay_dark';
       case 'repay':
-        return 'gameplay';
       case 'reborn':
-        return 'gameplay';
+        return 'gameplay_hopeful';
       default:
         return 'gameplay';
     }

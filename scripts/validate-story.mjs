@@ -79,6 +79,9 @@ const THRESHOLD_TRIGGERED_FLAGS = new Set([
   'wealth_buy_fame_triggered',
   'crack_ideal_triggered',
   'friend_bailout_triggered',
+  // R12 新增阈值触发器 flag（pressure_release / retired_peace）
+  'pressure_release_triggered',
+  'retired_peace_triggered',
 ]);
 
 // 叙事性 flag 白名单：这些 flag 在 story choices 中设置，用于记录玩家的叙事选择

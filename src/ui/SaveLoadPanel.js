@@ -43,7 +43,7 @@ const PANEL_CSS = `
     max-height: 90vh;
     display: flex;
     flex-direction: column;
-    background: linear-gradient(180deg, #12122a, #0a0a1a);
+    background: linear-gradient(180deg, var(--color-bg-panel), var(--color-bg-dark));
     border: 2px solid var(--color-gold);
     box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 8px 32px rgba(0,0,0,0.7);
     padding: clamp(14px, 2.4vw, 24px);
@@ -228,8 +228,8 @@ const PANEL_CSS = `
     background: rgba(240,192,64,0.2);
   }
   .ui-saveload-btn.danger:hover:not(:disabled) {
-    border-color: #e04040;
-    color: #e04040;
+    border-color: var(--color-danger);
+    color: var(--color-danger);
     background: rgba(224,64,64,0.08);
   }
   .ui-saveload-confirm {

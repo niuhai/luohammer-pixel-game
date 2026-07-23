@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, COLORS, FONTS, SCENE_ASSETS, CHARACTER_ASSETS } from '../config.js';
+import { GAME_WIDTH, GAME_HEIGHT, COLORS, FONTS, SCENE_ASSETS, CHARACTER_ASSETS, ENDING_SCENE_MAP } from '../config.js';
 import { STORY, CHAR_INFO } from '../data/story.js';
 import { PixelRenderer } from '../systems/PixelRenderer.js';
 import { DialogSystem } from '../systems/DialogSystem.js';
@@ -21,6 +21,19 @@ import { MetaProgression, MILESTONE_REWARDS } from '../systems/MetaProgression.j
 import { toast } from '../systems/ToastSystem.js';
 import { SKILL_TREES, calculateExpGain } from '../data/skillTree.js';
 import { DebugLogger } from '../systems/DebugLogger.js';
+
+// 关键冲击场景集合：进入这些场景时触发白闪，增强转场冲击感
+// 落实项目硬约束：冰箱砸碎/法庭/脱口秀等关键场景转场应有 1-2 帧白闪
+const FLASH_SCENES = new Set(['fridge_smash', 'court', 'talkshow']);
+
+// 杀手级时刻节点集合：进入这些节点时触发四维特效（视觉+音效+文案+压力）
+// 复赛核心记忆点——评委10分钟后只能记住1-2个瞬间，这些瞬间必须做到惊艳
+// act6_night: 6亿欠款·空办公室的深夜——"最难的不是欠6个亿，是凌晨三点醒来"
+// act6_crash: 资金链断裂·债务从2亿到6亿
+// act_fridge_smash: 砸冰箱维权——一锤成名的起点
+// act7_first_live: 首播前夜——放下身段赚钱还债
+// act6_a: TNT鸟巢演示演砸——理想主义最贵的一次摔跤
+const KILLER_NODES = new Set(['act6_night', 'act6_crash', 'act_fridge_smash', 'act7_first_live', 'act6_a']);
 
 export class GameScene extends Phaser.Scene {
   constructor() { super('GameScene'); }
@@ -50,6 +63,20 @@ export class GameScene extends Phaser.Scene {
     classroom:   { tint: 0xffe8c0, tintAlpha: 0.08, rimColor: 0xffcc66, rimAlpha: 0.12, shadowColor: 0x2a1a0a, shadowAlpha: 0.30, shadowScale: 0.9, warmOverlay: 0.04 },
     lecture:     { tint: 0xffd890, tintAlpha: 0.10, rimColor: 0xffbb44, rimAlpha: 0.15, shadowColor: 0x1a0e00, shadowAlpha: 0.35, shadowScale: 0.8, warmOverlay: 0.06 },
     office:      { tint: 0xd0dce8, tintAlpha: 0.04, rimColor: 0x88aacc, rimAlpha: 0.07, shadowColor: 0x0a0a18, shadowAlpha: 0.25, shadowScale: 0.9, warmOverlay: 0.0 },
+    // 场景变体：人去楼空的夜晚办公室（冷蓝夜色+EXIT灯）
+    office_empty:{ tint: 0x8fa8c8, tintAlpha: 0.10, rimColor: 0x5a8ac0, rimAlpha: 0.12, shadowColor: 0x050810, shadowAlpha: 0.38, shadowScale: 0.85, warmOverlay: 0.0 },
+    // 场景变体：雨夜债务深夜的办公桌（深蓝雨夜+屏幕青光）
+    office_dark: { tint: 0x90b0d0, tintAlpha: 0.08, rimColor: 0x66b8e8, rimAlpha: 0.14, shadowColor: 0x04060c, shadowAlpha: 0.40, shadowScale: 0.85, warmOverlay: 0.0 },
+    // 场景变体：深夜街道（冷蓝夜色，比白天 street 更冷更暗）
+    street_night:{ tint: 0x7090b0, tintAlpha: 0.12, rimColor: 0x4488cc, rimAlpha: 0.12, shadowColor: 0x050810, shadowAlpha: 0.38, shadowScale: 0.85, warmOverlay: 0.0 },
+    // 场景变体：白天忙碌创业办公室（明亮暖阳）
+    office_busy: { tint: 0xfff0d8, tintAlpha: 0.05, rimColor: 0xffdd99, rimAlpha: 0.08, shadowColor: 0x1a1408, shadowAlpha: 0.22, shadowScale: 0.9, warmOverlay: 0.03 },
+    // 场景变体：首播简陋直播间（昏暗暖台灯）
+    livestream_first: { tint: 0xffd090, tintAlpha: 0.10, rimColor: 0xffaa44, rimAlpha: 0.12, shadowColor: 0x100800, shadowAlpha: 0.35, shadowScale: 0.85, warmOverlay: 0.05 },
+    // 场景变体：90年代小城白天老街（明亮暖阳）
+    street_day:  { tint: 0xffe8c0, tintAlpha: 0.06, rimColor: 0xffcc66, rimAlpha: 0.10, shadowColor: 0x2a1a0a, shadowAlpha: 0.25, shadowScale: 0.9, warmOverlay: 0.04 },
+    // 场景变体：巨型体育馆（深蓝夜色+金色舞台光）
+    stage_arena: { tint: 0xffc870, tintAlpha: 0.12, rimColor: 0xffaa33, rimAlpha: 0.20, shadowColor: 0x0a0600, shadowAlpha: 0.40, shadowScale: 0.7, warmOverlay: 0.08 },
     stage:       { tint: 0xffc870, tintAlpha: 0.12, rimColor: 0xffaa33, rimAlpha: 0.20, shadowColor: 0x0a0600, shadowAlpha: 0.40, shadowScale: 0.7, warmOverlay: 0.08 },
     livestream:  { tint: 0xf0f4ff, tintAlpha: 0.06, rimColor: 0x88ccff, rimAlpha: 0.12, shadowColor: 0x0a0a1a, shadowAlpha: 0.25, shadowScale: 0.9, warmOverlay: 0.03 },
     lab:         { tint: 0xd8e4f0, tintAlpha: 0.04, rimColor: 0x77aadd, rimAlpha: 0.07, shadowColor: 0x081018, shadowAlpha: 0.25, shadowScale: 0.9, warmOverlay: 0.0 },
@@ -72,10 +99,15 @@ export class GameScene extends Phaser.Scene {
   })();
 
   preload() {
-    // 懒加载策略：首屏只加载序章必需资源（classroom 场景 + standing 立绘）
+    // 懒加载策略：首屏只加载序章 + 第一章必需资源
+    // - classroom + standing：序章教室场景
+    // - young：第一章青年立绘（_inferMood 规则：youth/teacher 阶段强制用 young）
+    // - office：第二章办公室场景（提前预读，避免章节切换卡顿）
     // 其余资源在 _renderNode 时按需加载 + _preloadAdjacentScenes 后台预读
     this.load.image('bg-classroom', 'assets/characters/scene-classroom-v2.webp');
     this.load.image('char-standing', 'assets/characters/luo-standing-v2-nobg.webp');
+    this.load.image('char-young', 'assets/characters/luo-young-v2-nobg.webp');
+    this.load.image('bg-office', 'assets/characters/scene-office-v2.webp');
   }
 
   // === 资源懒加载辅助 ===
@@ -150,9 +182,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * 后台预读当前节点选项指向的下一节点场景资源（fire-and-forget，不阻塞渲染）。
-   * 玩家点选项时，对应场景图通常已在缓存中，切换无感知。
+   * 后台预读当前节点选项指向的下一节点资源（fire-and-forget，不阻塞渲染）。
+   * 玩家点选项时，对应场景图 + 角色立绘通常已在缓存中，切换无感知。
    * 同一节点最多预读 N 个相邻场景（默认上限 4，避免一次性触发过多请求）。
+   *
+   * 优化：除场景背景外，同时预读角色姿态立绘，
+   * 避免 _renderNode → _ensureCharacterTexture 的现场加载卡顿。
    */
   _preloadAdjacentScenes(node) {
     if (!node.choices || !node.choices.length) return;
@@ -165,10 +200,39 @@ export class GameScene extends Phaser.Scene {
       if (!nextNode || !nextNode.sceneType) continue;
       if (seen.has(nextNode.sceneType)) continue;
       seen.add(nextNode.sceneType);
-      // 仅触发加载，不等待完成
+      // 预读场景背景
       this._ensureSceneTexture(nextNode.sceneType);
+      // 预读角色姿态：复用 _resolveEffectivePose 逻辑推断下一节点姿态
+      const nextPose = this._predictNodePose(c.next, nextNode);
+      if (nextPose) this._ensureCharacterTexture(nextPose);
       count++;
     }
+  }
+
+  /**
+   * 预测给定节点的角色姿态（用于预读，避免与 _renderNode 的 _inferMood 重复耦合）。
+   * 简化版推断：mood > livestream > 阶段推断 > 默认 standing
+   * 不做 state 属性推断（pressure/failures），因为预读时 state 可能尚未变化。
+   * @param {string} nodeId 节点 ID（用于阶段推断）
+   * @param {object} node 目标节点对象
+   * @returns {string|null} 姿态名（如 'young'/'middle'/'livestream'），null 表示用 standing
+   */
+  _predictNodePose(nodeId, node) {
+    if (!node) return null;
+    // 1. 节点显式 mood 优先
+    if (node.mood) return node.mood;
+    // 2. 直播场景固定立绘
+    if (node.sceneType === 'livestream') return 'livestream';
+    // 3. 阶段推断：简化版（不查 state，仅按节点 ID 归属阶段）
+    const stage = getStageByNodeId(nodeId);
+    if (stage) {
+      const earlyStages = new Set(['youth', 'teacher']);
+      const middleStages = new Set(['startup', 'dark', 'repay', 'reborn']);
+      if (earlyStages.has(stage.id)) return 'young';
+      if (middleStages.has(stage.id)) return 'middle';
+    }
+    // 4. 默认 standing
+    return 'standing';
   }
 
   init(data) {
@@ -208,6 +272,27 @@ export class GameScene extends Phaser.Scene {
     this._firstChoiceTime = null;
     this._lastChoiceTime = null;
     this._totalChoicesMade = 0;
+
+    // 原生 setTimeout 引用列表（_onShutdown 时集中清理，防止场景切换后回调引用已销毁对象）
+    this._pendingTimeouts = [];
+  }
+
+  /**
+   * 安全注册原生 setTimeout 并跟踪引用，_onShutdown 时自动清理
+   * 用于阶段结算/检定动画/成就弹窗等需要在场景切换时取消的回调
+   * @param {Function} fn 回调函数
+   * @param {number} delay 延迟毫秒
+   * @returns {number} setTimeout id
+   */
+  _trackedTimeout(fn, delay) {
+    const id = setTimeout(() => {
+      // 回调触发时从列表中移除自身引用
+      const idx = this._pendingTimeouts.indexOf(id);
+      if (idx >= 0) this._pendingTimeouts.splice(idx, 1);
+      try { fn(); } catch (e) { /* 场景已销毁时静默忽略 */ }
+    }, delay);
+    this._pendingTimeouts.push(id);
+    return id;
   }
 
   /**
@@ -750,7 +835,11 @@ export class GameScene extends Phaser.Scene {
       'classroom': 'sitting', 'lecture': 'speaking', 'office': 'sitting',
       'stage': 'speaking', 'livestream': 'sitting', 'lab': 'standing',
       'podcast': 'sitting', 'street': 'standing', 'ending': 'standing',
-      'fridge_smash': 'angry', 'talkshow': 'speaking', 'court': 'standing'
+      'fridge_smash': 'angry', 'talkshow': 'speaking', 'court': 'standing',
+      // 场景变体沿用基础场景的姿态
+      'office_empty': 'sitting', 'office_dark': 'sitting', 'street_night': 'standing',
+      'office_busy': 'sitting', 'livestream_first': 'sitting',
+      'street_day': 'standing', 'stage_arena': 'speaking'
     };
     const pose = poseMap[node.sceneType] || 'standing';
     const mood = this._inferMood(node);
@@ -764,6 +853,16 @@ export class GameScene extends Phaser.Scene {
 
     // 资源就绪后开始渲染（PixelRenderer 仍会兜底处理意外缺失的纹理）
     this.pixelRenderer.drawBackground(node.sceneType);
+
+    // 关键冲击场景：触发 1-2 帧白闪，增强转场冲击感（落实 memory 硬约束）
+    if (FLASH_SCENES.has(node.sceneType)) {
+      this.pixelRenderer.flashScreen(0.15);
+    }
+
+    // 杀手级时刻：进入标记节点时触发四维特效（复赛核心记忆点）
+    if (KILLER_NODES.has(this.state.currentNode)) {
+      this._triggerKillerMoment(this.state.currentNode);
+    }
 
     const targetTexture = this._resolveMoodTexture(mood, pose);
 
@@ -793,7 +892,7 @@ export class GameScene extends Phaser.Scene {
     this.dialog.show(displayName, resolvedText, () => {
       if (node.choices && node.choices.length > 0) {
         // 选项中的"罗远"也做同样替换
-        let resolvedChoices = node.choices.map(c => ({
+        const resolvedChoices = node.choices.map(c => ({
           ...c,
           label: this._replaceCharacterNameInText(c.label || c, this.state.currentNode)
         }));
@@ -839,6 +938,209 @@ export class GameScene extends Phaser.Scene {
       return '◉ 洞察人心：你压力极高，旁人察觉到你的紧绷，言语间多了几分试探。';
     }
     return '◉ 洞察人心：众人的态度不咸不淡，仍在观望。';
+  }
+
+  /**
+   * 杀手级时刻：触发四维特效（复赛核心记忆点）
+   * - 视觉：白闪 + 强震动 + 压力暗角全开
+   * - 音效：BGM 骤停 + 心跳声加速 + 闷响
+   * - 文案：AI 动态点评（根据玩家属性组合生成不同文案）
+   * - 压力：临时拉满压力可视化
+   */
+  _triggerKillerMoment(nodeId) {
+    // 防抖：同一节点短时间内不重复触发
+    if (this._lastKillerNode === nodeId) return;
+    this._lastKillerNode = nodeId;
+
+    // === 视觉维度 ===
+    // 1. 白闪（比普通 FLASH_SCENES 更强，0.25s）
+    if (this.pixelRenderer) {
+      this.pixelRenderer.flashScreen(0.25);
+    }
+    // 2. 强震动（8px, 400ms，比 shakeHard 略长）
+    if (this.transition) {
+      this.transition.shake(10, 400);
+    }
+    // 3. 压力暗角全开（临时模拟压力爆表；基准值与主流程一致为 10）
+    if (this.pixelRenderer) {
+      this.pixelRenderer.updatePressureEffect(10, 10);
+    }
+
+    // === 音效维度 ===
+    if (this.audio) {
+      // 1. BGM 骤停
+      this.audio.stopBGM();
+
+      // 2. 心跳声：3 次低频脉冲，模拟紧张心跳加速
+      //    复用 _playTone，低频 sawtooth 模拟心脏跳动
+      const heartbeats = [0, 300, 600];
+      heartbeats.forEach((delay, i) => {
+        this.time.delayedCall(delay, () => {
+          if (!this.audio || !this.audio.enabled) return;
+          // 心跳双拍：lub-dub
+          this.audio._playTone(60, 0.12, 'sawtooth', 0.08);
+          this.time.delayedCall(150, () => {
+            if (this.audio && this.audio.enabled) {
+              this.audio._playTone(50, 0.08, 'sawtooth', 0.06);
+            }
+          });
+        });
+      });
+
+      // 3. 闷响：心跳结束后一声低频闷响，象征"6亿"砸下来
+      this.time.delayedCall(1000, () => {
+        if (!this.audio || !this.audio.enabled) return;
+        this.audio._playTone(40, 0.6, 'sawtooth', 0.12);
+      });
+    }
+
+    // === AI 动态点评维度（复赛创新性核心记忆点）===
+    // 根据玩家当前属性组合，生成不同的"老罗语录"式点评
+    // 让同一节点在不同周目呈现不同解读，提升复玩价值与"AI 洞察"感
+    const commentary = this._generateKillerCommentary(nodeId, this.state);
+    if (commentary) {
+      // 闷响结束后 500ms 显示点评（与音效错开，避免信息过载）
+      this.time.delayedCall(1500, () => {
+        const echoEl = document.getElementById('life-echo');
+        if (echoEl) {
+          echoEl.textContent = commentary;
+          echoEl.classList.add('show', 'killer');
+          // 5 秒后淡出（比普通 echo 多 2 秒，强化仪式感）
+          this.time.delayedCall(5000, () => {
+            echoEl.classList.remove('show', 'killer');
+          });
+        }
+        // 语音朗读（如启用）：延迟 300ms 等文字先出现
+        this.time.delayedCall(300, () => {
+          if (this.audio && this.audio.enabled) {
+            try { this.audio.speak(commentary); } catch (e) {}
+          }
+        });
+      });
+    }
+
+    // === 压力维度恢复：3 秒后恢复真实压力值 ===
+    // 注意基准值为 10（与主流程一致），误用 100 会导致压力特效被错误关闭
+    this.time.delayedCall(3000, () => {
+      if (this.pixelRenderer && this.state) {
+        const realPressure = this.state.pressure || 0;
+        this.pixelRenderer.updatePressureEffect(realPressure, 10);
+      }
+    });
+  }
+
+  /**
+   * 根据玩家属性组合生成杀手级时刻的 AI 动态点评文案。
+   * 同一节点在不同周目/不同玩家手中呈现不同解读，
+   * 这是复赛"创新性"维度的核心记忆点——评委看到的不是固定脚本，
+   * 而是基于玩家行为的"AI 洞察"。
+   *
+   * 设计原则：
+   * - 优先用玩家可感知的可见属性（pride/wealth/reputation/failures）
+   * - pressure 作为辅助判断（隐藏属性但可展开查看）
+   * - 每个分支文案呼应节点主题，但角度因属性而异
+   *
+   * @param {string} nodeId 杀手级节点 ID
+   * @param {object} state 当前游戏状态
+   * @returns {string} 点评文案（空字符串表示无点评）
+   */
+  _generateKillerCommentary(nodeId, state) {
+    const pride = state.pride || 0;
+    const wealth = state.wealth || 0;
+    const pressure = state.pressure || 0;
+    const failures = state.failures || 0;
+    const reputation = state.reputation || 0;
+
+    if (nodeId === 'act6_night') {
+      // 6 亿欠款深夜：根据玩家此刻的"人格画像"给出不同注解
+      // 优先级 1：理想未灭 + 压力爆表 → 倔强的殉道者
+      if (pride >= 6 && pressure >= 7) {
+        return '◉ AI 洞察：压力已到临界，理想却未熄灭——这种倔强，是创业者的毒药，也是解药。能扛过今晚的人，才配谈明天。';
+      }
+      // 优先级 2：理想崩塌 + 压力高 → 濒临放弃的悬崖
+      if (pride <= 3 && pressure >= 6) {
+        return '◉ AI 洞察：理想已熄，压力满载——你离崩溃只差这一个深夜。此刻的每一个选择，都会被余生反复回放。';
+      }
+      // 优先级 3：财富见底 → 现实的窒息感
+      if (wealth <= 1) {
+        return '◉ AI 洞察：账上所剩无几，6 亿是远景，明天的房租才是近景。最压垮人的从来不是大数字，是小数字。';
+      }
+      // 优先级 4：连环翻车 → 伤痕即勋章
+      if (failures >= 3) {
+        return '◉ AI 洞察：失败次数已无法计算——但每一次翻车，都在为下一次起飞交学费。只是这次的学费，是 6 亿。';
+      }
+      // 优先级 5：名声尚在 → 最后的筹码
+      if (reputation >= 7) {
+        return '◉ AI 洞察：6 亿债务之外，你还有名声——这是此刻唯一能换成现金的东西。保住它，就保住了翻盘的入场券。';
+      }
+      // 优先级 6：众叛亲离 → 最深的孤独
+      if (reputation <= 3) {
+        return '◉ AI 洞察：众叛亲离的深夜，连催债电话都成了唯一还有人记得你的证据。孤独比债务更重。';
+      }
+      // 兜底：普世注解
+      return '◉ AI 洞察：凌晨三点的办公室，6 亿债务压在胸口——这一夜，注定无眠。而明天，还得继续。';
+    }
+
+    if (nodeId === 'act6_crash') {
+      // 资金链断裂·债务从2亿到6亿
+      if (wealth <= 2) {
+        return '◉ AI 洞察：断裂前你早已身无分文——压垮你的不是最后一根稻草，是你把每一根稻草都烧给了理想。';
+      }
+      if (pride >= 7) {
+        return '◉ AI 洞察：TNT 是你赌上一切的"下一张"。骄傲让你敢在鸟巢开火，也让你看不见弹药已空。';
+      }
+      if (reputation >= 6) {
+        return '◉ AI 洞察：供应商还愿意坐下来听你说话，是因为你过去从没赖过账。信用，是你此刻唯一的现金流。';
+      }
+      if (failures >= 3) {
+        return '◉ AI 洞察：这不是你第一次坠落，却是最深的一次。过去每一次爬起，都是为这一次准备的。';
+      }
+      return '◉ AI 洞察：从估值 26 亿到账上 20 万，只用了一年。崩塌从不提前打招呼。';
+    }
+
+    if (nodeId === 'act_fridge_smash') {
+      // 砸冰箱维权
+      if (pride >= 6) {
+        return '◉ AI 洞察：这一锤砸下去，有人看到冲动，有人看到态度。你砸的不是冰箱，是"消费者只能忍"的潜规则。';
+      }
+      if (reputation >= 6) {
+        return '◉ AI 洞察：名人维权的代价是放大镜——这一锤会被记住十年，用得好是勋章，用不好是枷锁。';
+      }
+      if (pressure >= 6) {
+        return '◉ AI 洞察：压力之下的爆发最痛快也最危险。这一锤之后，你得用十倍的冷静来收场。';
+      }
+      return '◉ AI 洞察：锤子落下的一刻，维权和表演就再也分不开了。';
+    }
+
+    if (nodeId === 'act7_first_live') {
+      // 首播前夜·放下身段
+      if (pride >= 6) {
+        return '◉ AI 洞察：一个曾经的 CEO 对着手机镜头练话术——放下面子赚钱，是你骄傲过的证据，也是你成熟了的证据。';
+      }
+      if (pressure >= 6) {
+        return '◉ AI 洞察：6 亿在身后，镜头在眼前。这场直播没有彩排，因为生活从不给你 NG 的机会。';
+      }
+      if (failures >= 3) {
+        return '◉ AI 洞察：翻车这么多次，终于有一次观众是等着看你翻的——这本身，就成了流量。';
+      }
+      return '◉ AI 洞察：三天三夜选品，是怕对不起"罗老师"三个字，还是怕对不起自己？';
+    }
+
+    if (nodeId === 'act6_a') {
+      // TNT鸟巢演示演砸
+      if (pride >= 7) {
+        return '◉ AI 洞察：你坚持把未完成的梦想搬上鸟巢——理想主义最贵的地方，就是它从不开发票。';
+      }
+      if (reputation <= 3) {
+        return '◉ AI 洞察：嘘声响起时，体面和尊严只能选一个带走。你留在台上继续演示——这就是你。';
+      }
+      if (failures >= 3) {
+        return '◉ AI 洞察："理解万岁"救不了场，但它会成为你日后最贵的段子。有些失败，要很多年后才能兑换成掌声。';
+      }
+      return '◉ AI 洞察：八万人看着你演示一个还没准备好的未来。这一晚之后，"下一张"成了最昂贵的口头禅。';
+    }
+
+    return '';
   }
 
   /**
@@ -1027,6 +1329,8 @@ export class GameScene extends Phaser.Scene {
     } else {
       this._charGlow.setTexture(sprite.texture.key);
     }
+    // 光晕与角色立绘共用纹理，保持线性过滤避免锯齿
+    this._charGlow.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
 
     const light = this._charLighting;
     if (light) {
@@ -1090,6 +1394,8 @@ export class GameScene extends Phaser.Scene {
     newSprite.setDepth(oldSprite.depth);
     newSprite.setOrigin(0.5, 1);
     newSprite.setAlpha(0);
+    // AI 立绘纹理使用线性过滤，避免缩放锯齿
+    newSprite.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
 
     this._applyCharacterLayout(newSprite, pose);
     this._startCharacterTalkTween(newSprite, pose);
@@ -1234,8 +1540,9 @@ export class GameScene extends Phaser.Scene {
     // 3. 根据阶段推断年龄立绘：早期用 young，中后期用 middle
     const stage = getStageByNodeId(this.state.currentNode);
     if (stage) {
-      const earlyStages = new Set(['youth', 'teacher', 'startup']);
-      const middleStages = new Set(['dark', 'repay', 'reborn']);
+      // startup(锤子科技 2012-2018) 主角已 40+ 岁，应归中年组，原归入 earlyStages 会导致该阶段全程显示少年立绘
+      const earlyStages = new Set(['youth', 'teacher']);
+      const middleStages = new Set(['startup', 'dark', 'repay', 'reborn']);
       if (earlyStages.has(stage.id)) {
         // 年轻阶段：如果没有显式 mood 覆盖情绪，用 young 立绘
         if (!node.mood && node.sceneType !== 'livestream') return 'young';
@@ -1427,7 +1734,7 @@ export class GameScene extends Phaser.Scene {
         attrsContainer.appendChild(attrEl);
 
         // 延迟播放属性条动画
-        setTimeout(() => {
+        this._trackedTimeout(() => {
           const newBar = attrEl.querySelector('.ui-settlement-attr-bar-new');
           if (newBar) newBar.style.width = `${newPct}%`;
         }, 600 + changeIdx * 200);
@@ -1455,7 +1762,7 @@ export class GameScene extends Phaser.Scene {
         achievementsContainer.appendChild(achEl);
 
         // 延迟逐个展示成就弹窗
-        setTimeout(() => {
+        this._trackedTimeout(() => {
           achEl.classList.add('visible');
           // 成就解锁音效
           try {
@@ -1533,7 +1840,7 @@ export class GameScene extends Phaser.Scene {
       overlay.classList.remove('visible');
       overlay.classList.add('closing');
 
-      setTimeout(() => {
+      this._trackedTimeout(() => {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
 
         // 检查远期标记后果
@@ -1590,7 +1897,7 @@ export class GameScene extends Phaser.Scene {
       bar.classList.remove('stat-flash-up', 'stat-flash-down');
       void bar.offsetWidth;
       bar.classList.add(delta > 0 ? 'stat-flash-up' : 'stat-flash-down');
-      setTimeout(() => bar.classList.remove('stat-flash-up', 'stat-flash-down'), 600);
+      this._trackedTimeout(() => bar.classList.remove('stat-flash-up', 'stat-flash-down'), 600);
     } catch(e) {}
   }
 
@@ -1621,7 +1928,7 @@ export class GameScene extends Phaser.Scene {
     if (echoEl) {
       echoEl.textContent = echoText;
       echoEl.classList.add('show');
-      setTimeout(() => echoEl.classList.remove('show'), 3000);
+      this._trackedTimeout(() => echoEl.classList.remove('show'), 3000);
     }
   }
 
@@ -1972,7 +2279,7 @@ export class GameScene extends Phaser.Scene {
             this.meta.addAchievementScore(combo.score);
           }
           // 延迟显示，避免与普通成就弹窗冲突
-          setTimeout(() => {
+          this._trackedTimeout(() => {
             try {
               this.achievementPopup.show(combo.name, combo.icon, true);
               try { this.audio.playAchievementLegendary(); } catch(e) {}
@@ -2082,7 +2389,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     // 1秒后显示结果
-    setTimeout(() => {
+    this._trackedTimeout(() => {
       const content = overlay.querySelector('.check-animation-content');
       if (!content) return;
       const resultText = passed ? '检定成功！' : '检定失败';
@@ -2094,10 +2401,10 @@ export class GameScene extends Phaser.Scene {
     }, 1000);
 
     // 1.8秒后淡出并调用回调（总时长不超过2秒）
-    setTimeout(() => {
+    this._trackedTimeout(() => {
       overlay.classList.remove('visible');
       overlay.classList.add('closing');
-      setTimeout(() => {
+      this._trackedTimeout(() => {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
         callback();
       }, 200);
@@ -2443,8 +2750,27 @@ export class GameScene extends Phaser.Scene {
       try { this.audio.fadeOutBGM(1.0); } catch(e) {}
     }
 
+    // 预读结局专属插图（避免结局页加载卡顿）
+    // 结局图在 EndingScene 中由 PixelRenderer.drawBackground 绘制，
+    // 提前用 Phaser load 预读到纹理缓存，场景切换时直接可用
+    this._preloadEndingScene(endingKey);
+
     try { this.debug.logEnding(endingKey, this.state); } catch(e) {}
     this.scene.start('EndingScene', { state: this.state, ending: endingKey });
+  }
+
+  /**
+   * 预读结局场景专属插图（fire-and-forget）。
+   * 根据 endingKey 查 ENDING_SCENE_MAP 获取场景 type，再触发纹理加载。
+   * 加载未完成时进入 EndingScene，PixelRenderer 会用 Graphics 兜底，不影响展示。
+   * @param {string} endingKey 结局 ID
+   */
+  _preloadEndingScene(endingKey) {
+    const sceneType = ENDING_SCENE_MAP[endingKey] || 'ending';
+    // 复用 _ensureSceneTexture 预读（已内置去重和失败兜底）
+    this._ensureSceneTexture(sceneType);
+    // 同时预读通用 ending 背景（兜底场景）
+    this._ensureSceneTexture('ending');
   }
 
   /**
@@ -2490,19 +2816,19 @@ export class GameScene extends Phaser.Scene {
     const box = document.createElement('div');
     box.style.cssText = [
       'background: #1a1a2e',
-      'border: 2px solid #f0c040',
+      'border: 2px solid var(--color-gold)',
       'border-radius: 6px',
       'padding: 20px',
       'max-width: 90vw',
       'max-height: 80vh',
       'overflow-y: auto',
       'box-shadow: 0 0 30px rgba(240, 192, 64, 0.3)',
-      'color: #f0c040'
+      'color: var(--color-gold)'
     ].join(';');
 
     const title = document.createElement('div');
     title.textContent = '♪ 配音音色切换';
-    title.style.cssText = 'font-size: 14px; color: #f0c040; margin-bottom: 14px; text-align: center; font-weight: 700;';
+    title.style.cssText = 'font-size: 14px; color: var(--color-gold); margin-bottom: 14px; text-align: center; font-weight: 700;';
     box.appendChild(title);
 
     const presets = Object.values(VOICE_PRESETS);
@@ -2524,12 +2850,12 @@ export class GameScene extends Phaser.Scene {
       left.style.cssText = 'flex: 1; padding-right: 10px;';
 
       const name = document.createElement('div');
-      name.style.cssText = 'font-size: 12px; color: #f0c040; font-weight: 700; margin-bottom: 3px;';
+      name.style.cssText = 'font-size: 12px; color: var(--color-gold); font-weight: 700; margin-bottom: 3px;';
       name.textContent = (preset.key === currentKey ? '★ ' : '') + preset.label;
       left.appendChild(name);
 
       const desc = document.createElement('div');
-      desc.style.cssText = 'font-size: 10px; color: #9a8a6a; line-height: 1.4;';
+      desc.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); line-height: 1.4;';
       desc.textContent = preset.desc;
       left.appendChild(desc);
 
@@ -2538,7 +2864,7 @@ export class GameScene extends Phaser.Scene {
       // 试听按钮
       const previewBtn = document.createElement('button');
       previewBtn.textContent = '试听';
-      previewBtn.style.cssText = 'background: rgba(120, 80, 30, 0.4); color: #f0c040; border: 1px solid #c09830; padding: 6px 10px; font-size: 10px; cursor: pointer; margin-left: 8px; font-family: inherit;';
+      previewBtn.style.cssText = 'background: rgba(120, 80, 30, 0.4); color: var(--color-gold); border: 1px solid var(--color-gold-border); padding: 6px 10px; font-size: 10px; cursor: pointer; margin-left: 8px; font-family: inherit;';
       previewBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         audio.previewVoicePreset(preset.key);
@@ -2549,8 +2875,8 @@ export class GameScene extends Phaser.Scene {
       const applyBtn = document.createElement('button');
       applyBtn.textContent = preset.key === currentKey ? '当前' : '应用';
       applyBtn.style.cssText = preset.key === currentKey
-        ? 'background: rgba(120, 120, 120, 0.3); color: #9a8a6a; border: 1px solid #6a5a4a; padding: 6px 10px; font-size: 10px; cursor: default; margin-left: 6px; font-family: inherit;'
-        : 'background: rgba(120, 80, 30, 0.6); color: #f0c040; border: 1px solid #f0c040; padding: 6px 10px; font-size: 10px; cursor: pointer; margin-left: 6px; font-family: inherit;';
+        ? 'background: rgba(120, 120, 120, 0.3); color: var(--color-text-secondary); border: 1px solid var(--color-text-muted); padding: 6px 10px; font-size: 10px; cursor: default; margin-left: 6px; font-family: inherit;'
+        : 'background: rgba(120, 80, 30, 0.6); color: var(--color-gold); border: 1px solid var(--color-gold); padding: 6px 10px; font-size: 10px; cursor: pointer; margin-left: 6px; font-family: inherit;';
       if (preset.key !== currentKey) {
         applyBtn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -2569,7 +2895,7 @@ export class GameScene extends Phaser.Scene {
     // 关闭按钮
     const closeBtn = document.createElement('button');
     closeBtn.textContent = '✕ 关闭';
-    closeBtn.style.cssText = 'display: block; margin: 14px auto 0; background: transparent; color: #9a8a6a; border: 1px solid #6a5a4a; padding: 8px 16px; font-size: 11px; cursor: pointer; font-family: inherit;';
+    closeBtn.style.cssText = 'display: block; margin: 14px auto 0; background: transparent; color: var(--color-text-secondary); border: 1px solid var(--color-text-muted); padding: 8px 16px; font-size: 11px; cursor: pointer; font-family: inherit;';
     closeBtn.addEventListener('click', () => this._closeQuickVoicePanel());
     box.appendChild(closeBtn);
 
@@ -2621,6 +2947,14 @@ export class GameScene extends Phaser.Scene {
     if (this._settlementTimer) {
       clearInterval(this._settlementTimer);
       this._settlementTimer = null;
+    }
+
+    // 清理所有挂起的原生 setTimeout（防止场景切换后回调引用已销毁对象）
+    if (this._pendingTimeouts && this._pendingTimeouts.length > 0) {
+      for (const id of this._pendingTimeouts) {
+        clearTimeout(id);
+      }
+      this._pendingTimeouts = [];
     }
 
     // 清理 PixelRenderer（Graphics/Sprite/纹理）

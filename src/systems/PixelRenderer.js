@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 import { COLORS, UI_COLORS, GAME_WIDTH, GAME_HEIGHT } from '../config.js';
 import { TALENTS } from '../data/talents.js';
 import {
@@ -35,26 +36,6 @@ function initPool() {
 }
 initPool();
 
-function acquireParticle() {
-  // O(1) 从 free list 栈顶取空闲粒子
-  if (freeList.length > 0) {
-    const idx = freeList.pop();
-    const p = particlePool[idx];
-    p.active = true;
-    return p;
-  }
-  // 池满：强制回收最旧的活跃粒子（遍历找 life 最小的）
-  let minLife = Infinity;
-  let victimIdx = 0;
-  for (let i = 0; i < POOL_SIZE; i++) {
-    if (particlePool[i].life < minLife) {
-      minLife = particlePool[i].life;
-      victimIdx = i;
-    }
-  }
-  return particlePool[victimIdx];
-}
-
 // 归还粒子到池（O(1)，通过 _idx 直接定位）
 function releaseParticle(p) {
   p.active = false;
@@ -68,6 +49,30 @@ const BG_PARTICLE_MIN_SIZE = 1;
 const BG_PARTICLE_MAX_SIZE = 5;
 const BG_PARTICLE_MIN_SPEED = 8;
 const BG_PARTICLE_MAX_SPEED = 25;
+
+// ---- 场景环境粒子模式 ----
+// 让粒子随场景氛围变化：办公室慢尘、雨夜雨丝、舞台光尘、直播间弹幕式横漂
+// move: 运动方向 up/down/side；speedMul: 速度倍率；color: 粒子颜色；
+// alphaMul: 透明度倍率；streak: 是否画成竖条（雨丝）
+const PARTICLE_MODES = {
+  dust:        { move: 'up',   speedMul: 1.0,  color: 0xf0c040, alphaMul: 1.0,  streak: false },
+  dust_dim:    { move: 'up',   speedMul: 0.45, color: 0x7a8aaa, alphaMul: 0.55, streak: false },
+  dust_bright: { move: 'up',   speedMul: 1.2,  color: 0xffe8b0, alphaMul: 1.25, streak: false },
+  rain:        { move: 'down', speedMul: 14,   color: 0x7fb8e8, alphaMul: 0.75, streak: true },
+  float_side:  { move: 'side', speedMul: 3.2,  color: 0x88ccff, alphaMul: 0.9,  streak: false },
+  sparkle:     { move: 'up',   speedMul: 0.7,  color: 0xffd870, alphaMul: 1.35, streak: false }
+};
+
+// 场景类型 → 粒子模式映射
+const SCENE_PARTICLE_MODES = {
+  classroom: 'dust', lecture: 'dust', podcast: 'dust', ending: 'sparkle',
+  office: 'dust_dim', office_empty: 'dust_dim', lab: 'dust_dim', court: 'dust_dim',
+  street: 'dust_dim', street_night: 'dust_dim',
+  office_busy: 'dust_bright', street_day: 'dust_bright',
+  office_dark: 'rain',
+  stage: 'sparkle', stage_arena: 'sparkle', talkshow: 'sparkle', fridge_smash: 'sparkle',
+  livestream: 'float_side', livestream_first: 'float_side'
+};
 
 export class PixelRenderer {
   constructor(scene) {
@@ -87,6 +92,8 @@ export class PixelRenderer {
     this.bgSprite = null;
     this.charSprite = null;
     this.currentPose = null;
+    this._particleMode = 'dust'; // 当前环境粒子模式
+    this._bgFadeTween = null;    // 背景淡入动画
 
     // ---- 背景漂浮粒子 ----
     this.bgParticles = [];
@@ -129,6 +136,31 @@ export class PixelRenderer {
     for (let i = 0; i < BG_PARTICLE_COUNT; i++) {
       this.bgParticles.push(this._createBgParticle());
     }
+  }
+
+  /**
+   * 切换环境粒子模式（场景氛围），见 PARTICLE_MODES / SCENE_PARTICLE_MODES
+   * @param {string} mode dust/dust_dim/dust_bright/rain/float_side/sparkle
+   */
+  setParticleMode(mode) {
+    if (!PARTICLE_MODES[mode] || this._particleMode === mode) return;
+    this._particleMode = mode;
+  }
+
+  /**
+   * 场景切换时背景淡入，避免硬切造成视觉跳跃。
+   * 快速连续切换时停止旧动画，防止 tween 叠加。
+   */
+  _fadeInBackground() {
+    if (!this.bgSprite) return;
+    if (this._bgFadeTween) this._bgFadeTween.stop();
+    this.bgSprite.setAlpha(0);
+    this._bgFadeTween = this.scene.tweens.add({
+      targets: this.bgSprite,
+      alpha: 1,
+      duration: 350,
+      ease: 'Sine.easeOut'
+    });
   }
 
   _createBgParticle(fromBottom = false) {
@@ -189,7 +221,7 @@ export class PixelRenderer {
    * @param {object} ending - 结局数据
    * @returns {HTMLCanvasElement} 渲染完成的 Canvas
    */
-  static renderShareCard(state, ending) {
+  static renderShareCard(state, ending, meta = {}) {
     const W = 600;
     const H = 900;
     const canvas = document.createElement('canvas');
@@ -197,13 +229,35 @@ export class PixelRenderer {
     canvas.height = H;
     const ctx = canvas.getContext('2d');
 
-    const accentColor = '#f0c040';
+    // === 氛围色系统：根据结局类型选择主色调 ===
+    const endingKey = meta.endingKey || 'default';
+    const THEME = {
+      legend: '#f0c040', idealist: '#f0c040', craftsman: '#f0c040', returns: '#f0c040',
+      warrior: '#ff6b3d', phoenix: '#ff6b3d', comeback: '#ff6b3d', survivor: '#ff6b3d',
+      tycoon: '#40c060', anchor: '#40c060', venture_capitalist: '#40c060',
+      balance: '#4090e0', peace: '#4090e0', moderate_success: '#4090e0',
+      monk: '#8040c0', hermit: '#8040c0',
+      educator: '#40c8c8', writer: '#40c8c8', mentor: '#40c8c8', philanthropist: '#40c8c8',
+      talkshow_star: '#ff6b9d', influencer: '#ff6b9d', tech_blogger: '#ff6b9d',
+      rights_fighter: '#e04040', rational: '#e04040',
+      scapegoat: '#c06060', bankrupt_early: '#c06060', escape: '#c06060', supply_chain: '#c06060',
+      ordinary: '#9a8a6a', scholar: '#9a8a6a', comfort: '#9a8a6a', retreat: '#9a8a6a', xiaomi: '#9a8a6a', ai_visionary: '#9a8a6a',
+      default: '#f0c040'
+    };
+    const accentColor = THEME[endingKey] || THEME.default;
+
+    const hexToRgba = (hex, alpha) => {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+    };
+
     const dimColor = '#9a8a6a';
     const gridColor = '#1a1a2e';
     const bgColor = '#0a0a1a';
     const fontFamily = '"Microsoft YaHei", "PingFang SC", sans-serif';
 
-    // 圆角矩形辅助函数（兼容性优于 ctx.roundRect）
     const roundRect = (x, y, w, h, r) => {
       ctx.beginPath();
       ctx.moveTo(x + r, y);
@@ -222,8 +276,15 @@ export class PixelRenderer {
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, W, H);
 
+    // 顶部氛围色渐变光晕
+    const topGlow = ctx.createRadialGradient(W / 2, 120, 20, W / 2, 120, 350);
+    topGlow.addColorStop(0, hexToRgba(accentColor, 0.12));
+    topGlow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = topGlow;
+    ctx.fillRect(0, 0, W, 400);
+
     // 像素网格纹理
-    ctx.fillStyle = 'rgba(240, 192, 64, 0.025)';
+    ctx.fillStyle = hexToRgba(accentColor, 0.02);
     for (let x = 0; x < W; x += 4) {
       for (let y = 0; y < H; y += 4) {
         if ((x + y) % 8 === 0) {
@@ -232,37 +293,61 @@ export class PixelRenderer {
       }
     }
 
-    // === 顶部区域 (0-120): 游戏品牌 ===
-    ctx.fillStyle = accentColor;
-    ctx.font = '16px ' + fontFamily;
+    // === 顶部品牌区 (0-70) ===
+    ctx.fillStyle = dimColor;
+    ctx.font = '13px ' + fontFamily;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('真还传 · 人生模拟', W / 2, 50);
+    ctx.fillText('真还传 · 人生模拟', W / 2, 35);
 
-    // 金色装饰线
     ctx.fillStyle = accentColor;
-    ctx.fillRect(W / 2 - 100, 80, 200, 2);
-    ctx.fillRect(W / 2 - 60, 85, 120, 1);
+    ctx.fillRect(W / 2 - 80, 55, 160, 1);
+    ctx.fillRect(W / 2 - 40, 59, 80, 1);
 
-    // === 标题区域 (120-220): 结局标题 ===
-    ctx.fillStyle = accentColor;
-    ctx.font = 'bold 28px ' + fontFamily;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(ending.title || '结局', W / 2, 155);
-
-    // 结局简短描述（前40字符）
-    const desc = (ending.desc || '').substring(0, 40);
-    if (desc) {
+    // === 结局标题区 (70-200) ===
+    const endingIdx = meta.endingIndex || 0;
+    const totalEndings = meta.totalEndings || 35;
+    if (endingIdx > 0) {
       ctx.fillStyle = dimColor;
-      ctx.font = '13px ' + fontFamily;
-      ctx.fillText(desc, W / 2, 195);
+      ctx.font = '11px ' + fontFamily;
+      ctx.fillText('ENDING ' + String(endingIdx).padStart(2, '0') + ' / ' + totalEndings, W / 2, 88);
     }
 
-    // === 雷达图区域 (220-480): 六维属性雷达图 ===
+    const titleText = (ending.title || '结局').replace(/罗远/g, '老罗');
+    ctx.fillStyle = accentColor;
+    ctx.font = 'bold 24px ' + fontFamily;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const titleMaxWidth = 480;
+    const titleLines = [];
+    let titleLine = '';
+    for (let ci = 0; ci < titleText.length; ci++) {
+      const testLine = titleLine + titleText[ci];
+      if (ctx.measureText(testLine).width > titleMaxWidth && titleLine.length > 0) {
+        titleLines.push(titleLine);
+        titleLine = titleText[ci];
+      } else {
+        titleLine = testLine;
+      }
+    }
+    if (titleLine) titleLines.push(titleLine);
+    const titleLineH = 30;
+    const titleStartY = 120 - ((titleLines.length - 1) * titleLineH) / 2;
+    titleLines.forEach((l, i) => {
+      ctx.fillText(l, W / 2, titleStartY + i * titleLineH);
+    });
+
+    const desc = (ending.desc || '').substring(0, 50);
+    if (desc) {
+      ctx.fillStyle = dimColor;
+      ctx.font = '12px ' + fontFamily;
+      ctx.fillText(desc, W / 2, 175);
+    }
+
+    // === 雷达图区 (200-470) ===
     const cx = 300;
-    const cy = 350;
-    const radius = 100;
+    const cy = 340;
+    const radius = 120;
 
     const axes = [
       { label: '理想主义', value: state.pride || 0 },
@@ -272,24 +357,19 @@ export class PixelRenderer {
       { label: '压力', value: state.pressure || 0 },
       { label: '翻车', value: state.failures || 0 }
     ];
-    // 标准化到 0-10（failures 可能大于10，取 min）
     axes.forEach(a => {
       a.normalized = Math.max(0, Math.min(10, a.value));
     });
 
-    // 六边形顶点角度：从正上方开始，每60度一个（-90°, -30°, 30°, 90°, 150°, 210°）
     const angles = [
-      -Math.PI / 2,      // -90° 上
-      -Math.PI / 6,      // -30° 右上
-      Math.PI / 6,       // 30° 右下
-      Math.PI / 2,       // 90° 下
-      5 * Math.PI / 6,   // 150° 左下
-      7 * Math.PI / 6    // 210° 左上
+      -Math.PI / 2, -Math.PI / 6, Math.PI / 6,
+      Math.PI / 2, 5 * Math.PI / 6, 7 * Math.PI / 6
     ];
 
-    // 背景3层同心六边形（网格，暗色）
+    // 背景3层同心六边形（虚线网格）
     ctx.strokeStyle = gridColor;
     ctx.lineWidth = 1;
+    ctx.setLineDash([2, 3]);
     for (let layer = 1; layer <= 3; layer++) {
       const r = radius * layer / 3;
       ctx.beginPath();
@@ -302,8 +382,9 @@ export class PixelRenderer {
       ctx.closePath();
       ctx.stroke();
     }
+    ctx.setLineDash([]);
 
-    // 轴线（从中心到顶点）
+    // 轴线
     ctx.strokeStyle = gridColor;
     ctx.lineWidth = 1;
     for (let i = 0; i < 6; i++) {
@@ -315,7 +396,9 @@ export class PixelRenderer {
       ctx.stroke();
     }
 
-    // 数据多边形（半透明金色填充 + 金色边线）
+    // 数据多边形（发光 + 氛围色填充）
+    ctx.shadowColor = accentColor;
+    ctx.shadowBlur = 12;
     ctx.beginPath();
     for (let i = 0; i < 6; i++) {
       const r = (axes[i].normalized / 10) * radius;
@@ -325,43 +408,46 @@ export class PixelRenderer {
       else ctx.lineTo(x, y);
     }
     ctx.closePath();
-    ctx.fillStyle = 'rgba(240, 192, 64, 0.25)';
+    ctx.fillStyle = hexToRgba(accentColor, 0.25);
     ctx.fill();
     ctx.strokeStyle = accentColor;
     ctx.lineWidth = 2;
     ctx.stroke();
+    ctx.shadowBlur = 0;
 
-    // 数据点（顶点小圆点）
+    // 数据点（发光圆点）
+    ctx.shadowColor = accentColor;
+    ctx.shadowBlur = 6;
     ctx.fillStyle = accentColor;
     for (let i = 0; i < 6; i++) {
       const r = (axes[i].normalized / 10) * radius;
       const x = cx + r * Math.cos(angles[i]);
       const y = cy + r * Math.sin(angles[i]);
       ctx.beginPath();
-      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.shadowBlur = 0;
 
-    // 轴标签（顶点外侧）
+    // 轴标签
     ctx.fillStyle = dimColor;
     ctx.font = '12px ' + fontFamily;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const labelR = radius + 20;
+    const labelR = radius + 22;
     for (let i = 0; i < 6; i++) {
       const x = cx + labelR * Math.cos(angles[i]);
       const y = cy + labelR * Math.sin(angles[i]);
       ctx.fillText(axes[i].label, x, y);
     }
 
-    // === 天赋区域 (480-580): 天赋展示 ===
+    // === 天赋区 (470-590) ===
     ctx.fillStyle = dimColor;
-    ctx.font = '12px ' + fontFamily;
+    ctx.font = '11px ' + fontFamily;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('— 天赋 —', W / 2, 498);
+    ctx.fillText('— 天赋 —', W / 2, 488);
 
-    // 解析 state.talent（逗号分隔的天赋ID字符串）
     let talentStr = state.talent || '';
     if (Array.isArray(talentStr)) talentStr = talentStr.join(',');
     const talentIds = String(talentStr).split(',').map(s => s.trim()).filter(Boolean).slice(0, 3);
@@ -372,29 +458,41 @@ export class PixelRenderer {
       rare: '#4080f0',
       legendary: '#f0c040'
     };
+    const rarityBgColors = {
+      common: 'rgba(154, 154, 154, 0.1)',
+      rare: 'rgba(64, 128, 240, 0.12)',
+      legendary: 'rgba(240, 192, 64, 0.15)'
+    };
 
     if (talents.length > 0) {
-      const cardW = 140;
-      const cardH = 65;
-      const cardGap = 20;
+      const cardW = 150;
+      const cardH = 70;
+      const cardGap = 15;
       const totalCardW = talents.length * cardW + (talents.length - 1) * cardGap;
       const startCardX = (W - totalCardW) / 2;
-      const cardY = 510;
+      const cardY = 502;
 
       talents.forEach((t, i) => {
         const x = startCardX + i * (cardW + cardGap);
         const color = rarityColors[t.rarity] || rarityColors.common;
+        const cardBgColor = rarityBgColors[t.rarity] || rarityBgColors.common;
 
-        // 卡片背景
-        ctx.fillStyle = 'rgba(20, 20, 40, 0.6)';
+        // 卡片背景（稀有度渐变）
+        const cardGrad = ctx.createLinearGradient(x, cardY, x, cardY + cardH);
+        cardGrad.addColorStop(0, cardBgColor);
+        cardGrad.addColorStop(1, 'rgba(20, 20, 40, 0.4)');
+        ctx.fillStyle = cardGrad;
         roundRect(x, cardY, cardW, cardH, 6);
         ctx.fill();
 
-        // 边框（稀有度颜色）
+        // 边框（稀有度颜色，带微光）
         ctx.strokeStyle = color;
         ctx.lineWidth = 1.5;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 4;
         roundRect(x, cardY, cardW, cardH, 6);
         ctx.stroke();
+        ctx.shadowBlur = 0;
 
         // 像素图标
         ctx.fillStyle = color;
@@ -405,23 +503,28 @@ export class PixelRenderer {
 
         // 名称
         ctx.fillStyle = '#e0e0e0';
-        ctx.font = '12px ' + fontFamily;
+        ctx.font = '11px ' + fontFamily;
         ctx.fillText(t.name, x + cardW / 2, cardY + 48);
+
+        // 稀有度标签
+        const rarityLabel = t.rarity === 'legendary' ? '传说' : t.rarity === 'rare' ? '稀有' : '普通';
+        ctx.fillStyle = color;
+        ctx.font = '9px ' + fontFamily;
+        ctx.fillText(rarityLabel, x + cardW / 2, cardY + 62);
       });
     } else {
       ctx.fillStyle = dimColor;
       ctx.font = '12px ' + fontFamily;
-      ctx.fillText('— 无 —', W / 2, 540);
+      ctx.fillText('— 无 —', W / 2, 535);
     }
 
-    // === 金句区域 (580-660): 人生金句 ===
-    const quote = ending.quote || '';
+    // === 金句区 (590-680) ===
+    const quote = (ending.quote || '').replace(/罗远/g, '老罗');
     if (quote) {
-      // 上装饰线
       ctx.fillStyle = accentColor;
-      ctx.fillRect(W / 2 - 80, 590, 160, 1);
+      ctx.fillRect(W / 2 - 80, 600, 160, 1);
+      ctx.fillRect(W / 2 - 60, 604, 120, 1);
 
-      // 金句（斜体，金色，自动换行）
       ctx.fillStyle = accentColor;
       ctx.font = 'italic 15px ' + fontFamily;
       ctx.textAlign = 'center';
@@ -441,18 +544,18 @@ export class PixelRenderer {
       if (line) lines.push(line);
 
       const lineH = 22;
-      const startY = 615 - ((lines.length - 1) * lineH) / 2;
+      const startY = 630 - ((lines.length - 1) * lineH) / 2;
       lines.forEach((l, i) => {
         ctx.fillText(l, W / 2, startY + i * lineH);
       });
 
-      // 下装饰线
       const lastY = startY + (lines.length - 1) * lineH;
       ctx.fillStyle = accentColor;
       ctx.fillRect(W / 2 - 80, lastY + 15, 160, 1);
+      ctx.fillRect(W / 2 - 60, lastY + 19, 120, 1);
     }
 
-    // === 人生关键词区域 (660-740) ===
+    // === 人生关键词区 (680-770) ===
     const keywords = [];
     const sp = state.pride || 0;
     const sw = state.wealth || 0;
@@ -474,14 +577,12 @@ export class PixelRenderer {
     let topKeywords = keywords.slice(0, 4);
     if (topKeywords.length === 0) topKeywords = ['平凡之路'];
 
-    // 区域标题
     ctx.fillStyle = dimColor;
-    ctx.font = '12px ' + fontFamily;
+    ctx.font = '11px ' + fontFamily;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('— 人生关键词 —', W / 2, 680);
+    ctx.fillText('— 人生关键词 —', W / 2, 700);
 
-    // 关键词标签（金色圆角矩形背景，横排居中）
     ctx.font = '13px ' + fontFamily;
     const padX = 12;
     const tagH = 26;
@@ -489,11 +590,11 @@ export class PixelRenderer {
     const widths = topKeywords.map(k => ctx.measureText(k).width + padX * 2);
     const totalTagW = widths.reduce((a, b) => a + b, 0) + (topKeywords.length - 1) * tagGap;
     let tagX = (W - totalTagW) / 2;
-    const tagY = 700;
+    const tagY = 720;
 
     topKeywords.forEach((kw, i) => {
       const w = widths[i];
-      ctx.fillStyle = 'rgba(240, 192, 64, 0.15)';
+      ctx.fillStyle = hexToRgba(accentColor, 0.12);
       roundRect(tagX, tagY, w, tagH, 13);
       ctx.fill();
       ctx.strokeStyle = accentColor;
@@ -509,47 +610,45 @@ export class PixelRenderer {
       tagX += w + tagGap;
     });
 
-    // === 底部区域 (740-900): 行动召唤 ===
+    // === 底部 CTA 区 (770-880) ===
     ctx.fillStyle = '#ffffff';
     ctx.font = '14px ' + fontFamily;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('我在《罗的十字路口》走出了这段人生', W / 2, 775);
+    ctx.fillText('我在《罗的十字路口》走出了这段人生', W / 2, 800);
 
     ctx.fillStyle = accentColor;
     ctx.font = 'bold 18px ' + fontFamily;
-    ctx.fillText('你呢？来试试你的人生', W / 2, 810);
+    ctx.fillText('你呢？来试试你的人生', W / 2, 835);
 
-    // 游戏URL（灰色小字）
+    ctx.fillStyle = accentColor;
+    ctx.fillRect(W / 2 - 60, 855, 120, 1);
+
     ctx.fillStyle = dimColor;
     ctx.font = '11px ' + fontFamily;
-    ctx.fillText('luohammer.pages.dev', W / 2, 870);
+    ctx.fillText('luohammer.pages.dev', W / 2, 875);
 
-    // === 金色像素装饰角（四角） ===
-    const cornerSize = 20;
+    // === 四角装饰（氛围色，加粗） ===
+    const cornerSize = 24;
     const cornerThick = 3;
     ctx.fillStyle = accentColor;
-    // 左上
     ctx.fillRect(16, 16, cornerSize, cornerThick);
     ctx.fillRect(16, 16, cornerThick, cornerSize);
-    // 右上
     ctx.fillRect(W - 16 - cornerSize, 16, cornerSize, cornerThick);
     ctx.fillRect(W - 16 - cornerThick, 16, cornerThick, cornerSize);
-    // 左下
     ctx.fillRect(16, H - 16 - cornerThick, cornerSize, cornerThick);
     ctx.fillRect(16, H - 16 - cornerSize, cornerThick, cornerSize);
-    // 右下
     ctx.fillRect(W - 16 - cornerSize, H - 16 - cornerThick, cornerSize, cornerThick);
     ctx.fillRect(W - 16 - cornerThick, H - 16 - cornerSize, cornerThick, cornerSize);
 
-    // === 外边框（金色，2px） ===
+    // === 外边框（氛围色） ===
     ctx.strokeStyle = accentColor;
     ctx.lineWidth = 2;
     ctx.strokeRect(12, 12, W - 24, H - 24);
 
-    // === CRT 扫描线效果（每隔2px一条半透明水平线） ===
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.06)';
-    for (let y = 0; y < H; y += 2) {
+    // === CRT 扫描线（减淡） ===
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.03)';
+    for (let y = 0; y < H; y += 3) {
       ctx.fillRect(0, y, W, 1);
     }
 
@@ -559,6 +658,9 @@ export class PixelRenderer {
   drawBackground(type) {
     if (this.currentBg === type) return;
     this.currentBg = type;
+
+    // 切换场景氛围粒子模式（默认 dust）
+    this.setParticleMode(SCENE_PARTICLE_MODES[type] || 'dust');
 
     const bgTextureMap = {
       classroom: 'bg-classroom',
@@ -571,7 +673,15 @@ export class PixelRenderer {
       talkshow: 'bg-talkshow',
       court: 'bg-court',
       lab: 'bg-lab',
-      podcast: 'bg-podcast'
+      podcast: 'bg-podcast',
+      // 场景变体（氛围增强）
+      office_empty: 'bg-office_empty',
+      office_dark: 'bg-office_dark',
+      street_night: 'bg-street_night',
+      office_busy: 'bg-office_busy',
+      livestream_first: 'bg-livestream_first',
+      street_day: 'bg-street_day',
+      stage_arena: 'bg-stage_arena'
     };
 
     // 1. 检查预加载纹理
@@ -592,8 +702,15 @@ export class PixelRenderer {
       } else {
         this.bgSprite.setTexture(key);
       }
+      // AI 高清插画改用线性过滤渲染：全局 pixelArt 模式会强制最近邻采样，
+      // 2560x1440 插画缩到 800x500 时会产生锯齿/闪烁；仅对 AI 插画解除，
+      // 程序化像素缓存纹理（cacheKey）保持默认采样不受影响。
+      if (hasPreloadedTexture) {
+        this.bgSprite.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+      }
       this.bgSprite.setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
       this.bgSprite.setPosition(GAME_WIDTH / 2, GAME_HEIGHT / 2);
+      this._fadeInBackground();
     } else {
       // 无纹理 - 使用 Graphics 绘制，并缓存为 RenderTexture
       if (this.bgSprite) {
@@ -624,6 +741,7 @@ export class PixelRenderer {
         this.bgSprite.setDepth(0);
         this.bgSprite.setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
         this.bgSprite.setPosition(GAME_WIDTH / 2, GAME_HEIGHT / 2);
+        this._fadeInBackground();
       } catch (e) {
         // generateTexture 失败时保留 Graphics 绘制（降级方案）
       }
@@ -660,6 +778,8 @@ export class PixelRenderer {
       } else if (this.charSprite.texture.key !== useKey) {
         this.charSprite.setTexture(useKey);
       }
+      // 角色立绘（AI 高清图）同样使用线性过滤，避免缩放锯齿
+      this.charSprite.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
       if (this._talkTween) {
         this._talkTween.stop();
         this._talkTween = null;
@@ -676,24 +796,8 @@ export class PixelRenderer {
     }
   }
 
-  clearForeground() {
-    this.fgGraphics.clear();
-    this.particleGfx.clear();
-    this.particles.length = 0;
-  }
-
   _createBlackBackgroundMask(textureKey) {
     this._charProcessedKey = textureKey;
-  }
-
-  /**
-   * 更新遮罩位置以匹配角色 sprite
-   */
-  _updateCharMask() {
-    if (this.charMask && this.charSprite) {
-      this.charMask.setPosition(this.charSprite.x, this.charSprite.y);
-      this.charMask.setScale(this.charSprite.scaleX, this.charSprite.scaleY);
-    }
   }
 
   /**
@@ -812,112 +916,6 @@ export class PixelRenderer {
   }
 
   // ===================================================================
-  //  粒子系统（使用对象池）
-  // ===================================================================
-
-  /**
-   * 添加单个粒子（使用对象池，兼容原 API）
-   */
-  addParticle(x, y, color, size, life, vx, vy) {
-    const p = acquireParticle();
-    p.x = x;
-    p.y = y;
-    p.color = color;
-    p.size = size;
-    p.life = life;
-    p.maxLife = life;
-    p.vx = vx;
-    p.vy = vy;
-    p.gravity = 200;
-    p.active = true;
-    p.type = 'default';
-    this.particles.push(p);
-  }
-
-  /**
-   * 选择反馈粒子：从指定位置喷射金色粒子
-   * @param {number} x - 中心 x
-   * @param {number} y - 中心 y
-   * @param {number} [count=12] - 粒子数量
-   * @param {number} [color=0xf0c040] - 粒子颜色（默认金色）
-   */
-  emitChoiceParticles(x, y, count = 12, color = 0xf0c040) {
-    for (let i = 0; i < count; i++) {
-      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
-      const speed = 60 + Math.random() * 100;
-      const p = acquireParticle();
-      p.x = x + (Math.random() - 0.5) * 10;
-      p.y = y + (Math.random() - 0.5) * 6;
-      p.color = color;
-      p.size = 2 + Math.random() * 3;
-      p.life = 0.4 + Math.random() * 0.4;
-      p.maxLife = p.life;
-      p.vx = Math.cos(angle) * speed;
-      p.vy = Math.sin(angle) * speed - 30;
-      p.gravity = 150;
-      p.active = true;
-      p.type = 'choice';
-      this.particles.push(p);
-    }
-  }
-
-  /**
-   * 属性变化粒子：从指定位置向上喷射彩色粒子
-   * @param {number} x - 中心 x
-   * @param {number} y - 中心 y
-   * @param {number} color - 粒子颜色
-   * @param {number} [count=8] - 粒子数量
-   * @param {boolean} [isNegative=false] - 是否为负面变化（粒子向下）
-   */
-  emitStatParticles(x, y, color, count = 8, isNegative = false) {
-    for (let i = 0; i < count; i++) {
-      const angle = isNegative
-        ? Math.PI / 2 + (Math.random() - 0.5) * 1.2  // 向下散开
-        : -Math.PI / 2 + (Math.random() - 0.5) * 1.2; // 向上散开
-      const speed = 50 + Math.random() * 80;
-      const p = acquireParticle();
-      p.x = x + (Math.random() - 0.5) * 20;
-      p.y = y;
-      p.color = color;
-      p.size = 2 + Math.random() * 2;
-      p.life = 0.5 + Math.random() * 0.3;
-      p.maxLife = p.life;
-      p.vx = Math.cos(angle) * speed;
-      p.vy = Math.sin(angle) * speed;
-      p.gravity = isNegative ? 200 : -50; // 负面加重力，正面反重力
-      p.active = true;
-      p.type = 'stat';
-      this.particles.push(p);
-    }
-  }
-
-  /**
-   * 翻车粒子爆发：大量红色粒子从中心爆发
-   * @param {number} [x=GAME_WIDTH/2] - 中心 x
-   * @param {number} [y=GAME_HEIGHT/2] - 中心 y
-   * @param {number} [count=30] - 粒子数量
-   */
-  emitCrashParticles(x = GAME_WIDTH / 2, y = GAME_HEIGHT / 2, count = 30) {
-    for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 80 + Math.random() * 180;
-      const p = acquireParticle();
-      p.x = x + (Math.random() - 0.5) * 40;
-      p.y = y + (Math.random() - 0.5) * 30;
-      p.color = Math.random() > 0.3 ? 0xe04040 : 0xff6030; // 红 + 橙红
-      p.size = 3 + Math.random() * 4;
-      p.life = 0.6 + Math.random() * 0.5;
-      p.maxLife = p.life;
-      p.vx = Math.cos(angle) * speed;
-      p.vy = Math.sin(angle) * speed;
-      p.gravity = 120;
-      p.active = true;
-      p.type = 'crash';
-      this.particles.push(p);
-    }
-  }
-
-  // ===================================================================
   //  效果更新
   // ===================================================================
 
@@ -962,24 +960,38 @@ export class PixelRenderer {
     this._parallaxCurrentX += (this._parallaxTargetX - this._parallaxCurrentX) * lerpFactor;
     this._parallaxCurrentY += (this._parallaxTargetY - this._parallaxCurrentY) * lerpFactor;
 
+    const mode = PARTICLE_MODES[this._particleMode] || PARTICLE_MODES.dust;
     const time = this.scene.time.now / 1000;
     for (let i = 0; i < this.bgParticles.length; i++) {
       const bp = this.bgParticles[i];
-      // 缓慢上飘
-      bp.y -= bp.speed * dt;
-      // 水平漂移
-      bp.x += bp.drift * dt;
+      // 按模式运动：up=上飘（默认）/ down=雨丝下落 / side=弹幕横漂
+      if (mode.move === 'down') {
+        bp.y += bp.speed * mode.speedMul * dt;
+        bp.x += bp.drift * 0.25 * dt; // 雨丝几乎不横漂
+      } else if (mode.move === 'side') {
+        bp.x += bp.speed * mode.speedMul * dt;
+        bp.y -= bp.speed * 0.12 * dt; // 弹幕轻微上浮
+      } else {
+        bp.y -= bp.speed * mode.speedMul * dt;
+        bp.x += bp.drift * dt;
+      }
 
-      // 闪烁
-      bp._currentAlpha = bp.alpha * (0.6 + 0.4 * Math.sin(time * bp.twinkleSpeed + bp.phase));
+      // 闪烁（雨丝不闪烁，保持匀速稳定）
+      bp._currentAlpha = mode.streak
+        ? bp.alpha * mode.alphaMul
+        : bp.alpha * mode.alphaMul * (0.6 + 0.4 * Math.sin(time * bp.twinkleSpeed + bp.phase));
 
-      // 超出顶部则从底部重生（复用对象，避免 new）
-      if (bp.y < -bp.size) {
+      // 出界重生（复用对象，避免 new），方向与运动模式一致
+      if (mode.move === 'down') {
+        if (bp.y > GAME_HEIGHT + bp.size) { bp.y = -bp.size; bp.x = Math.random() * GAME_WIDTH; }
+      } else if (mode.move === 'side') {
+        if (bp.x > GAME_WIDTH + bp.size) { bp.x = -bp.size; bp.y = Math.random() * GAME_HEIGHT; }
+      } else if (bp.y < -bp.size) {
         this._resetBgParticle(bp, true);
       }
-      // 超出左右边界则回绕
+      // 左右边界回绕（side 模式的右侧出口已在上方处理）
       if (bp.x < -bp.size) bp.x = GAME_WIDTH + bp.size;
-      if (bp.x > GAME_WIDTH + bp.size) bp.x = -bp.size;
+      if (mode.move !== 'side' && bp.x > GAME_WIDTH + bp.size) bp.x = -bp.size;
     }
   }
 
@@ -1003,14 +1015,20 @@ export class PixelRenderer {
       const items = buckets[key];
       if (items.length === 0) continue;
       const alpha = key / 25;
-      g.fillStyle(BG_PARTICLE_COLOR, alpha);
+      const mode = PARTICLE_MODES[this._particleMode] || PARTICLE_MODES.dust;
+      g.fillStyle(mode.color, alpha);
       for (let i = 0; i < items.length; i++) {
         const bp = items[i];
         // 鼠标视差：大粒子（size > 3）偏移系数 0.02，小粒子 0.01
         const factor = bp.size > 3 ? 0.02 : 0.01;
         const ox = this._parallaxCurrentX * factor;
         const oy = this._parallaxCurrentY * factor;
-        g.fillRect(bp.x - bp.size / 2 + ox, bp.y - bp.size / 2 + oy, bp.size, bp.size);
+        if (mode.streak) {
+          // 雨丝：1px 宽竖条，长度为粒子尺寸的 4 倍
+          g.fillRect(bp.x + ox, bp.y + oy, 1, bp.size * 4);
+        } else {
+          g.fillRect(bp.x - bp.size / 2 + ox, bp.y - bp.size / 2 + oy, bp.size, bp.size);
+        }
       }
     }
   }
@@ -1058,10 +1076,6 @@ export class PixelRenderer {
   //  屏幕震动（增强版：同时支持 camera shake）
   // ===================================================================
 
-  screenShake(intensity) {
-    this.shakeIntensity = intensity;
-  }
-
   /**
    * 通过 camera shake 实现屏幕震动（不影响 UI 层）
    * 带防抖：若上一次抖动尚未结束且新强度不更高，则跳过，避免叠加造成持续狂抖
@@ -1082,20 +1096,6 @@ export class PixelRenderer {
     this.scene.time.delayedCall(duration, () => {
       if (this._currentShakeIntensity === intensity) this._currentShakeIntensity = 0;
     });
-  }
-
-  /**
-   * 翻车强震动 (8px, 300ms)
-   */
-  shakeHard() {
-    this.cameraShake(8, 300);
-  }
-
-  /**
-   * 重大选择轻微震动 (2px, 100ms)
-   */
-  shakeLight() {
-    this.cameraShake(2, 100);
   }
 
   flashScreen(duration = 0.3) {

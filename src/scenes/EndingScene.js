@@ -30,8 +30,8 @@ export class EndingScene extends Phaser.Scene {
    * 现在按需加载，单次结局只需 1 张图。
    */
   preload() {
-    const sceneType = ENDING_SCENE_MAP[this.endingKey];
-    if (!sceneType) return;
+    // 未映射专属图的结局回退到通用 ending 背景（结局公路），避免纯黑
+    const sceneType = ENDING_SCENE_MAP[this.endingKey] || 'ending';
     const assetKey = `bg-${sceneType}`;
     if (this.textures.exists(assetKey)) return; // 已加载（玩家游戏中预读过）
     const asset = SCENE_ASSETS.find(a => a.type === sceneType);
@@ -51,9 +51,11 @@ export class EndingScene extends Phaser.Scene {
     this.ending = ENDINGS[this.endingKey] || ENDINGS.default;
 
     // Dark background (Canvas 保留)
+    // 显式置于最底层：默认 depth 0 会盖住结局背景图(-1)和粒子层(-0.5)
     const bg = this.add.graphics();
     bg.fillStyle(0x0a0a0a, 1);
     bg.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    bg.setDepth(-2);
 
     // === A. 结局专属背景图 ===
     this._loadEndingBackground();
@@ -93,17 +95,18 @@ export class EndingScene extends Phaser.Scene {
   /**
    * 加载结局专属背景图（如果有的话）。
    * 有专属背景的结局会显示一张全屏背景图，再叠加粒子特效。
-   * 没有的则保持纯黑背景 + 粒子。
+   * 未映射专属图的结局回退到通用 ending 背景（结局公路）。
    */
   _loadEndingBackground() {
-    const sceneType = ENDING_SCENE_MAP[this.endingKey];
-    if (!sceneType) return; // 无专属背景，保持默认
+    const sceneType = ENDING_SCENE_MAP[this.endingKey] || 'ending';
 
     const assetKey = `bg-${sceneType}`;
     // 图片已通过 GameScene.preload 加载，直接用 textures 获取
     if (!this.textures.exists(assetKey)) return;
 
     const img = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, assetKey);
+    // 结局插画（AI 高清图）使用线性过滤，避免缩放锯齿
+    img.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
     img.setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
     img.setAlpha(0.35); // 半透明叠加，保留粒子效果
     img.setDepth(-1);
@@ -330,47 +333,25 @@ export class EndingScene extends Phaser.Scene {
     // Description
     descEl.textContent = (this.ending.desc || '').replace(/罗远/g, '老罗');
 
-    // Stats
+    // Stats — 六维雷达图（复赛核心记忆点：评委一进结局就被震撼）
+    // 替换原竖向条形列表，信息密度更高，视觉冲击更强
     statsEl.innerHTML = '';
-    const stats = [
-      { label: '理想主义', val: this.state.pride, key: 'pride' },
-      { label: '财富', val: this.state.wealth, key: 'wealth' },
-      { label: '名声', val: this.state.reputation, key: 'reputation' },
-      { label: '翻车', val: this.state.failures, key: 'failures' }
-    ];
+    this._renderEndingRadar(statsEl);
 
-    const colorMap = {
-      pride: 'linear-gradient(90deg, var(--color-gold-dark), var(--color-gold))',
-      wealth: 'linear-gradient(90deg, #2a7a4a, #40c040)',
-      reputation: 'linear-gradient(90deg, #3a5aaa, #6a9aff)',
-      failures: 'linear-gradient(90deg, #aa3a3a, #e04040)'
-    };
+    // Quote — 修复字段映射：endings.js 使用 respect 字段，非 quote
+    const quoteText = (this.ending.quote || this.ending.respect || '').replace(/罗远/g, '老罗');
+    quoteEl.textContent = quoteText;
 
-    stats.forEach((s, i) => {
-      const row = document.createElement('div');
-      row.className = 'ui-ending-stat-row';
-
-      const targetWidth = s.key === 'failures' ? Math.min(s.val * 16, 160) : s.val * 16;
-
-      row.innerHTML = `
-        <span class="ui-ending-stat-label">${s.label}</span>
-        <div class="ui-ending-stat-bar-bg">
-          <div class="ui-ending-stat-bar-fill" style="width: 0%; background: ${colorMap[s.key]};"></div>
-        </div>
-        <span class="ui-ending-stat-value">${s.val}/10</span>
-      `;
-
-      statsEl.appendChild(row);
-
-      // Animate bar fill
-      setTimeout(() => {
-        const fill = row.querySelector('.ui-ending-stat-bar-fill');
-        fill.style.width = targetWidth + '%';
-      }, 800 + i * 200);
-    });
-
-    // Quote
-    quoteEl.textContent = (this.ending.quote || '').replace(/罗远/g, '老罗');
+    // AI 动态洞察金句（复赛创新性记忆点）：根据玩家属性组合生成不同洞察
+    // 让同一结局在不同周目呈现不同解读，强化"AI 洞察"感
+    const insight = this._generateEndingInsight(this.state, this.endingKey);
+    if (insight) {
+      const insightEl = document.createElement('div');
+      insightEl.className = 'ui-ending-insight';
+      insightEl.textContent = insight;
+      // 插入到 quote 之后
+      quoteEl.parentNode.insertBefore(insightEl, quoteEl.nextSibling);
+    }
 
     // Summary
     summaryEl.textContent = (this.ending.summary || '').replace(/罗远/g, '老罗');
@@ -419,7 +400,7 @@ export class EndingScene extends Phaser.Scene {
       const claimedMs = this.meta.getClaimedMilestones();
       if (claimedMs && claimedMs.length > 0) {
         const msEl = document.createElement('div');
-        msEl.style.cssText = 'font-size: 9px; color: #c8a040; text-align: center; margin-bottom: 6px;';
+        msEl.style.cssText = 'font-size: 9px; color: var(--color-gold-dark); text-align: center; margin-bottom: 6px;';
         const highest = claimedMs.reduce((a, b) => (a.threshold > b.threshold ? a : b));
         msEl.textContent = `★ 已达成里程碑：${highest.name}（共 ${claimedMs.length}/${MILESTONE_REWARDS.length}）`;
         achievementsEl.appendChild(msEl);
@@ -456,7 +437,7 @@ export class EndingScene extends Phaser.Scene {
     locked.forEach(ach => {
       const hidden = isHiddenAchievement(ach.name);
       const item = document.createElement('span');
-      item.style.cssText = 'font-size: 9px; color: #3a3a4a; white-space: nowrap; padding: 1px 4px; border-radius: 2px; background: rgba(58,58,74,0.15); border: 1px solid rgba(58,58,74,0.2); cursor: pointer;';
+      item.style.cssText = 'font-size: 9px; color: var(--color-text-dim); white-space: nowrap; padding: 1px 4px; border-radius: 2px; background: rgba(58,58,74,0.15); border: 1px solid rgba(58,58,74,0.2); cursor: pointer;';
       item.textContent = `${hidden ? '◑' : '?'} ${hidden ? '???' : ach.name}`;
       item.dataset.name = ach.name;
       item.addEventListener('click', () => showAchievementGallery({ unlockedNames, highlightName: ach.name, showHiddenHints }));
@@ -467,7 +448,7 @@ export class EndingScene extends Phaser.Scene {
 
     // 提示可点击查看详情
     const achHint = document.createElement('div');
-    achHint.style.cssText = 'font-size: 9px; color: #5a5a6e; margin-top: 6px; text-align: center;';
+    achHint.style.cssText = 'font-size: 9px; color: var(--color-text-muted); margin-top: 6px; text-align: center;';
     achHint.textContent = '点击成就查看触发原因';
     achievementsEl.appendChild(achHint);
 
@@ -502,7 +483,7 @@ export class EndingScene extends Phaser.Scene {
 
     // 提示文字
     const endingHint = document.createElement('div');
-    endingHint.style.cssText = 'font-size: 9px; color: #5a5a6e; text-align: center;';
+    endingHint.style.cssText = 'font-size: 9px; color: var(--color-text-muted); text-align: center;';
     endingHint.textContent = '点击查看全部结局';
     endingGalleryEl.appendChild(endingHint);
 
@@ -517,7 +498,7 @@ export class EndingScene extends Phaser.Scene {
     const eventHeader = document.createElement('div');
     eventHeader.style.cssText = 'display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 6px;';
     const eventTitle = document.createElement('span');
-    eventTitle.style.cssText = 'font-size: 11px; color: #40c0c0; font-weight: 700; letter-spacing: 2px;';
+    eventTitle.style.cssText = 'font-size: 11px; color: var(--color-trust); font-weight: 700; letter-spacing: 2px;';
     eventTitle.textContent = '▤ 随机事件图鉴';
     const eventCount = document.createElement('span');
     eventCount.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); font-weight: 400;';
@@ -572,7 +553,7 @@ export class EndingScene extends Phaser.Scene {
         listEl.style.cssText = 'max-height: 120px; overflow-y: auto; font-size: 10px; color: #c8a0a0; padding: 2px 4px;';
         if (entries.length === 0) {
           const empty = document.createElement('div');
-          empty.style.cssText = 'font-size: 10px; color: #6a5a5a; text-align: center; padding: 4px;';
+          empty.style.cssText = 'font-size: 10px; color: var(--color-text-muted); text-align: center; padding: 4px;';
           empty.textContent = '暂无统计';
           listEl.appendChild(empty);
         } else {
@@ -598,7 +579,7 @@ export class EndingScene extends Phaser.Scene {
           }
           if (entries.length > showMax) {
             const more = document.createElement('div');
-            more.style.cssText = 'font-size: 9px; color: #6a5a5a; text-align: center; padding: 2px;';
+            more.style.cssText = 'font-size: 9px; color: var(--color-text-muted); text-align: center; padding: 2px;';
             more.textContent = `...还有 ${entries.length - showMax} 项`;
             listEl.appendChild(more);
           }
@@ -728,6 +709,229 @@ export class EndingScene extends Phaser.Scene {
     buttonsEl.appendChild(moreMenu);
 
     overlay.classList.add('visible');
+  }
+
+  /**
+   * 渲染六维雷达图到结局页 stats 区域（复赛核心记忆点）
+   * 用 SVG 绘制：3层同心六边形网格 + 数据多边形 + 发光数据点 + 轴标签
+   * 入场动画：数据多边形从中心展开（CSS scale 动画）
+   * @param {HTMLElement} container — stats 容器元素
+   */
+  _renderEndingRadar(container) {
+    const axes = [
+      { label: '理想', value: this.state.pride || 0, color: 'var(--color-gold)' },
+      { label: '财富', value: this.state.wealth || 0, color: '#40c060' },
+      { label: '名声', value: this.state.reputation || 0, color: '#4090e0' },
+      { label: '信任', value: this.state.trust || 0, color: '#40c0c0' },
+      { label: '压力', value: this.state.pressure || 0, color: '#8040c0' },
+      { label: '翻车', value: this.state.failures || 0, color: '#e04040' }
+    ];
+
+    // SVG viewBox 200x200，中心 (100,100)，半径 72
+    const cx = 100, cy = 100, R = 72;
+    // 6 轴角度：从正上方开始，顺时针每 60°
+    const angles = [
+      -Math.PI / 2, -Math.PI / 6, Math.PI / 6,
+      Math.PI / 2, 5 * Math.PI / 6, 7 * Math.PI / 6
+    ];
+
+    // 计算每个轴的顶点坐标（满值时）
+    const vertexPoints = angles.map(a => ({
+      x: cx + R * Math.cos(a),
+      y: cy + R * Math.sin(a)
+    }));
+
+    // 3层同心六边形网格路径
+    const gridLayers = [1, 2, 3].map(layer => {
+      const r = R * layer / 3;
+      const pts = angles.map(a => `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`);
+      return pts.join(' ');
+    });
+
+    // 数据多边形顶点（按归一化值计算）
+    const dataPoints = axes.map((a, i) => {
+      const v = Math.max(0, Math.min(10, a.value));
+      const r = (v / 10) * R;
+      return {
+        x: cx + r * Math.cos(angles[i]),
+        y: cy + r * Math.sin(angles[i]),
+        label: a.label,
+        value: a.value,
+        color: a.color
+      };
+    });
+    const dataPolygon = dataPoints.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+
+    // 轴标签位置（在顶点外侧 18px）
+    const labelR = R + 18;
+    const labelPositions = angles.map((a, i) => ({
+      x: cx + labelR * Math.cos(a),
+      y: cy + labelR * Math.sin(a),
+      label: axes[i].label,
+      value: axes[i].value,
+      color: axes[i].color
+    }));
+
+    // 构建 SVG
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('class', 'ui-ending-radar');
+    svg.setAttribute('viewBox', '0 0 200 200');
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+    // 3层网格
+    gridLayers.forEach(pts => {
+      const poly = document.createElementNS(svgNS, 'polygon');
+      poly.setAttribute('points', pts);
+      poly.setAttribute('class', 'ui-radar-grid');
+      svg.appendChild(poly);
+    });
+
+    // 6条轴线
+    vertexPoints.forEach(p => {
+      const line = document.createElementNS(svgNS, 'line');
+      line.setAttribute('x1', cx);
+      line.setAttribute('y1', cy);
+      line.setAttribute('x2', p.x.toFixed(1));
+      line.setAttribute('y2', p.y.toFixed(1));
+      line.setAttribute('class', 'ui-radar-axis');
+      svg.appendChild(line);
+    });
+
+    // 数据多边形（填充 + 描边）
+    const dataPoly = document.createElementNS(svgNS, 'polygon');
+    dataPoly.setAttribute('points', dataPolygon);
+    dataPoly.setAttribute('class', 'ui-radar-data');
+    svg.appendChild(dataPoly);
+
+    // 数据点（发光圆点）
+    dataPoints.forEach(p => {
+      const circle = document.createElementNS(svgNS, 'circle');
+      circle.setAttribute('cx', p.x.toFixed(1));
+      circle.setAttribute('cy', p.y.toFixed(1));
+      circle.setAttribute('r', '3');
+      circle.setAttribute('class', 'ui-radar-point');
+      circle.style.fill = p.color;
+      svg.appendChild(circle);
+    });
+
+    // 轴标签 + 数值
+    labelPositions.forEach(p => {
+      const text = document.createElementNS(svgNS, 'text');
+      text.setAttribute('x', p.x.toFixed(1));
+      text.setAttribute('y', (p.y - 2).toFixed(1));
+      text.setAttribute('class', 'ui-radar-label');
+      text.setAttribute('text-anchor', 'middle');
+      text.textContent = p.label;
+      svg.appendChild(text);
+
+      const valText = document.createElementNS(svgNS, 'text');
+      valText.setAttribute('x', p.x.toFixed(1));
+      valText.setAttribute('y', (p.y + 9).toFixed(1));
+      valText.setAttribute('class', 'ui-radar-value');
+      valText.setAttribute('text-anchor', 'middle');
+      valText.style.fill = p.color;
+      valText.textContent = p.value;
+      svg.appendChild(valText);
+    });
+
+    container.appendChild(svg);
+  }
+
+  /**
+   * 根据结局类型 + 玩家属性组合生成结局 AI 洞察金句（复赛创新性记忆点）
+   * 同一结局在不同周目/不同玩家手中呈现不同解读，
+   * 强化"AI 洞察"感——评委看到的不是固定脚本，而是基于玩家行为的动态点评。
+   *
+   * 设计原则：
+   * - 先按结局类型分组（传奇/大亨/战士/替罪羊...）
+   * - 每组内根据属性差异给出不同角度的洞察
+   * - 文案呼应结局主题，但角度因属性而异
+   *
+   * @param {object} state 当前游戏状态
+   * @param {string} endingKey 结局 ID
+   * @returns {string} 洞察文案（空字符串表示无洞察）
+   */
+  _generateEndingInsight(state, endingKey) {
+    const pride = state.pride || 0;
+    const wealth = state.wealth || 0;
+    const pressure = state.pressure || 0;
+    const failures = state.failures || 0;
+    const reputation = state.reputation || 0;
+    const trust = state.trust || 0;
+
+    // 按结局类型分组生成洞察
+    const insights = {
+      // 传奇结局：理想主义殉道者
+      legend: () => {
+        if (failures >= 4) return '◉ AI 洞察：四次翻车仍未低头——传奇不是从未失败，是失败四次后依然站着。';
+        if (pressure >= 8) return '◉ AI 洞察：压力曾到临界，但你选择了扛下去——传奇的代价，是旁人看不见的深夜。';
+        if (reputation <= 5) return '◉ AI 洞察：名声不高，但理想满分——真正的传奇，不需要所有人理解。';
+        return '◉ AI 洞察：理想主义的殉道者——你用一生的孤独，换一个名字写进历史。';
+      },
+      // 大亨结局：放弃理想拥抱资本
+      tycoon: () => {
+        if (pride >= 4) return '◉ AI 洞察：理想还在，只是学会了沉默——妥协不等于投降，是换了一种战场。';
+        if (trust >= 7) return '◉ AI 洞察：财富与信任兼得——你证明了商人也可以有底线。';
+        if (failures >= 2) return '◉ AI 洞察：翻车两次后才学会妥协——有些道理，只有摔过才懂。';
+        return '◉ AI 洞察：清醒的妥协者——你放弃了理想，但保住了自己。';
+      },
+      // 战士结局：屡败屡战
+      warrior: () => {
+        if (failures >= 4) return '◉ AI 洞察：四次跌倒，四次站起——战士的勋章是伤疤，不是奖牌。';
+        if (pressure >= 9) return '◉ AI 洞察：压力曾到极限，但你没有崩溃——能扛住的人，才配叫战士。';
+        if (reputation >= 9) return '◉ AI 洞察：名声顶配的战士——公众不再笑你，他们开始追随你。';
+        return '◉ AI 洞察：不屈的战士——输不可怕，可怕的是输了一次就再不敢站起。';
+      },
+      // 替罪羊结局：众叛亲离
+      scapegoat: () => {
+        if (trust <= 2) return '◉ AI 洞察：信任归零——替罪羊最痛的不是背锅，是发现没人为你说话。';
+        if (reputation <= 2) return '◉ AI 洞察：名声尽毁——当全世界都相信你该负责，真相已经不重要了。';
+        if (pride >= 6) return '◉ AI 洞察：理想未灭但众叛亲离——你的倔强成了罪名，但倔强也是你最后的尊严。';
+        return '◉ AI 洞察：替罪羊的宿命——有些位置，一旦坐上去，就再也站不下来。';
+      },
+      // 平衡结局：完美人生
+      balance: () => {
+        if (pride >= 6 && wealth >= 6) return '◉ AI 洞察：理想与财富兼得——罕见的人生赢家，但你心里清楚代价。';
+        if (trust >= 8) return '◉ AI 洞察：六维均衡，信任最高——你证明了好人不一定吃亏。';
+        return '◉ AI 洞察：平衡的智者——没有极端，就是人生最大的极端。';
+      },
+      // 真还传结局
+      returns: () => {
+        if (failures >= 3) return '◉ AI 洞察：三次翻车后真还——还债的不是钱，是尊严。';
+        if (pressure >= 8) return '◉ AI 洞察：压力曾到临界，但你扛过来了——真还传的主角，是能扛住深夜的人。';
+        if (reputation >= 9) return '◉ AI 洞察：名声顶配的真还者——全世界看着你，你没有逃跑。';
+        return '◉ AI 洞察：真还传本传——6亿不是数字，是余生每一天的重量。';
+      },
+      // 隐士/看破红尘
+      hermit: () => {
+        if (pride >= 7) return '◉ AI 洞察：理想极高但选择隐退——看破不是放下，是扛过之后的释然。';
+        if (wealth <= 2) return '◉ AI 洞察：财富见底后看破红尘——有些清醒，是穷出来的。';
+        return '◉ AI 洞察：看破红尘的智者——不是逃避，是终于看清了什么值得。';
+      },
+      // 普通人结局
+      ordinary: () => {
+        if (failures >= 2) return '◉ AI 洞察：翻车后回归平凡——平凡不是失败，是另一种勇敢。';
+        if (pressure >= 7) return '◉ AI 洞察：压力曾高但选择了平凡——放下执念，是最大的智慧。';
+        return '◉ AI 洞察：平凡的勇气——不是每个人都要改变世界，过好一生已是不易。';
+      },
+      // 逃跑结局
+      escape: () => {
+        if (pride <= 2) return '◉ AI 洞察：理想已熄，选择逃离——逃跑可耻但有用，只是余生会反复梦见。';
+        if (pressure >= 9) return '◉ AI 洞察：压力到极限后逃离——崩溃前的逃跑，是身体的自我保护。';
+        return '◉ AI 洞察：逃跑者——你活下来了，但有些东西，永远留在了那间办公室。';
+      },
+      // 默认/其他结局
+      default: () => {
+        if (pride >= 7) return '◉ AI 洞察：理想主义者——你的人生，是理想与现实博弈的注脚。';
+        if (wealth >= 7) return '◉ AI 洞察：务实派——你选择了结果，而不是过程。';
+        if (failures >= 3) return '◉ AI 洞察：伤痕累累——每一次翻车，都在塑造最后的你。';
+        return '◉ AI 洞察：人生没有标准答案——你的选择，就是你的答案。';
+      }
+    };
+
+    const generator = insights[endingKey] || insights.default;
+    return generator();
   }
 
   /**
@@ -1431,73 +1635,88 @@ export class EndingScene extends Phaser.Scene {
   }
 
   // === G. 分享卡生成 ===
+  // DOM 实现：避免 Phaser 动态纹理问题，且移动端长按图片可原生保存
   generateShareCard() {
-    if (this.shareCardVisible && this.shareCardContainer) {
-      this.shareCardContainer.destroy();
-      this.shareCardContainer = null;
-      this.shareCardVisible = false;
+    if (this.shareCardVisible) {
+      this._closeShareCard();
       return;
     }
 
     // 使用 PixelRenderer 渲染分享卡
-    const canvas = PixelRenderer.renderShareCard(this.state, this.ending);
+    const endingKeys = Object.keys(ENDINGS);
+    const endingIndex = endingKeys.indexOf(this.endingKey) + 1;
+    const canvas = PixelRenderer.renderShareCard(this.state, this.ending, {
+      endingKey: this.endingKey,
+      endingIndex,
+      totalEndings: endingKeys.length
+    });
     const dataURL = canvas.toDataURL('image/png');
 
-    this.shareCardContainer = this.add.container(0, 0);
-    this.shareCardContainer.setDepth(600);
+    // 隐藏结局页 DOM 层，避免与分享卡重影
+    this._toggleEndingDOM(false);
 
-    // 半透明遮罩
-    const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.8);
-    overlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-    this.shareCardContainer.add(overlay);
+    // DOM 遮罩层
+    const mask = document.createElement('div');
+    mask.id = 'share-card-mask';
+    mask.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;';
 
-    // 显示分享卡图片
-    this.textures.addImage('__shareCard', dataURL);
-    const cardImg = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 30, '__shareCard');
-    cardImg.setDisplaySize(450, 675);
-    this.shareCardContainer.add(cardImg);
+    // 分享卡图片（DOM img：移动端长按可原生保存）
+    const imgEl = document.createElement('img');
+    imgEl.src = dataURL;
+    imgEl.alt = '分享卡';
+    imgEl.style.cssText = 'max-height:76vh;max-width:88vw;border:1px solid rgba(240,192,64,0.4);box-shadow:0 8px 40px rgba(0,0,0,0.6);';
+    mask.appendChild(imgEl);
 
     // 提示文字
-    const tipText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 220, '长按图片保存 | 点击任意位置关闭', {
-      fontSize: '10px', fontFamily: FONTS.pixel, color: PixelRenderer.toCSS(COLORS.textDim)
-    }).setOrigin(0.5);
-    this.shareCardContainer.add(tipText);
+    const tip = document.createElement('div');
+    tip.textContent = '长按图片保存 | 点击空白处关闭';
+    tip.style.cssText = 'color:#9a8a6a;font-size:12px;';
+    mask.appendChild(tip);
 
-    // 点击关闭
-    const closeZone = this.add.zone(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT)
-      .setInteractive({ useHandCursor: true });
-    closeZone.on('pointerup', () => {
-      this.shareCardContainer.destroy();
-      this.shareCardContainer = null;
-      this.shareCardVisible = false;
-      if (this.textures.exists('__shareCard')) {
-        this.textures.remove('__shareCard');
-      }
+    // 点击空白关闭（点图片不关闭，便于长按保存）
+    mask.addEventListener('click', (e) => {
+      if (e.target === mask || e.target === tip) this._closeShareCard();
     });
 
-    // 长按保存
-    closeZone.on('pointerdown', () => {
-      this._savePressTimer = this.time.delayedCall(800, () => {
+    // 长按 800ms 主动下载（桌面端右键另存之外的补充）
+    let pressTimer = null;
+    const startPress = () => {
+      pressTimer = setTimeout(() => {
         this._downloadDataURL(dataURL, 'share-card.png');
         this.showToast('分享卡已保存');
-      });
-    });
-    closeZone.on('pointerup', () => {
-      if (this._savePressTimer) {
-        this._savePressTimer.remove();
-        this._savePressTimer = null;
-      }
-    });
-    closeZone.on('pointermove', () => {
-      if (this._savePressTimer) {
-        this._savePressTimer.remove();
-        this._savePressTimer = null;
-      }
-    });
+      }, 800);
+    };
+    const cancelPress = () => {
+      if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+    };
+    mask.addEventListener('mousedown', startPress);
+    mask.addEventListener('touchstart', startPress, { passive: true });
+    ['mouseup', 'mouseleave', 'touchend', 'touchmove'].forEach(ev => mask.addEventListener(ev, cancelPress));
 
-    this.shareCardContainer.add(closeZone);
+    document.body.appendChild(mask);
+    this._shareCardEl = mask;
     this.shareCardVisible = true;
+  }
+
+  /**
+   * 关闭分享卡并恢复结局页 DOM 层
+   */
+  _closeShareCard() {
+    if (this._shareCardEl) {
+      this._shareCardEl.remove();
+      this._shareCardEl = null;
+    }
+    this.shareCardVisible = false;
+    this._toggleEndingDOM(true);
+  }
+
+  /**
+   * 切换结局页 DOM 层显隐（分享卡显示时隐藏，避免与 canvas 内容重影）
+   * @param {boolean} show true=显示，false=隐藏
+   */
+  _toggleEndingDOM(show) {
+    const el = document.getElementById('ui-ending-overlay');
+    if (el) el.style.display = show ? '' : 'none';
   }
 
   /**

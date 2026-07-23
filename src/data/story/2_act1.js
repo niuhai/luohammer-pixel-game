@@ -11,7 +11,7 @@ export const NODES = {
 但你觉得光讲题太干了——你对着卫生间的镜子练段子，从"自己都觉得尬"练到"自己都笑了"。越准备越慌：你从来没当过老师，连在十个人面前讲话都没试过。镜子不会嘲笑你，学生会。
 <b>你对着镜子里那个紧张到嘴角抽搐的人说："小罗，你这是在跟一面玻璃较劲。"——可玻璃后面，站着的是你自己。</b>`,
     choices: [
-      { label: `"准备充分了！自信上场，一定能过！"`, next: 'act1_first', effects: { pride: 1, wealth: 0, reputation: 0 } },
+      { label: `"准备充分了！自信上场，一定能过！"`, next: 'act1_first', effects: { pride: 1, wealth: 0, reputation: -1, pressure: 1 } },
       { label: `"还是再练练吧，总觉得哪里不对劲。"`, next: 'act1_first', effects: { pride: 0, wealth: 0, reputation: 0 } },
       { label: `"试讲前夜……我紧张得睡不着。"`, next: 'act1_nerve', effects: {"pride":0,"wealth":0,"reputation":0} }
     ],
@@ -23,17 +23,19 @@ export const NODES = {
     actSub: '试讲前夜 · 手心冒汗 2000',
     sceneType: SCENE_TYPES.LECTURE,
     character: '小罗',
-    text: `试讲前一天晚上，你躺在床上翻来覆去。被子裹着像蒸笼，掀开又冷得发抖。凌晨三点你终于躺下了，但脑子像一台关不掉的机器——万一忘词怎么办？万一学生不笑怎么办？
+    text: `试讲前一天晚上，你躺在床上翻来覆去。被子裹着像蒸笼，后背汗湿了一片，掀开又冷得发抖，鸡皮疙瘩从胳膊一路爬到脖颈。窗外不知谁家的狗叫了一声，又一声，像在替你数着凌晨的秒。两点、三点、三点四十二分——你终于闭上了眼，可脑子像一台关不掉的机器，齿轮咬着齿轮发出刺耳的摩擦声：万一忘词怎么办？万一学生不笑怎么办？万一他们笑的不是段子，是你这个人？
 
-你怕的不是失败本身，你怕的是万一自己真的不是这块料，那这些年憋着的那口气，就真的只是气了。你对着天花板说："小罗，你连城管都不怕，怕什么试讲？"天花板上没有回音。
+心脏咚咚地撞着肋骨，一下比一下沉，像有人在你胸腔里擂鼓，鼓点越来越密，几乎要撞破嗓子眼蹦出来。你把脸埋进枕头，听见自己的呼吸又急又浅，热气打在棉布上反弹回来，烫得脸颊发烫。
+
+你怕的不是失败本身。你怕的是——万一自己真的不是这块料，那这些年憋着的那口气，那口从延边一路憋到北京、从摆地摊一路憋到GRE讲台的气，就真的只是气了。你对着天花板说："小罗，你连城管都不怕，怕什么试讲？"天花板上只有一盏坏了一半的灯，没有回音。
 <b>紧张说明你在乎，不在乎的人不配紧张。</b>`,
     choices: [
-      { label: `"怕什么！大不了回去卖羊肉串！冲了！"`, next: 'act1_first', effects: { pride: 1, wealth: 0, reputation: 0 } },
+      { label: `"怕什么！大不了回去卖羊肉串！冲了！"`, next: 'act1_first', effects: { pride: 1, wealth: 0, reputation: -1, pressure: 1 } },
       { label: `"要不还是算了吧……我可能真不是当老师的料。"`, next: 'ending_ordinary', effects: { pride: -2, wealth: 0, reputation: 0 }, maxAttr: { pride: 4 } },
-      { label: `"紧张就紧张吧……先去旁听别的老师讲课，学学经验。"`, next: 'act1_first', effects: { pride: 0, wealth: 0, reputation: 1 } },
-      { label: `"深呼吸，把学生当成白菜——讲砸了也就是一屋子白菜笑话我。"`, next: 'act1_first', effects: { pride: 0, wealth: 0, reputation: 1 } }
+      { label: `"紧张就紧张吧……先去旁听别的老师讲课，学学经验。"`, next: 'act1_first', effects: { pride: -1, wealth: 0, reputation: 1 } },
+      { label: `"深呼吸，把学生当成白菜——讲砸了也就是一屋子白菜笑话我。"`, next: 'act1_first', effects: { pride: -1, wealth: 0, reputation: 1, pressure: -1 } }
     ],
-    historyNote: `历史上老罗试讲前确实非常紧张。他后来回忆说："那是我人生中最紧张的时刻之一，比见投资人还紧张。"但正是这种紧张，逼出了他后来"破釜沉舟"的讲课风格——反正都紧张成这样了，不如豁出去。这段经历让老罗发现了一个规律：越紧张的事情，越值得做。后来他做手机、做直播、做脱口秀，都伴随着同样的紧张感，而他每一次都是靠"豁出去"挺过来的。`,
+    historyNote: `历史上老罗试讲前确实紧张到失眠，他后来回忆："那是我人生中最紧张的时刻之一，比见投资人还紧张，比锤子T1发布前还紧张。"为什么这件事重要——因为这是他第一次面对"自己到底是不是这块料"的终极拷问，紧张不是怯懦，是一个理想主义者第一次把刀架在自己脖子上。正是这一夜的辗转反侧，逼出了他后来"破釜沉舟"的讲课风格：反正都紧张成这样了，不如豁出去。后来他做手机、做直播、做脱口秀，每一次上台前都还是会有同样的紧张感，他每一次都是靠"豁出去"挺过来的——这一夜，是他所有"豁出去"的源头。`,
     progress: 17
   },
   act1_first: {
@@ -47,30 +49,12 @@ export const NODES = {
 <b>面子是最没用的东西，你放不下它，它就永远压着你。</b>`,
     choices: [
       { label: `"太丢人了，我不适合当老师，回延边吧。"`, next: 'ending_ordinary', effects: { pride: -2, wealth: 0, reputation: -1 }, maxAttr: { pride: 4 } },
-      { label: `"求俞敏洪再给一次机会！我一定能行。"`, next: 'act1_second', effects: { pride: 1, wealth: 0, reputation: 0 } },
-      { label: `"让我仔细回忆一下失败的全过程……"`, next: 'act1_fail_detail', effects: {"pride":-1,"wealth":0,"reputation":0} },
-      { label: `"先冷静一下，去旁听其他老师讲课，找找差距。"`, next: 'act1_second', effects: { pride: 0, wealth: 0, reputation: 1 } }
+      { label: `"求俞敏洪再给一次机会！我一定能行。"`, next: 'act1_second', effects: { pride: 1, wealth: 0, reputation: -1, pressure: 1 } },
+      { label: `"丢人丢到这份上了……不如去找俞敏洪当面聊聊，死也要死个明白。"`, next: 'act1_yu', effects: { pride: 1, wealth: 0, reputation: -1, pressure: 1 } },
+      { label: `"先冷静一下，去旁听其他老师讲课，找找差距。"`, next: 'act1_second', effects: { pride: -1, wealth: 0, reputation: 1 } }
     ],
     historyNote: `历史上老罗第一次试讲确实惨败，讲了不到半小时就讲不下去了。原因是他太紧张，语速飞快，把准备的内容一股脑倒完了。但他没有放弃，主动找俞敏洪请求再给一次机会——这种"不要脸"的劲头，后来成了他的标志。第一次试讲惨败教会他一个道理：丢人不可怕，可怕的是丢了一次人就不敢再上台了。后来锤子T1发布会翻车、TNT被群嘲，他都是同一个应对方式——先认栽，再爬起来。`,
     progress: 19
-  },
-  act1_fail_detail: {
-    act: '第二章',
-    actSub: '第一次试讲失败 · 大脑空白 2000',
-    sceneType: SCENE_TYPES.LECTURE,
-    character: '小罗',
-    text: `你站上讲台的那一刻，脑子里"嗡"的一声——完了。准备了一个月的讲稿，像被人一键清空。台下三十多双眼睛齐刷刷盯着你，开口第一句话就磕巴了——那个"大"字你说了三遍才说出来，像一台卡带的录音机。
-
-你磕磕绊绊讲了不到三十分钟，把准备了一个小时的内容全倒完了。你试图讲个段子暖场，笑话说到一半你自己先忘了笑点在哪，教室里安静得能听到空调的嗡嗡声——那种安静比笑声更刺耳。俞敏洪坐在最后一排，轻轻摇了摇头。走廊里你蹲下来，把脸埋进手心。
-<b>你小罗什么时候这么丢人过？但人这辈子最丢人的事，不是台上出丑，而是因为怕出丑，一辈子都没上过台。</b>`,
-    choices: [
-      { label: `"求俞敏洪再给一次机会！我一定能行！"`, next: 'act1_second', effects: { pride: 1, wealth: 0, reputation: 0 } },
-      { label: `"太丢人了，我不适合当老师，回延边吧。"`, next: 'ending_ordinary', effects: { pride: -2, wealth: 0, reputation: -1 }, maxAttr: { pride: 4 } },
-      { label: `"丢人丢到这份上了……不如去找俞敏洪当面聊聊，死也要死个明白。"`, next: 'act1_yu', effects: { pride: 1, wealth: 0, reputation: 0 } },
-      { label: `"回家再练一个月，下次准备更充分再来。"`, next: 'act1_second', effects: { pride: -1, wealth: 0, reputation: 1 } }
-    ],
-    historyNote: `历史上老罗第一次试讲惨败后，确实非常沮丧。他后来回忆说，走出教室的那一刻觉得自己"这辈子可能就是摆摊的命了"。但正是这种丢人到极点的体验，反而让他第二次试讲时放下了包袱——反正已经丢过一次人了，还有什么好怕的？后来他做锤子手机被全网嘲笑、做TNT翻车被做成鬼畜，他都能笑着扛过来，就是因为他知道：丢人丢到底了，反而什么都不怕了。`,
-    progress: 20
   },
   act1_second: {
     act: '第二章',
@@ -83,29 +67,11 @@ export const NODES = {
 <b>那句话是你听过最难听的，但也是最管用的：要么证明他是错的，要么证明他是对的，没有中间地带。</b>`,
     choices: [
       { label: `"两次都不行，算了，我确实不是这块料。"`, next: 'ending_ordinary', effects: { pride: -2, wealth: 0, reputation: -1 }, maxAttr: { pride: 4 } },
-      { label: `"俞老师，求您再给我最后一次机会！第三次我一定行！"`, next: 'act1_a', effects: { pride: 2, wealth: 0, reputation: 1, achievement: '三试不退', icon: '▲' } },
-      { label: `"第二次试讲的细节，我至今记忆犹新……"`, next: 'act1_second_detail', effects: {"pride":0,"wealth":0,"reputation":0} }
+      { label: `"俞老师，求您再给我最后一次机会！第三次我一定行！"`, next: 'act1_a', effects: { pride: 2, wealth: 0, reputation: 1, pressure: 2, achievement: '三试不退', icon: '▲' } },
+      { label: `"去找俞敏洪当面谈谈，也许还有转机。"`, next: 'act1_yu', effects: { pride: 1, wealth: 0, reputation: -1 } }
     ],
     historyNote: `历史上老罗第二次试讲依然失败，有学生评价"哪来这么个东西"。但他死皮赖脸求俞敏洪给了第三次机会。俞敏洪后来解释为什么同意："这小子虽然讲得烂，但眼神里有股不服输的劲儿，这种人逼一把说不定能行。""哪来这么个东西"这句话，成了老罗人生的分水岭——要么被这句话压死，要么用行动证明它是错的。后来他成了新东方最火的老师，那个说这话的学生据说在网上留言："我收回那句话。"`,
     progress: 22
-  },
-  act1_second_detail: {
-    act: '第二章',
-    actSub: '第二次试讲 · "哪来这么个东西" 2000',
-    sceneType: SCENE_TYPES.LECTURE,
-    character: '小罗',
-    text: `俞敏洪又给了你一次机会。你站上讲台，比上次镇定了一些——但也就好了一点点。你讲GRE填空，讲到一半突然忘词，愣了五秒钟——那五秒钟像五百年一样漫长。
-
-底下有个学生小声嘟囔："这哪来这么个东西？"每个字都像钉子一样扎进你耳朵里。你脸上火辣辣的，但硬是把话接了下去。你硬着头皮讲完了一个小时，但你知道——还是没过。走出教室，你蹲在走廊里盯着地砖上的一道裂缝看了很久。
-<b>那道裂缝像是从你心里长出来的。但裂缝里如果能长出东西，那就是光。</b>`,
-    choices: [
-      { label: `"俞老师，求您再给我最后一次机会！第三次我一定行！"`, next: 'act1_a', effects: { pride: 2, wealth: 0, reputation: 1, achievement: '三试不退', icon: '▲' } },
-      { label: `"两次都不行，算了，我确实不是这块料。"`, next: 'ending_ordinary', effects: { pride: -2, wealth: 0, reputation: -1 }, maxAttr: { pride: 4 } },
-      { label: `"去找俞敏洪当面谈谈，也许还有转机。"`, next: 'act1_yu', effects: { pride: 1, wealth: 0, reputation: 0 } },
-      { label: `"不直接求俞敏洪，先找其他老师推荐我。"`, next: 'act1_a', effects: { pride: 0, wealth: 0, reputation: 1 } }
-    ],
-    historyNote: `历史上老罗第二次试讲依然失败，有学生评价"哪来这么个东西"。那句话是他在新东方最屈辱的时刻，但也是最转折的时刻——屈辱到极点反而逼出了破釜沉舟的勇气。正是这种屈辱，让他第三次试讲时彻底放开了——"反正丢人已经丢到头了，不如豁出去"。俞敏洪后来解释为什么给他第三次机会："这小子虽然讲得烂，但眼神里有股不服输的劲儿。"后来老罗成名后，那个说这句话的学生据说在网上留言："我收回那句话。"`,
-    progress: 23
   },
   act1_yu: {
     act: '第二章',
@@ -117,10 +83,10 @@ export const NODES = {
 俞敏洪沉默了很久——久到你以为他要开口拒绝。你看着他的表情，从犹豫到动摇再到某种说不清的东西。最后他说："好吧，最后一次。但你要知道，新东方从来没有给过任何人第三次机会。"
 <b>你站起来，深深鞠了一躬，额头几乎碰到桌面。第三次，要么赢，要么这辈子不再踏进任何一间教室。没有第四条路。</b>`,
     choices: [
-      { label: `"谢谢俞老师！第三次我一定全力以赴！"`, next: 'act1_a', effects: { pride: 1, wealth: 0, reputation: 0 } },
+      { label: `"谢谢俞老师！第三次我一定全力以赴！"`, next: 'act1_a', effects: { pride: 1, wealth: 0, reputation: -1 } },
       { label: `"两次都没过，第三次估计也没戏……算了吧。"`, next: 'ending_ordinary', effects: { pride: -1, wealth: 0, reputation: 0 }, maxAttr: { pride: 4 } },
-      { label: `"俞老师，我有个不情之请……能不能让我先旁听别的老师讲课？"`, next: 'act1_a', effects: { pride: 0, wealth: 0, reputation: 1 } },
-      { label: `"谢谢俞老师，但我想先旁听其他老师讲课学习一下。"`, next: 'act1_a', effects: { pride: -1, wealth: 0, reputation: 1 } }
+      { label: `"俞老师，我有个不情之请……能不能让我先旁听别的老师讲课？"`, next: 'act1_a', effects: { pride: -1, wealth: 0, reputation: 1 } },
+      { label: `"谢谢俞老师，但我想先旁听其他老师讲课学习一下。"`, next: 'act1_a', effects: { pride: -1, wealth: 0, reputation: 1, failures: 1 } }
     ],
     historyNote: `历史上俞敏洪确实给了老罗第三次试讲机会，并说"新东方从来没有给过任何人第三次机会"。俞敏洪赌的不是老罗的讲课能力，而是他那种"失败了还敢来求"的劲头——这种劲头比讲课技巧更稀缺。俞敏洪后来解释这个决定："我见过太多聪明人，但聪明又不要脸的人不多。老罗两次失败还敢来求我，这种人要么是疯子，要么是真有东西。"事实证明他赌对了——这个"不要脸"的决定，成就了新东方最有个性的老师。第三次机会揭示了老罗最核心的竞争力：不是才华，不是口才，而是那种"被拒绝两次还敢再来"的厚脸皮。后来他融资被拒无数次、手机被骂无数次，都是靠这股劲挺过来的。`,
     progress: 24
@@ -130,17 +96,21 @@ export const NODES = {
     actSub: '第三次试讲 · 豁出去了 2000',
     sceneType: SCENE_TYPES.LECTURE,
     character: '小罗',
-    text: `俞敏洪给了你第三次机会。这次你豁出去了——你已经丢过两次人了，脸已经丢到地上了，再丢一次也不过是把脸往泥里多摁一寸。你放开嗓门，讲了一个小时的GRE填空，把每一道题都讲成了段子——你模仿韩国老板骂人，你讲自己摆摊被城管追，你把GRE词汇和延边方言搅在一起，"pugnacious"在你嘴里变成了"彪悍的"。
+    text: `俞敏洪给了你第三次机会。这次你豁出去了——你已经丢过两次人了，脸已经丢到地上了，再丢一次也不过是把脸往泥里多摁一寸。临上台前，你在卫生间对着镜子洗了把脸，冷水顺着下巴往下滴，你盯着镜子里那个眼底发青的人说："今天要么讲死在台上，要么讲活自己，没有第三种结局。"
 
-台下的学生从面无表情到嘴角抽动，从前仰后合到拍桌子跺脚，笑声把天花板都快掀翻了。俞敏洪在后排站起来鼓掌——你听见了，但你没回头。走出教室的那一刻，你在走廊里蹲下来，眼泪差点掉出来。
+你推开教室门的那一刻，三十多双眼睛齐刷刷抬起来，像三十多道探照灯。你没有像前两次那样低头躲闪，而是一脚踹开椅子，站了上去。你放开嗓门，讲了一个小时的GRE填空，把每一道题都讲成了段子——你模仿韩国老板骂人，喉结上下滚动，唾沫星子喷到第一排学生的眼镜上；你讲自己摆摊被城管追，绕着讲台跑了半圈，鞋底在地板上吱呀作响；你把GRE词汇和延边方言搅在一起，"pugnacious"在你嘴里变成了"彪悍的"，学生哄堂大笑，笑得像一锅烧开的水咕嘟咕嘟往外溢。
+
+台下的学生从面无表情到嘴角抽动，从前仰后合到拍桌子跺脚，有人笑得从椅子上滑下去，有人捂着肚子直喊"老罗我服了"。笑声把天花板都快掀翻了。俞敏洪在后排站起来鼓掌——你听见了，但你没回头。你不敢回头，怕一回头，眼眶里那点热气就兜不住了。
+
+走出教室的那一刻，你在走廊里蹲下来，后背抵着冰凉的墙壁，胸口起伏得像拉风箱。眼泪差点掉出来，你仰起头，硬生生把它逼了回去。
 <b>你终于确认了一件事：你小罗，是块料。只是这块料，得被烧过两次才能成型。</b>`,
     choices: [
-      { label: `"算了，三次才过，我是不是当老师的料？回延边吧。"`, next: 'ending_ordinary', effects: { pride: -1, wealth: 0, reputation: -1 }, maxAttr: { pride: 4 } },
+      { label: `"算了，三次才过，我是不是当老师的料？回延边吧。"`, next: 'ending_ordinary', effects: { pride: -1, wealth: 0, reputation: -1 }, maxAttr: { pride: 4 }, requires: { failures: 1 } },
       { label: `"过了就是过了！从今天起，老子是新东方老师了！"`, next: 'act1_quote1', effects: { pride: 2, wealth: 1, reputation: 2, achievement: '天生讲师', icon: '♪' } },
-      { label: `"去俞敏洪办公室，当面求他给个机会！"`, next: 'act1_yu', effects: {"pride":1,"wealth":0,"reputation":0} },
-      { label: `"先去旁听别的老师讲课，偷师学艺——取长补短，磨刀不误砍柴工。"`, next: 'act1_quote1', effects: { pride: 0, wealth: 0, reputation: 1, achievement: '天生讲师', icon: '♪' } }
+      { label: `"去俞敏洪办公室，当面求他给个机会！"`, next: 'act1_yu', effects: {"pride":1,"wealth":0,"reputation":-1} },
+      { label: `"先去旁听别的老师讲课，偷师学艺——取长补短，磨刀不误砍柴工。"`, next: 'act1_quote1', effects: { pride: -1, wealth: 0, reputation: 1, achievement: '天生讲师', icon: '♪' } }
     ],
-    historyNote: `历史上老罗第三次试讲终于成功，讲了一个小时，台下学生笑了上百次。他后来总结前两次失败的原因："我不是不会讲，我是太想讲好了，反而把自己绑住了。第三次我什么都不想了，反而讲出了自己。"俞敏洪后来说："这小子有天赋，就是需要逼一把。"这大概就是所谓的不破不立——前两次失败不是浪费，是第三次成功的学费。第三次试讲证明了老罗一生的成功公式：放下包袱=发挥实力。后来他做锤子手机，T1发布前紧张到失眠，但站上台的那一刻反而讲出了最好的自己——和第三次试讲如出一辙。`,
+    historyNote: `历史上老罗第三次试讲终于成功，讲了一个小时，台下学生笑了上百次，俞敏洪当场拍板录用。他后来总结前两次失败的原因："我不是不会讲，我是太想讲好了，反而把自己绑住了。第三次我什么都不想了，反而讲出了自己。"为什么这件事重要——因为这一小时，是老罗一生的分水岭：之前他是一个"想证明自己的人"，之后他成了一个"知道自己能行的人"。俞敏洪后来说："这小子有天赋，就是需要逼一把。"第三次试讲也证明了老罗一生的成功公式：放下包袱=发挥实力。后来他做锤子手机，T1发布前紧张到失眠，但站上台的那一刻反而讲出了最好的自己——和第三次试讲如出一辙。这场试讲教会他的"豁出去"哲学，后来被他用在了每一个看似走投无路的时刻。`,
     progress: 25
   },
 
@@ -167,8 +137,8 @@ export const NODES = {
 
 <b>荒诞吗？一个英语老师的课堂段子，比他教的GRE单词传播得还广。但也许，这才是你真正该教的东西——不是单词，是态度。</b>`,
     choices: [
-      { label: `"这句话说得好！以后这就是我的招牌！"`, next: 'act1_quotes', effects: { pride: 2, wealth: 0, reputation: 0, achievement: '语录教父', icon: '♪' } },
-      { label: `"别搞这些花里胡哨的，好好教书才是正经。"`, next: 'act1_quotes', effects: { pride: 0, wealth: 1, reputation: 0 } },
+      { label: `"这句话说得好！以后这就是我的招牌！"`, next: 'act1_quotes', effects: { pride: 2, wealth: 0, reputation: -1, pressure: 1, achievement: '语录教父', icon: '♪' } },
+      { label: `"别搞这些花里胡哨的，好好教书才是正经。"`, next: 'act1_quotes', effects: { pride: 0, wealth: 1, reputation: 0, trust: 1 } },
       { label: `"语录传开了？让我看看网上都怎么说的……"`, next: 'act1_quote2', effects: { pride: 1, wealth: 0, reputation: 1 } },
       { label: `"语录只是副产品，真正厉害的是课堂内容本身。"`, next: 'act1_quotes', effects: { pride: 1, wealth: 0, reputation: -1 } }
     ],
@@ -185,8 +155,8 @@ export const NODES = {
 你从没想过自己会成为一个"语录制造机"——你只是在课堂上说了你想说的话，就像呼吸一样自然。但互联网不在乎你想不想，它只在乎好不好传。
 <b>荒诞吗？一个英语老师的课堂段子，比他教的GRE单词传播得还广。</b>`,
     choices: [
-      { label: `"好好教书，别搞那些花里胡哨的段子。学生来是学GRE的。"`, next: 'act1_fame', effects: { pride: 0, wealth: 1, reputation: 0 } },
-      { label: `"段子就是我的教学风格！学生爱听，GRE也学了，双赢！"`, next: 'act1_fame', effects: { pride: 2, wealth: 0, reputation: 2, achievement: '语录教父', icon: '♪' } },
+      { label: `"好好教书，别搞那些花里胡哨的段子。学生来是学GRE的。"`, next: 'act1_fame', effects: { pride: -1, wealth: 1, reputation: -1 } },
+      { label: `"段子就是我的教学风格！学生爱听，GRE也学了，双赢！"`, next: 'act1_fame', effects: { pride: 2, wealth: 0, reputation: 2, pressure: 1, achievement: '语录教父', icon: '♪' } },
       { label: `"听说我的MP3录音在校园里疯传？"`, next: 'act1_quote2', effects: {"pride":1,"wealth":0,"reputation":1} }
     ],
     historyNote: `历史上"老罗语录"是早期互联网最火的文化现象之一。学生们偷偷录下他的课堂段子传到网上，从天涯论坛到猫扑，从QQ群到校园BBS，"老罗语录"几乎渗透了当时中国互联网的每一个角落。这种自下而上的传播方式，比任何营销都管用——因为每一段录音、每一句金句，都是学生自发分享的。老罗后来说："我花了十年学英语，结果出名靠的是说中文。"这件事让老罗第一次尝到了"个人IP"的威力——在那个没有微博、没有抖音的年代，他靠MP3录音就成了全国网红。这种"内容即流量"的认知，后来深刻影响了锤子手机的营销策略和直播带货的转型。`,
@@ -208,9 +178,9 @@ export const NODES = {
 <b>一个教GRE的，靠说话成了网红。这事儿搁谁身上都得暗爽。但你心里清楚：你说的不是段子，是你这二十多年活出来的东西。</b>`,
     choices: [
       { label: `"语录传播得好！让更多人听到我的声音！"`, next: 'act1_fame', effects: { pride: 1, reputation: 1, wealth: 0 } },
-      { label: `"趁热打铁，出本书或者做点商业变现。"`, next: 'act1_fame', effects: { wealth: 1, pride: 0, reputation: 0 } },
-      { label: `"录音传得好，但别忘了本职——把课讲好才是根本。"`, next: 'act1_fame', effects: { pride: 0, wealth: 1, reputation: 0 } },
-      { label: `"先不急变现，让语录飞一会儿，看看能飞多远。"`, next: 'act1_fame', effects: { pride: 1, wealth: -1, reputation: 0 } }
+      { label: `"趁热打铁，出本书或者做点商业变现。"`, next: 'act1_fame', effects: { wealth: 1, pride: -1, reputation: -1 } },
+      { label: `"录音传得好，但别忘了本职——把课讲好才是根本。"`, next: 'act1_fame', effects: { pride: -1, wealth: 1, reputation: -1 } },
+      { label: `"先不急变现，让语录飞一会儿，看看能飞多远。"`, next: 'act1_fame', effects: { pride: 1, wealth: -1, reputation: -1 } }
     ],
     historyNote: `历史上老罗的课堂录音确实以MP3形式在校园里病毒式传播。水木社区、天涯论坛、猫扑大杂烩都是重要传播节点。他后来当选2004年"网络十大红人"——一个英语老师靠课堂录音成了网红，这在当时是前所未有的事。MP3传播现象让老罗提前十年理解了"病毒传播"的本质——不是你推给用户，而是用户自发分享。后来锤子手机的"情怀营销"和直播带货的"真还传"人设，用的都是同一个逻辑：让内容自己长腿。`,
     progress: 30
@@ -226,7 +196,7 @@ export const NODES = {
 <b>你和俞敏洪的教育理念像两条平行线，永远不可能交汇。</b>`,
     choices: [
       { label: `"留在新东方，做一辈子网红讲师。稳定高薪，何必折腾？"`, next: 'act1_dilemma', effects: { pride: -2, wealth: 3, reputation: 0 } },
-      { label: `"辞职！老子要自己搞。做牛博网，一个不删帖不审查的博客平台。"`, next: 'act1_resign', effects: { pride: 3, wealth: -1, reputation: 2 } },
+      { label: `"辞职！老子要自己搞。做牛博网，一个不删帖不审查的博客平台。"`, next: 'act1_resign', effects: { pride: 2, wealth: -1, reputation: 2 } },
       { label: `"教书育人比创业更有意义。我要做教育改革！"`, next: 'ending_educator', effects: { pride: 1, wealth: -1, reputation: 2, achievement: '教育之光', icon: '▤' }, flag: 'education_reform', requires: { reputation: 3 } },
       { label: `"我和新东方的教育理念越来越冲突了……"`, next: 'act1_conflict', effects: {"pride":1,"wealth":0,"reputation":0} }
     ],
@@ -243,10 +213,10 @@ export const NODES = {
 那天开教研会，教学主管当着所有老师的面点名批评你："老罗，你的课堂风格太负面了，学生需要正能量。"你站起来，椅子往后一推，发出刺耳的声响："正能量不等于说假话。你让学生相信努力就能成功，那失败了算谁的？算他们不够努力？还是算你骗了他们？"会议室里气氛凝重，教学主管脸涨得通红。俞敏洪坐在主位上，没说话，但他看着你的眼神里有一种你已经看懂了的东西——不是愤怒，是疲惫。
 <b>他见过太多这样的冲突了，结局从来只有一个：该走了。</b>`,
     choices: [
-      { label: `"绝不妥协！我的课堂我做主！大不了辞职！"`, next: 'act1_resign', effects: { pride: 2, wealth: 0, reputation: 0 } },
+      { label: `"绝不妥协！我的课堂我做主！大不了辞职！"`, next: 'act1_resign', effects: { pride: 2, wealth: 0, reputation: -1 , pressure: -1} },
       { label: `"算了，赚钱要紧。适应新东方的规矩，继续干。"`, next: 'ending_comfort', effects: { pride: -2, wealth: 2, reputation: 0 }, flag: 'stayed_xinfang', maxAttr: { pride: 5 } },
       { label: `"不吵也不走，我上最后一堂课，跟学生好好告别。"`, next: 'act1_last_class', effects: { pride: 1, wealth: 0, reputation: 1 } },
-      { label: `"找个中间人调解，既不妥协也不撕破脸。"`, next: 'act1_resign', effects: { pride: 0, wealth: 1, reputation: -1 } }
+      { label: `"找个中间人调解，既不妥协也不撕破脸。"`, next: 'act1_resign', effects: { pride: 0, wealth: 1, reputation: -1, failures: 1 } }
     ],
     historyNote: `历史上老罗确实与新东方的教育理念产生了根本分歧。他后来回忆说："我受不了那种给学生灌鸡汤的方式。新东方要我告诉学生'你们一定能成功'，但我觉得应该告诉他们真相——成功需要运气、需要时机，不是光靠努力就行的。"这种理念冲突不是一时冲动，而是长期积累的必然——当一个人越来越不能忍受说违心的话，离开只是时间问题。他辞职后做了牛博网，又做了锤子手机，每一次都是在"说真话"和"说好话"之间选择了前者——这种选择让他失去过很多，但也让他始终是罗远。`,
     progress: 33
@@ -261,7 +231,7 @@ export const NODES = {
 你想起自己说过的话："彪悍的人生不需要解释。"但此刻你只想解释给所有人听：我不是疯了，我只是不想再装了。在新东方这些年，你学会了什么时候该笑，什么时候该闭嘴，什么时候该说"正能量"的话。你越来越会装了，也越来越不像你了。
 <b>一个人最可怕的不是失去什么，是发现自己正在变成另一个人，而那个人自己都讨厌。</b>`,
     choices: [
-      { label: `"不装了！辞职！老子要自己搞！"`, next: 'act1_resign', effects: { pride: 2, wealth: 0, reputation: 0 } },
+      { label: `"不装了！辞职！老子要自己搞！"`, next: 'act1_resign', effects: { pride: 2, wealth: 0, reputation: -1 } },
       { label: `"再想想……五六十万年薪呢，辞职了什么都没有。"`, next: 'ending_comfort', effects: { pride: -1, wealth: 2, reputation: 0 }, flag: 'stayed_xinfang' },
       { label: `"上最后一堂课，跟学生告别吧。"`, next: 'act1_last_class', effects: {"pride":1,"wealth":0,"reputation":1} }
     ],
@@ -278,9 +248,9 @@ export const NODES = {
 你讲到最后一道GRE填空题，停下来看了看台下——前排有个女生眼圈红了，旁边一个男生低着头，肩膀在微微发抖。你说："同学们，这可能是我最后一次在这个讲台上给你们上课了。"教室里一片哗然，有人喊"老罗别走！"你笑了笑，把最后一道题讲完，然后深深鞠了一躬。
 <b>走出教室的时候，你的眼眶湿了——不是因为舍不得，是因为你知道，从今天起，你又要变成一个什么都没有的人了。</b>`,
     choices: [
-      { label: `"谢谢你们。但有些路，必须一个人走。"`, next: 'act1_resign', effects: { pride: 1, reputation: 2, wealth: 0, achievement: '最后一课', icon: '★' } },
-      { label: `"算了，看到学生这么不舍，我再留一阵子。"`, next: 'act1_resign', effects: { pride: -1, wealth: 1, reputation: 0 } },
-      { label: `"学生这么不舍……也许我该再想想，辞职是不是太冲动了。"`, next: 'act1_dilemma', effects: { pride: 0, wealth: 1, reputation: 0 } },
+      { label: `"谢谢你们。但有些路，必须一个人走。"`, next: 'act1_resign', effects: { pride: 1, reputation: 2, wealth: 0, achievement: '最后一课', icon: '★', trust: 1, pressure: -1 } },
+      { label: `"算了，看到学生这么不舍，我再留一阵子。"`, next: 'act1_resign', effects: { pride: -1, wealth: 1, reputation: 0, failures: 1, trust: -1 } },
+      { label: `"学生这么不舍……也许我该再想想，辞职是不是太冲动了。"`, next: 'act1_dilemma', effects: { pride: -1, wealth: 1, reputation: -1 } },
       { label: `"不煽情，把这节课当成最普通的一节课上完。"`, next: 'act1_resign', effects: { pride: 1, wealth: 0, reputation: -1 } }
     ],
     historyNote: `历史上老罗辞职前确实上了最后一堂课，学生非常不舍。他后来回忆说那是他新东方生涯中最感动的一刻。有学生当场落泪，有人追到走廊里喊"老罗别走"。但他说："那一刻我特别清楚，我必须走。不是因为不爱这里，是因为我还有别的事要做。"多年后有学生回忆那堂课："那天的老罗和平时不一样，他讲得很慢，像是在跟每一分钟告别。"`,
@@ -291,17 +261,23 @@ export const NODES = {
     actSub: '辞职 · 与俞敏洪分道扬镳 2006',
     sceneType: SCENE_TYPES.OFFICE,
     character: '小罗',
-    text: `你坐在俞敏洪对面，说出了酝酿已久的话："俞老师，我要辞职。"三个字像三颗钉子，钉进空气里，办公室的沉默比任何回应都响。俞敏洪沉默了很久，最后说："你走了，新东方少了一个好老师。但我知道，留不住你。"
+    text: `你坐在俞敏洪对面，桌上摆着辞职信，白纸黑字，像一张判决书。你听见自己的声音从喉咙里挤出来："俞老师，我要辞职。"三个字像三颗钉子，一颗一颗钉进空气里。办公室的空调嗡嗡作响，那一刻的沉默比任何回应都响——你能听见自己心跳，能听见窗外长安街上的车流，能听见俞敏洪指尖在桌面上轻轻敲了三下又停住。
 
-你站起来，没有回头。走出新东方大楼的那一刻，你回头看了一眼那块招牌——阳光打在上面，金灿灿的。你要做一个真正属于自己的东西：牛博网。一个不删帖、不审查、让所有声音都能被听见的博客平台。
+俞敏洪沉默了很久，久到你以为他要挽留，久到你几乎希望他挽留。最后他叹了口气，声音很轻："你走了，新东方少了一个好老师。但我知道，留不住你。"
+
+你站起来，没有回头——不是不想，是不敢。你知道一回头就会看见那间你讲过无数次课的教室，看见墙上"在绝望中寻找希望"的标语，看见自己六年里所有熬夜备课、所有被学生笑声淹没的瞬间。那些东西会拽住你的脚，让你走不动。
+
+走出新东方大楼的那一刻，六月正午的阳光当头浇下来，晃得你睁不开眼。你回头看了一眼那块招牌——"新东方"三个字在阳光下金灿灿的，刺得你眼眶发酸。年薪五六十万、北京的房子、网络红人的光环——这些东西像一件穿了六年的旧棉袄，暖和，但已经小了，扣子都快崩开了。
+
+你要去做一个真正属于自己的东西：牛博网。一个不删帖、不审查、让所有声音都能被听见的博客平台。不知道能不能成，不知道下一笔房租从哪来，不知道三个月后自己会不会后悔得想撞墙。
 <b>你想起第三次试讲那天——当你什么都不怕的时候，反而讲出了最好的自己。你转身，走进六月的阳光里，影子拖得很长，像一条再也不会回头的路。</b>`,
     choices: [
-      { label: `"再想想？万一牛博网做不成呢？至少在新东方还有退路。"`, next: 'ending_comfort', effects: { pride: -2, wealth: 2, reputation: 0 }, flag: 'stayed_xinfang' },
+      { label: `"再想想？万一牛博网做不成呢？至少在新东方还有退路。"`, next: 'ending_comfort', effects: { pride: -2, wealth: 2, reputation: 0 }, flag: 'stayed_xinfang', maxAttr: { pride: 4, wealth: 4 } },
       { label: `"不回头了！牛博网，干就完了！"`, next: 'act2_a', effects: { pride: 3, wealth: -1, reputation: 2, achievement: '理想主义者', icon: '▲' } },
-      { label: `"辞职不一定要马上创业……先休息一阵，想清楚再动手。"`, next: 'act2_launch', effects: { pride: 0, wealth: 0, reputation: 1 } },
-      { label: `"先请个长假试试水，不用一步到位。"`, next: 'act2_a', effects: { pride: -1, wealth: 1, reputation: 0 } }
+      { label: `"辞职不一定要马上创业……先休息一阵，想清楚再动手。"`, next: 'act2_launch', effects: { pride: -1, wealth: 0, reputation: 1 } },
+      { label: `"先请个长假试试水，不用一步到位。"`, next: 'act2_a', effects: { pride: -1, wealth: 1, reputation: 0, failures: 1 } }
     ],
-    historyNote: `历史上老罗2006年6月从新东方辞职。同年7月31日，牛博网正式上线。俞敏洪后来评价他："老罗是个理想主义者，这种人要么改变世界，要么被世界改变。"而老罗自己的说法更简单："我就是不想装了。"从新东方到牛博网，他放弃的是安稳，赌的是理想——这种选择，在他的人生里会反复出现，像一种宿命：每次站在十字路口，他都会选那条最难走的路。`,
+    historyNote: `历史上老罗2006年6月从新东方辞职，放弃了年薪五六十万和北京的房子。同年7月31日，牛博网正式上线。俞敏洪后来评价他："老罗是个理想主义者，这种人要么改变世界，要么被世界改变。"而老罗自己的说法更简单："我就是不想装了。"为什么这件事重要——因为这是老罗人生中第一次主动放弃"已经到手的东西"去换"什么都没有的未来"，从此他的人生有了一个固定剧本：站在巅峰时转身，走向荒野。后来牛博网因内容问题关停、锤子手机负债六个亿、直播还债——每一次跌倒，源头都可以追到这次辞职。但老罗后来说："我不后悔辞职，我后悔的是没早点辞。"从新东方到牛博网，他放弃的是安稳，赌的是理想——这种选择在他的人生里反复出现，像一种宿命：每次站在十字路口，他都会选那条最难走的路。`,
     progress: 35
   },
 

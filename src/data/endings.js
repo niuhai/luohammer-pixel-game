@@ -58,7 +58,7 @@ export const ENDINGS = [
     icon: '◇',
     priority: 7,
     sceneType: 'ending',
-    check: (state, flags) => state.reputation < 2 && (state.failures || 0) >= 3
+    check: (state, flags) => state.reputation < 3 && (state.failures || 0) >= 3
   },
   {
     id: 'balance',
@@ -69,7 +69,7 @@ export const ENDINGS = [
     icon: '⚖',
     priority: 12,
     sceneType: 'ending',
-    check: (state, flags) => state.pride >= 6 && state.wealth >= 6 && state.reputation >= 6 && state.trust >= 6 && (state.failures || 0) <= 2
+    check: (state, flags) => state.pride >= 6 && state.wealth >= 6 && state.reputation >= 6 && state.trust >= 5 && (state.failures || 0) <= 2
   },
   {
     id: 'rational',
@@ -124,7 +124,7 @@ export const ENDINGS = [
     icon: '▲',
     priority: 11,
     sceneType: 'ending',
-    check: (state, flags) => state.pride >= 7 && (state.failures || 0) >= 3 && state.wealth >= 4 && flags.has('honest_repay')
+    check: (state, flags) => state.pride >= 7 && (state.failures || 0) >= 2 && state.wealth >= 4 && flags.has('honest_repay')
   },
   {
     id: 'hermit',
@@ -135,7 +135,7 @@ export const ENDINGS = [
     icon: '▲',
     priority: 9,
     sceneType: 'ending',
-    check: (state, flags) => state.pressure <= 0 && flags.has('retired')
+    check: (state, flags) => state.pressure <= 1 && flags.has('retired')
   },
   {
     id: 'peace',
@@ -171,7 +171,7 @@ export const ENDINGS = [
     icon: '▣',
     priority: 10,
     sceneType: 'ending',
-    check: (state, flags) => state.pride >= 9 && flags.has('persist_premium')
+    check: (state, flags) => state.pride >= 8 && flags.has('persist_premium')
   },
   {
     id: 'scholar',

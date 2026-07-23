@@ -82,10 +82,20 @@
       --color-danger: #e04040;
       --color-warning: #f0c040;
       --color-info: #4090e0;
+      /* 状态文字色（用于内联 style 中的浅色文字） */
+      --color-success-text: #7ad07a;
+      --color-danger-text: #e07050;
+      --color-gold-border: #c09830;
 
       /* 字体 */
       --font-pixel: 'Luohammer UI', "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Heiti SC", "SimHei", sans-serif;
       --font-mono: 'Luohammer UI', monospace;
+
+      /* 字体层级（标题/名字/正文/说明）—— clamp 响应式 */
+      --fs-title:  clamp(18px, 2.5vw, 22px);   /* 标题 */
+      --fs-name:   clamp(15px, 2vw, 17px);     /* 角色名 */
+      --fs-body:   clamp(13px, 1.8vw, 15px);   /* 正文 */
+      --fs-caption: clamp(11px, 1.4vw, 12px);  /* 说明/注释 */
 
       /* 动画 */
       --ease-pixel: steps(4);
@@ -405,7 +415,7 @@
     .ui-dialog .corner-deco.br { bottom: 4px; right: 4px; border-bottom: 1.5px solid rgba(240, 192, 64, 0.65); border-right: 1.5px solid rgba(240, 192, 64, 0.65); }
 
     .ui-dialog-name {
-      font-size: clamp(12px, 1.8vw, 16px);
+      font-size: var(--fs-name);
       font-weight: 700;
       color: var(--color-gold);
       letter-spacing: 1px;
@@ -427,7 +437,7 @@
     }
 
     .ui-dialog-text {
-      font-size: clamp(13px, 1.9vw, 17px);
+      font-size: var(--fs-body);
       color: #e8d5a3;
       line-height: 1.7;
       word-wrap: break-word;
@@ -448,6 +458,18 @@
     }
 
     /* 压力可视化暗角层 */
+    .cinema-vignette {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          pointer-events: none;
+          z-index: 9997;
+          /* 静态电影暗角：轻微压暗四边，让视线聚焦画面中心，增强电影感 */
+          box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.35);
+        }
+    
     .pressure-vignette {
       position: fixed;
       top: 0;
@@ -497,7 +519,7 @@
     }
 
     .ui-dialog-continue {
-      font-size: clamp(9px, 1.2vw, 12px);
+      font-size: var(--fs-caption);
       color: #8A7A5A;
       margin-top: clamp(2px, 0.5vh, 6px);
       text-align: right;
@@ -514,7 +536,7 @@
       position: absolute;
       top: clamp(4px, 0.8vh, 8px);
       right: clamp(8px, 1.5vw, 14px);
-      font-size: clamp(8px, 1vw, 10px);
+      font-size: var(--fs-caption);
       color: var(--color-gold-dark, #c49a2a);
       letter-spacing: 1px;
       background: rgba(0, 0, 0, 0.5);
@@ -701,7 +723,7 @@
       background: rgba(10, 10, 26, 0.55);
       border: clamp(1px, 0.25vh, 2px) solid rgba(240, 192, 64, 0.18);
       cursor: pointer;
-      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       position: relative;
       font-family: inherit;
       color: #e8d5a3;
@@ -741,16 +763,16 @@
     .ui-choice-btn .corner-deco.bl { bottom: -1px; left: -1px; border-bottom: 1.5px solid rgba(240, 192, 64, 0.55); border-left: 1.5px solid rgba(240, 192, 64, 0.55); }
     .ui-choice-btn .corner-deco.br { bottom: -1px; right: -1px; border-bottom: 1.5px solid rgba(240, 192, 64, 0.55); border-right: 1.5px solid rgba(240, 192, 64, 0.55); }
 
-    /* 悬停 / 移动端触控高亮 — 柔和金色光晕 */
+    /* 悬停 / 移动端触控高亮 — 金色边框流动 + 轻微缩放(1.02) + 200ms transition */
     .ui-choice-btn:hover,
     .ui-choice-btn.touch-active {
-      border-color: rgba(240, 192, 64, 0.75);
+      border-color: rgba(var(--color-gold-rgb), 0.75);
       background: rgba(26, 58, 92, 0.72);
-      transform: translateY(-2px) scale(1.01);
+      transform: translateY(-2px) scale(1.02);
       box-shadow:
-        0 0 16px rgba(240, 192, 64, 0.16),
-        0 0 32px rgba(240, 192, 64, 0.06),
-        inset 0 0 10px rgba(240, 192, 64, 0.04);
+        0 0 16px rgba(var(--color-gold-rgb), 0.16),
+        0 0 32px rgba(var(--color-gold-rgb), 0.06),
+        inset 0 0 10px rgba(var(--color-gold-rgb), 0.04);
     }
 
     .ui-choice-btn:hover::before,
@@ -851,7 +873,7 @@
     }
 
     .ui-choice-text {
-      font-size: clamp(13px, 1.9vw, 17px);
+      font-size: var(--fs-body);
       color: #e8d5a3;
       line-height: 1.5;
       flex: 1;
@@ -896,7 +918,7 @@
     }
 
     .ui-choice-lock-hint {
-      font-size: clamp(9px, 1.1vw, 11px);
+      font-size: var(--fs-caption);
       color: #e04040;
       white-space: nowrap;
       flex-shrink: 0;
@@ -1938,9 +1960,74 @@
     .ui-ending-stats {
       display: flex;
       flex-direction: column;
+      align-items: center;
       gap: clamp(6px, 1.2vh, 10px);
       width: clamp(260px, 50vw, 420px);
       margin-bottom: clamp(8px, 1.5vh, 14px);
+    }
+
+    /* === 六维雷达图（结局页核心视觉）=== */
+    .ui-ending-radar {
+      width: clamp(220px, 52vw, 300px);
+      height: clamp(220px, 52vw, 300px);
+      animation: endingRadarIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+    }
+    .ui-radar-grid {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.06);
+      stroke-width: 0.5;
+      stroke-dasharray: 1.5 2;
+    }
+    .ui-radar-axis {
+      stroke: rgba(255, 255, 255, 0.08);
+      stroke-width: 0.5;
+    }
+    .ui-radar-data {
+      fill: rgba(240, 192, 64, 0.18);
+      stroke: var(--color-gold);
+      stroke-width: 1.2;
+      stroke-linejoin: round;
+      filter: drop-shadow(0 0 4px rgba(240, 192, 64, 0.4));
+      transform-origin: 100px 100px;
+      animation: radarDataGrow 1s ease-out 0.5s both;
+    }
+    .ui-radar-point {
+      stroke: rgba(0, 0, 0, 0.4);
+      stroke-width: 0.8;
+      filter: drop-shadow(0 0 3px currentColor);
+      opacity: 0;
+      animation: radarPointIn 0.4s ease-out both;
+    }
+    .ui-radar-point:nth-child(6n+1) { animation-delay: 0.9s; }
+    .ui-radar-point:nth-child(6n+2) { animation-delay: 1.0s; }
+    .ui-radar-point:nth-child(6n+3) { animation-delay: 1.1s; }
+    .ui-radar-point:nth-child(6n+4) { animation-delay: 1.2s; }
+    .ui-radar-point:nth-child(6n+5) { animation-delay: 1.3s; }
+    .ui-radar-point:nth-child(6n+6) { animation-delay: 1.4s; }
+    .ui-radar-label {
+      fill: var(--color-text-secondary);
+      font-size: 8.5px;
+      font-family: var(--font-pixel), "Microsoft YaHei", sans-serif;
+      font-weight: 600;
+      dominant-baseline: middle;
+    }
+    .ui-radar-value {
+      font-size: 9px;
+      font-family: var(--font-pixel), "Microsoft YaHei", sans-serif;
+      font-weight: 700;
+      dominant-baseline: middle;
+    }
+    @keyframes endingRadarIn {
+      from { opacity: 0; transform: scale(0.7) rotate(-8deg); }
+      to   { opacity: 1; transform: scale(1) rotate(0); }
+    }
+    @keyframes radarDataGrow {
+      from { transform: scale(0); opacity: 0; }
+      to   { transform: scale(1); opacity: 1; }
+    }
+    @keyframes radarPointIn {
+      from { opacity: 0; r: 0; }
+      to   { opacity: 1; r: 3; }
     }
 
     .ui-ending-stat-row {
@@ -1985,6 +2072,28 @@
       max-width: clamp(280px, 60vw, 520px);
       margin-bottom: clamp(6px, 1.2vh, 10px);
       animation: endingFadeUp 0.8s ease-out 0.5s both;
+    }
+
+    /* === AI 动态洞察金句（复赛创新性记忆点）=== */
+    /* 在原 quote 之后浮现，金色发光 + 打字机式淡入 */
+    .ui-ending-insight {
+      font-size: clamp(10px, 1.3vw, 13px);
+      color: var(--color-success-text);
+      text-align: center;
+      max-width: clamp(280px, 62vw, 540px);
+      margin: clamp(2px, 0.6vh, 6px) 0 clamp(8px, 1.5vh, 14px);
+      padding: clamp(6px, 1vh, 10px) clamp(10px, 2vw, 18px);
+      border-left: 2px solid var(--color-success);
+      border-right: 2px solid var(--color-success);
+      background: linear-gradient(90deg, rgba(64, 192, 96, 0.04), rgba(64, 192, 96, 0.08), rgba(64, 192, 96, 0.04));
+      letter-spacing: 0.04em;
+      line-height: 1.7;
+      opacity: 0;
+      animation: endingInsightIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) 1.4s both;
+    }
+    @keyframes endingInsightIn {
+      0%   { opacity: 0; transform: translateY(8px); filter: blur(6px); }
+      100% { opacity: 0.95; transform: translateY(0); filter: blur(0); }
     }
 
     .ui-ending-summary {
@@ -2315,7 +2424,7 @@
     }
 
     .ui-history-note-title {
-      font-size: clamp(14px, 2vw, 18px);
+      font-size: var(--fs-title);
       font-weight: 700;
       color: var(--color-gold);
       letter-spacing: 2px;
@@ -2323,7 +2432,7 @@
 
     .ui-history-note-body {
       padding: clamp(12px, 1.8vh, 18px) clamp(14px, 2vw, 22px);
-      font-size: clamp(12px, 1.7vw, 15px);
+      font-size: var(--fs-body);
       color: #e8d5a3;
       line-height: 1.8;
       overflow-y: auto;
@@ -3308,9 +3417,8 @@
 
     /* === Boot Scene Overlay === */
     .ui-boot-overlay {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
+      position: fixed;
+      inset: 0;
       display: none;
       pointer-events: auto;
       z-index: 50;
@@ -3465,6 +3573,15 @@
       border-radius: var(--radius-sharp);
       overflow: hidden;
       backdrop-filter: blur(6px);
+      /* guide 容器本身不拦截点击，让点击穿透到下方按钮 */
+      pointer-events: none;
+    }
+    /* 折叠状态：整个 guide 不参与命中测试（toggle 由下方规则恢复） */
+    .ui-boot-guide.collapsed {
+      pointer-events: none;
+    }
+    .ui-boot-guide.collapsed .ui-boot-guide-toggle {
+      pointer-events: auto;
     }
     .ui-boot-guide-toggle {
       display: flex; align-items: center; justify-content: flex-start; gap: 8px;
@@ -3472,6 +3589,8 @@
       font-size: clamp(11px, 1.5vw, 13px); color: var(--color-text-secondary);
       letter-spacing: 0.06em; transition: color 0.2s;
       user-select: none;
+      /* toggle 恢复点击事件 */
+      pointer-events: auto;
     }
     .ui-boot-guide-toggle:hover { color: var(--color-gold); }
     .ui-boot-guide-icon { font-size: 14px; }
@@ -3484,9 +3603,16 @@
       max-height: 560px; overflow-y: auto; overflow-x: hidden;
       transition: max-height 0.35s ease, padding 0.35s ease, opacity 0.3s ease;
       padding: 4px 16px 14px; opacity: 1;
+      /* 展开时恢复点击事件和显示 */
+      pointer-events: auto;
+      display: block;
     }
     .ui-boot-guide.collapsed .ui-boot-guide-body {
       max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0;
+      /* 折叠时必须禁用点击事件，防止 body 内容拦截下方按钮 */
+      pointer-events: none;
+      /* 双保险：折叠时直接移出渲染树，彻底避免命中测试 */
+      display: none;
     }
     .ui-boot-guide-item {
       display: flex; align-items: flex-start; gap: 10px;
@@ -4128,6 +4254,29 @@
       100% { opacity: 0; filter: blur(8px); }
     }
 
+    /* === 杀手级时刻 AI 动态点评（复赛创新性记忆点）=== */
+    /* 比普通 life-echo 更强的视觉权重：红色危险色 + 更大字号 + 5 秒仪式感 */
+    .life-echo.killer {
+      font-size: 1.45rem;
+      font-weight: 600;
+      color: var(--color-danger-text);
+      text-shadow:
+        0 0 30px rgba(224, 64, 64, 0.55),
+        0 0 12px rgba(255, 200, 200, 0.35),
+        0 2px 4px rgba(0, 0, 0, 0.8);
+      letter-spacing: 0.08em;
+      font-style: normal;
+      max-width: 86vw;
+      line-height: 1.6;
+      animation: killerEcho 5s ease forwards;
+    }
+    @keyframes killerEcho {
+      0%   { opacity: 0; filter: blur(14px); transform: translate(-50%, -50%) scale(0.88); }
+      12%  { opacity: 1;  filter: blur(0);   transform: translate(-50%, -50%) scale(1); }
+      85%  { opacity: 0.95; filter: blur(0);  transform: translate(-50%, -50%) scale(1); }
+      100% { opacity: 0;  filter: blur(10px); transform: translate(-50%, -50%) scale(1.06); }
+    }
+
     /* === 任务4：长按预览选项效果 === */
     .choice-preview {
       position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
@@ -4336,6 +4485,11 @@
       }
       .ui-ending-stats {
         width: 95vw;
+        align-items: center;
+      }
+      .ui-ending-radar {
+        width: clamp(200px, 65vw, 260px);
+        height: clamp(200px, 65vw, 260px);
       }
 
       /* 随机事件适配 */
@@ -4367,6 +4521,26 @@
         height: 5px;
       }
     }
+
+    /* === 场景过渡动画（0.5s 淡入） === */
+    .scene-transition {
+      animation: sceneFadeIn 0.5s ease forwards;
+    }
+    @keyframes sceneFadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* === 无障碍：尊重 prefers-reduced-motion，降级为无动画 === */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+      .scene-transition { animation: none !important; opacity: 1 !important; transform: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -4389,16 +4563,17 @@
   </div>
 
   <!-- 下半屏点击捕获层（移动端对话框热区扩展） -->
-  <div id="dialog-touch-layer"></div>
+  <div id="dialog-touch-layer" aria-hidden="true"></div>
 
   <!-- 压力可视化暗角层 -->
-  <div class="pressure-vignette" id="pressure-vignette"></div>
+  <div class="cinema-vignette" aria-hidden="true"></div>
+  <div class="pressure-vignette" id="pressure-vignette" aria-hidden="true"></div>
 
   <!-- 选择确认闪白层 -->
-  <div id="choice-flash"></div>
+  <div id="choice-flash" aria-hidden="true"></div>
 
   <!-- 任务3：人生回响文字层 -->
-  <div class="life-echo" id="life-echo"></div>
+  <div class="life-echo" id="life-echo" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <!-- DOM UI Overlay Container -->
   <div id="ui-overlay">
@@ -4411,7 +4586,7 @@
       <div class="ui-dialog-name" id="ui-dialog-name"></div>
       <div class="ui-dialog-text" id="ui-dialog-text"></div>
       <div class="ui-dialog-continue" id="ui-dialog-continue">点击继续 ▶</div>
-      <button class="ui-dialog-auto" id="ui-dialog-auto" title="自动播放 (A)，按 S 切换速度">AUTO</button>
+      <button class="ui-dialog-auto" id="ui-dialog-auto" title="自动播放 (A)，按 S 切换速度" aria-label="自动播放切换">AUTO</button>
     </div>
 
     <!-- Choices -->
@@ -4504,8 +4679,8 @@
         <div class="ui-boot-subtitle">真还传 · 人生模拟</div>
         <div class="ui-boot-quote" id="ui-boot-quote"><span class="ui-boot-quote-cursor"></span></div>
 
-        <!-- 玩法指引卡片：首次自动展开，可折叠 -->
-        <div class="ui-boot-guide" id="ui-boot-guide">
+        <!-- 玩法指引卡片：默认折叠，点击展开（避免遮挡按钮） -->
+        <div class="ui-boot-guide collapsed" id="ui-boot-guide">
           <div class="ui-boot-guide-toggle" id="ui-boot-guide-toggle">
             <span class="ui-boot-guide-icon">?</span>
             <span class="ui-boot-guide-label">怎么玩</span>

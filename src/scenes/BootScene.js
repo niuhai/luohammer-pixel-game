@@ -46,13 +46,16 @@ export class BootScene extends Phaser.Scene {
     const buttonsEl = document.getElementById('ui-boot-buttons');
     buttonsEl.innerHTML = '';
 
+    // 尽早显示 overlay，确保即使后续按钮创建出错也不会黑屏
+    overlay.classList.add('visible');
+
     // === 显示历史成就积分（如果 > 0） ===
     const meta = new MetaProgression();
     const totalScore = meta.getAchievementScore();
     if (totalScore > 0) {
       const scoreEl = document.createElement('div');
       scoreEl.className = 'ui-boot-score-display';
-      scoreEl.style.cssText = 'text-align: center; color: #f0c040; font-size: 13px; font-weight: 700; padding: 6px 12px; margin-bottom: 8px; border: 1px solid rgba(240,192,64,0.3); border-radius: 4px; background: rgba(240,192,64,0.06); letter-spacing: 1px;';
+      scoreEl.style.cssText = 'text-align: center; color: var(--color-gold); font-size: 13px; font-weight: 700; padding: 6px 12px; margin-bottom: 8px; border: 1px solid rgba(var(--color-gold-rgb),0.3); border-radius: 4px; background: rgba(var(--color-gold-rgb),0.06); letter-spacing: 1px;';
       scoreEl.textContent = `★ 成就积分：${totalScore}`;
       buttonsEl.appendChild(scoreEl);
     }
@@ -174,9 +177,6 @@ export class BootScene extends Phaser.Scene {
       if (endingGalleryBtn) buttonsEl.appendChild(endingGalleryBtn);
     }
 
-    overlay.classList.add('visible');
-    overlay.classList.add('visible');
-
     // === 隐藏调试开关 + DEBUG 标识 ===
     this._setupDebugToggle(overlay);
 
@@ -292,7 +292,7 @@ export class BootScene extends Phaser.Scene {
       'max-height: 85vh',
       'overflow-y: auto',
       'z-index: 10000',
-      'color: #f0e0a0',
+      'color: var(--color-text-primary)',
       'font-family: "Press Start 2P", "Microsoft YaHei", monospace',
       'box-shadow: 0 8px 40px rgba(0,0,0,0.6)'
     ].join(';');
@@ -300,12 +300,12 @@ export class BootScene extends Phaser.Scene {
     // 标题
     const title = document.createElement('div');
     title.textContent = '♪ 配音试听';
-    title.style.cssText = 'font-size: 16px; color: #f0c040; text-align: center; margin-bottom: 4px; letter-spacing: 1px;';
+    title.style.cssText = 'font-size: 16px; color: var(--color-gold); text-align: center; margin-bottom: 4px; letter-spacing: 1px;';
     panel.appendChild(title);
 
     const subtitle = document.createElement('div');
     subtitle.textContent = '点击「试听」听效果，满意后点「应用」';
-    subtitle.style.cssText = 'font-size: 11px; color: #9a8a6a; text-align: center; margin-bottom: 14px; line-height: 1.5;';
+    subtitle.style.cssText = 'font-size: 11px; color: var(--color-text-secondary); text-align: center; margin-bottom: 14px; line-height: 1.5;';
     panel.appendChild(subtitle);
 
     // 预设列表
@@ -328,12 +328,12 @@ export class BootScene extends Phaser.Scene {
       left.style.cssText = 'flex: 1; padding-right: 10px;';
 
       const name = document.createElement('div');
-      name.style.cssText = 'font-size: 13px; color: #f0c040; font-weight: 700; margin-bottom: 3px;';
+      name.style.cssText = 'font-size: 13px; color: var(--color-gold); font-weight: 700; margin-bottom: 3px;';
       name.textContent = (preset.key === currentKey ? '★ ' : '') + preset.label;
       left.appendChild(name);
 
       const desc = document.createElement('div');
-      desc.style.cssText = 'font-size: 10px; color: #9a8a6a; line-height: 1.4;';
+      desc.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); line-height: 1.4;';
       desc.textContent = preset.desc;
       left.appendChild(desc);
 
@@ -347,7 +347,7 @@ export class BootScene extends Phaser.Scene {
       const matchedOk = voiceInfo.matched &&
                         ((voiceInfo.expectMale && voiceInfo.isMale === true) ||
                          (!voiceInfo.expectMale && voiceInfo.isMale === false));
-      matchedEl.style.color = matchedOk ? '#7ad07a' : '#e07050';
+      matchedEl.style.color = matchedOk ? 'var(--color-success-text)' : 'var(--color-danger-text)';
       matchedEl.textContent = `→ ${voiceInfo.voiceName} [${genderLabel}/${expectLabel}${voiceInfo.matched ? '/匹配' : '/回退'}]`;
       left.appendChild(matchedEl);
 
@@ -362,7 +362,7 @@ export class BootScene extends Phaser.Scene {
       previewBtn.style.cssText = [
         'background: transparent',
         'border: 1px solid rgba(240, 192, 64, 0.5)',
-        'color: #f0c040',
+        'color: var(--color-gold)',
         'padding: 5px 10px',
         'font-size: 11px',
         'border-radius: 3px',
@@ -416,7 +416,7 @@ export class BootScene extends Phaser.Scene {
       'margin: 14px auto 0',
       'background: transparent',
       'border: 1px solid rgba(154, 138, 106, 0.5)',
-      'color: #9a8a6a',
+      'color: var(--color-text-secondary)',
       'padding: 6px 24px',
       'font-size: 11px',
       'border-radius: 3px',
@@ -431,10 +431,10 @@ export class BootScene extends Phaser.Scene {
     importSection.style.cssText = 'margin: 14px 0 6px; padding-top: 10px; border-top: 1px dashed rgba(154, 138, 106, 0.3);';
     importSection.innerHTML = `
       <div style="font-size: 11px; color: var(--color-gold, #f0c040); margin-bottom: 4px;">♪ 自定义音频导入</div>
-      <div style="font-size: 9px; color: #9a8a6a; line-height: 1.5; margin-bottom: 8px;">
+      <div style="font-size: 9px; color: var(--color-text-secondary); line-height: 1.5; margin-bottom: 8px;">
         导入你录制的音频文件（mp3/wav/ogg/m4a，≤2MB）。<br>
         导入后选择"自定义音频"预设，所有语音将播放该音频（非 TTS）。<br>
-        <span style="color: #e07050;">注意：浏览器无法用少量样本克隆声音，每段文本需单独录制。</span>
+        <span style="color: var(--color-danger-text);">注意：浏览器无法用少量样本克隆声音，每段文本需单独录制。</span>
       </div>
     `;
     panel.appendChild(importSection);
@@ -448,7 +448,7 @@ export class BootScene extends Phaser.Scene {
 
     const importBtn = document.createElement('button');
     importBtn.textContent = this.audio.hasCustomVoice() ? '♪ 重新导入音频' : '♪ 导入音频文件';
-    importBtn.style.cssText = 'background: rgba(120, 80, 30, 0.6); color: #f0c040; border: 1px solid #c09830; padding: 8px 12px; font-size: 11px; cursor: pointer; margin-right: 8px; font-family: inherit;';
+    importBtn.style.cssText = 'background: rgba(120, 80, 30, 0.6); color: var(--color-gold); border: 1px solid var(--color-gold-border); padding: 8px 12px; font-size: 11px; cursor: pointer; margin-right: 8px; font-family: inherit;';
     importBtn.addEventListener('click', () => fileInput.click());
     panel.appendChild(importBtn);
 
@@ -459,13 +459,13 @@ export class BootScene extends Phaser.Scene {
       if (result.ok) {
         importBtn.textContent = '♪ 重新导入音频';
         const status = document.createElement('div');
-        status.style.cssText = 'font-size: 10px; color: #7ad07a; margin-top: 6px;';
+        status.style.cssText = 'font-size: 10px; color: var(--color-success-text); margin-top: 6px;';
         status.textContent = `✓ 导入成功：${file.name}（${(file.size/1024).toFixed(1)}KB）。选择"自定义音频"预设试听。`;
         panel.appendChild(status);
         // 同步刷新已存在的 custom 预设行（如果已渲染）
       } else {
         const err = document.createElement('div');
-        err.style.cssText = 'font-size: 10px; color: #e07050; margin-top: 6px;';
+        err.style.cssText = 'font-size: 10px; color: var(--color-danger-text); margin-top: 6px;';
         err.textContent = `✗ ${result.error}`;
         panel.appendChild(err);
       }
@@ -475,12 +475,12 @@ export class BootScene extends Phaser.Scene {
     if (this.audio.hasCustomVoice()) {
       const clearBtn = document.createElement('button');
       clearBtn.textContent = '清除';
-      clearBtn.style.cssText = 'background: rgba(120, 30, 30, 0.4); color: #e07050; border: 1px solid #803030; padding: 8px 12px; font-size: 11px; cursor: pointer; font-family: inherit;';
+      clearBtn.style.cssText = 'background: rgba(120, 30, 30, 0.4); color: var(--color-danger-text); border: 1px solid #803030; padding: 8px 12px; font-size: 11px; cursor: pointer; font-family: inherit;';
       clearBtn.addEventListener('click', () => {
         this.audio.clearCustomVoice();
         importBtn.textContent = '♪ 导入音频文件';
         const status = document.createElement('div');
-        status.style.cssText = 'font-size: 10px; color: #9a8a6a; margin-top: 6px;';
+        status.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); margin-top: 6px;';
         status.textContent = '已清除自定义音频';
         panel.appendChild(status);
       });
@@ -492,12 +492,12 @@ export class BootScene extends Phaser.Scene {
     if (zhVoices.length > 0) {
       const debugTitle = document.createElement('div');
       debugTitle.textContent = `系统可用中文语音（${zhVoices.length} 个）`;
-      debugTitle.style.cssText = 'font-size: 10px; color: #9a8a6a; margin: 14px 0 6px; padding-top: 10px; border-top: 1px dashed rgba(154, 138, 106, 0.3);';
+      debugTitle.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); margin: 14px 0 6px; padding-top: 10px; border-top: 1px dashed rgba(154, 138, 106, 0.3);';
       panel.appendChild(debugTitle);
 
       zhVoices.forEach(v => {
         const vRow = document.createElement('div');
-        vRow.style.cssText = 'font-size: 9px; color: #7a6a5a; padding: 2px 0; line-height: 1.4;';
+        vRow.style.cssText = 'font-size: 9px; color: var(--color-text-muted); padding: 2px 0; line-height: 1.4;';
         const gLabel = v.isMale === true ? '男' : v.isMale === false ? '女' : '?';
         vRow.textContent = `· [${gLabel}] ${v.name} (${v.lang})`;
         panel.appendChild(vRow);
@@ -505,7 +505,7 @@ export class BootScene extends Phaser.Scene {
 
       if (zhVoices.every(v => v.isMale !== true)) {
         const warn = document.createElement('div');
-        warn.style.cssText = 'font-size: 9px; color: #e07050; margin-top: 6px; line-height: 1.5;';
+        warn.style.cssText = 'font-size: 9px; color: var(--color-danger-text); margin-top: 6px; line-height: 1.5;';
         warn.textContent = '⚠ 你的系统未检测到中文男声 voice。男声预设将回退到默认女声，仅通过调低音调/语速模拟。';
         panel.appendChild(warn);
       }
@@ -546,21 +546,11 @@ export class BootScene extends Phaser.Scene {
     const toggle = document.getElementById('ui-boot-guide-toggle');
     if (!guide || !toggle) return;
 
-    const GUIDE_SEEN_KEY = 'luohammer_guide_seen';
-    let seen = false;
-    try { seen = localStorage.getItem(GUIDE_SEEN_KEY) === '1'; } catch (e) {}
-
-    // 首次访问展开，否则折叠
-    if (seen) guide.classList.add('collapsed');
-
+    // HTML 默认已带 collapsed 类，这里只负责 toggle 交互
     toggle.addEventListener('click', (e) => {
       e.stopPropagation();
       guide.classList.toggle('collapsed');
-      try { localStorage.setItem(GUIDE_SEEN_KEY, '1'); } catch (err) {}
     });
-
-    // 标记已看过（即使没点，展开状态下 2 秒后也标记）
-    try { localStorage.setItem(GUIDE_SEEN_KEY, '1'); } catch (e) {}
   }
 
   /**
@@ -573,12 +563,14 @@ export class BootScene extends Phaser.Scene {
     const canvas = this.game.canvas;
 
     const sync = () => {
-      const rect = canvas.getBoundingClientRect();
-      overlay.style.position = 'absolute';
-      overlay.style.top = rect.top + 'px';
-      overlay.style.left = rect.left + 'px';
-      overlay.style.width = rect.width + 'px';
-      overlay.style.height = rect.height + 'px';
+      // overlay 覆盖整个视口，不跟随 canvas 缩放后的尺寸。
+      // 原因：canvas 在 FIT+CENTER_BOTH 模式下缩放后高度可能 < 内容总高度
+      // （标题+金句+5 按钮 ≈ 394px），若 overlay 跟随 canvas（如 312.5px），
+      // flex 居中后按钮顶部会溢出 overlay 到视口外（y 为负），无法点击。
+      // 修复：overlay 全屏覆盖，canvas 在背景层渲染场景，UI 在前景层全屏。
+      // 用 inset:0 而非 100vw/100vh：100vw 在桌面端含滚动条宽度会横向溢出。
+      overlay.style.position = 'fixed';
+      overlay.style.inset = '0';
     };
 
     sync();
@@ -614,10 +606,10 @@ export class BootScene extends Phaser.Scene {
         height: 44px;
         line-height: 44px;
         padding: 0;
-        border: 1px solid #f0c040;
+        border: 1px solid var(--color-gold);
         border-radius: 4px;
         background: rgba(0, 0, 0, 0.6);
-        color: #f0c040;
+        color: var(--color-gold);
         font-size: 18px;
         text-align: center;
         cursor: pointer;
@@ -748,10 +740,10 @@ export class BootScene extends Phaser.Scene {
         padding: 0 14px;
         height: 40px;
         line-height: 38px;
-        border: 1px solid #f0c040;
+        border: 1px solid var(--color-gold);
         border-radius: 4px;
         background: rgba(0, 0, 0, 0.6);
-        color: #f0c040;
+        color: var(--color-gold);
         font-size: 14px;
         font-weight: 700;
         cursor: pointer;

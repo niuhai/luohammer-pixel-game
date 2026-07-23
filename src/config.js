@@ -150,7 +150,15 @@ export const SCENE_TYPES = {
   FRIDGE_SMASH: 'fridge_smash',
   TALKSHOW: 'talkshow',
   COURT: 'court',
-  ENDING: 'ending'
+  ENDING: 'ending',
+  // 场景变体（同一场景的不同氛围/时期，图片已在 SCENE_ASSETS 注册）
+  OFFICE_EMPTY: 'office_empty',     // 人去楼空的夜晚办公室（裁员/倒闭期）
+  OFFICE_DARK: 'office_dark',       // 雨夜债务深夜的办公桌（债务危机期）
+  STREET_NIGHT: 'street_night',     // 深夜街道（落魄/迷茫期）
+  OFFICE_BUSY: 'office_busy',       // 白天忙碌创业办公室（创业上升期）
+  LIVESTREAM_FIRST: 'livestream_first', // 首播简陋直播间（首播青涩期）
+  STREET_DAY: 'street_day',         // 90年代小城白天老街（延边摆摊期）
+  STAGE_ARENA: 'stage_arena'        // 巨型体育馆（鸟巢TNT发布会）
 };
 
 /**
@@ -176,6 +184,10 @@ export const SCENE_ASSETS = [
   { key: 'bg-office_empty',  url: 'assets/characters/scene-office_empty-v2.webp',  type: 'office_empty' },
   { key: 'bg-street_night',  url: 'assets/characters/scene-street_night-v2.webp',  type: 'street_night' },
   { key: 'bg-office_dark',   url: 'assets/characters/scene-office_dark-v2.webp',   type: 'office_dark' },
+  { key: 'bg-office_busy',   url: 'assets/characters/scene-office_busy-v2.webp',   type: 'office_busy' },
+  { key: 'bg-livestream_first', url: 'assets/characters/scene-livestream_first-v2.webp', type: 'livestream_first' },
+  { key: 'bg-street_day',    url: 'assets/characters/scene-street_day-v2.webp',    type: 'street_day' },
+  { key: 'bg-stage_arena',   url: 'assets/characters/scene-stage_arena-v2.webp',   type: 'stage_arena' },
   // 结局专属插图
   { key: 'bg-ending-legend',   url: 'assets/characters/ending-legend-v2.webp',   type: 'ending-legend' },
   { key: 'bg-ending-phoenix',  url: 'assets/characters/ending-phoenix-v2.webp',  type: 'ending-phoenix' },

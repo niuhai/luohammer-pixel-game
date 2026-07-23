@@ -140,8 +140,8 @@ export class TalentSystem {
       btn.id = 'ui-talent-reroll';
       btn.className = 'ui-talent-confirm';
       btn.style.marginRight = '10px';
-      btn.style.borderColor = '#40c0c0';
-      btn.style.color = '#40c0c0';
+      btn.style.borderColor = 'var(--color-trust)';
+      btn.style.color = 'var(--color-trust)';
       this.confirmBtn.parentNode.insertBefore(btn, this.confirmBtn);
       btn.addEventListener('click', () => this._performReroll());
     }

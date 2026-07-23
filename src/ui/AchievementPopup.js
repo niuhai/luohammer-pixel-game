@@ -525,7 +525,7 @@ function _injectStyles() {
 
     .achievement-popup.hidden-achievement {
       border-color: var(--color-pressure);
-      transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.5s ease;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
     }
 
     .achievement-popup.visible {
@@ -610,7 +610,7 @@ function _injectStyles() {
       animation: achievementShineSweep 0.3s linear forwards;
     }
     .achievement-popup.hidden-achievement.shine-sweep .achievement-popup-shine {
-      animation: achievementShineSweep 0.5s linear forwards;
+      animation: achievementShineSweep 0.3s linear forwards;
       background: rgba(255, 255, 255, 0.7);
     }
     @keyframes achievementShineSweep {
@@ -791,11 +791,14 @@ export class AchievementPopup {
     this.el.classList.add('visible');
 
     // 触发滑入过渡
+    // 注意：rAF 回调不受 _clearTimers 管理，弹窗可能已被 destroy，必须防御 this.el 为 null
     requestAnimationFrame(() => {
+      if (!this.el) return;
       this.el.classList.add('slide-in');
     });
 
-    const slideDuration = hidden ? 500 : 300;
+    // 统一 0.3s 滑入时长，普通/隐藏成就一致
+    const slideDuration = 300;
 
     // 滑入完成后播放特效
     this._addTimer(() => {
@@ -865,6 +868,7 @@ export class AchievementPopup {
    * 隐藏弹窗（淡出 + 上移）
    */
   hide() {
+    if (!this.el) return; // 已销毁时静默跳过
     this._clearTimers();
     this.el.classList.remove('slide-in', 'glow', 'blink', 'shine-sweep');
     this.el.classList.add('slide-out');

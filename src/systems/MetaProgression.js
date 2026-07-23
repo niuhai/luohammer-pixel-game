@@ -201,7 +201,7 @@ export class MetaProgression {
       return highest;
     }
 
-    let newlyClaimed = [];
+    const newlyClaimed = [];
     for (const ms of MILESTONE_REWARDS) {
       if (totalAchievements >= ms.threshold && !this.data.claimedMilestones.includes(ms.id)) {
         this.data.claimedMilestones.push(ms.id);

@@ -381,6 +381,26 @@ export function checkThresholdTriggers(state, flags) {
     });
   }
 
+  // 压力崩溃边缘 → 触发“压力释放”事件（pressure ≥ 8 时强制释放 -3）
+  if (state.pressure >= 8 && !flags.has('pressure_release_triggered')) {
+    triggers.push({
+      id: 'pressure_release',
+      text: '压力已经到了崩溃的边缘。你终于承认自己撑不住了，允许自己停下来喘口气——有时候，示弱才是真正的坚强。',
+      effects: { pressure: -3 },
+      flag: 'pressure_release_triggered'
+    });
+  }
+
+  // 退网归隐 → 触发"彻底放下"事件（retired flag 设置后大幅降压，解锁 hermit 结局路径）
+  if (flags.has('retired') && !flags.has('retired_peace_triggered')) {
+    triggers.push({
+      id: 'retired_peace',
+      text: '你彻底退出了公众视野。没有发布会，没有直播间，没有微博热搜。十三年来第一次，你听不见任何声音——除了窗外的风，和自己平静的呼吸。这才是你一直在寻找的安静。',
+      effects: { pressure: -6 },
+      flag: 'retired_peace_triggered'
+    });
+  }
+
   // 财富极高 → 解锁“财务自由”事件
   if (state.wealth >= 9 && !flags.has('rich_triggered')) {
     triggers.push({

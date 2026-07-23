@@ -8,18 +8,20 @@ export const NODES = {
     character: '小罗',
     text: `父亲罗昌珍，和龙县县委书记。管一个县的手，管不住一个儿子。
 
-他的教育哲学只有一条——犯了错就打，不服就再打。皮带抽在背上火辣辣的，你咬紧牙关一声不吭。最多一次抽了十七下，第十八下皮带断了。父亲把断皮带扔在地上，转身走了。他没回头，但你看见他的手在抖。
+他的教育哲学只有一条——犯了错就打，不服就再打。皮带是牛皮的，用了十几年，边缘磨得发亮，一抽下来空气都跟着"嗡"地一声。牛皮带着汗味和陈年皮革味抽在你背上，火辣辣的，像被烙铁烫过。你咬紧牙关一声不吭，牙齿咬得咯咯响，嘴里尝到了血腥味——你把舌尖咬破了。
 
-那天晚上你趴在床上，对着墙发誓："总有一天，我要用道理说服你，就像你用皮带说服我一样。"
+最多一次抽了十七下，第十八下皮带断了。铜扣砸在水泥地上"当啷"一声，像判决书上的句号。父亲把断皮带扔在地上，转身走了。他没回头，但你看见他的手在抖——那只刚抽完你的手，抖得比挨打的你还不像样。
 
-<b>暴力能抽出血印，却抽不出尊重；能打断皮带，却打不断骨头里的反骨。那根断皮带，是你和父亲之间第一条约法——从此你家只讲道理，不讲拳头。</b>多年后你才懂，父亲那双抖着的手里攥着的不是怒气，是无奈——他不知道除了打，还能怎么跟一个比他还犟的儿子说话。`,
+那天晚上你趴在床上，后背的肿痕贴着凉席，竹篾硌着伤口，疼得你直吸凉气。你对着墙发誓，声音小得只有自己听得见："总有一天，我要用道理说服你，就像你用皮带说服我一样。"
+
+<b>暴力能抽出血印，却抽不出尊重；能打断皮带，却打不断骨头里的反骨。那根断皮带，是你和父亲之间第一条约法——从此你家只讲道理，不讲拳头。</b>多年后你才懂，父亲那双抖着的手里攥着的不是怒气，是无奈——他不知道除了打，还能怎么跟一个比他还犟的儿子说话。县委书记管得了十万人的县，管不了自己十岁的儿子，这大概是权力最诚实的边界。`,
     choices: [
       { label: `"当面跟父亲讲道理：打不服我，有本事用道理说服我。"`, next: 'act0_rebel', effects: { pride: 1, wealth: 0, reputation: 0 } },
       { label: `"先忍着。他打我是因为他不会别的，等我有本事了再让他服气。"`, next: 'act0_rebel', effects: { pride: -1, wealth: 0, reputation: 1 } },
       { label: `"写一封信给父亲，把说不出口的话写下来。"`, next: 'act0_rebel', effects: { pride: -1, wealth: 0, reputation: 1 } },
       { label: `"不想待在家里——去外婆家躲几天，那里清净。"`, next: 'act0_grandma', effects: { pride: 0, wealth: 0, reputation: 0, pressure: -1 } }
     ],
-    historyNote: `历史上，罗昌珍确实以打骂为主教育老罗。这种教育方式在当时的朝鲜族家庭中并不少见，罗昌珍作为县委书记，更觉得儿子不听话是丢自己的脸。正是这段经历，塑造了老罗一生的沟通方式——他永远在"讲道理"，试图用逻辑而非暴力说服别人。从发布会到脱口秀，本质上都是同一件事：用道理代替皮带。后来老罗回忆："我从小就知道，暴力只能制造恐惧，恐惧产生不了尊重。"而父亲那根抖着的手，也成了他理解"中国式家长无奈"的最早教材。`,
+    historyNote: `历史上，罗昌珍确实以打骂为主教育老罗。这种教育方式在当时的朝鲜族家庭中并不少见，作为县委书记，他更觉得儿子不听话是丢自己的脸。这件事为什么重要？因为它塑造了老罗一生的沟通方式——他永远在"讲道理"，试图用逻辑而非暴力说服别人。后来怎样？从新东方发布会到锤子手机再到直播带货，本质上都是同一件事：用道理代替皮带。老罗回忆："暴力只能制造恐惧，恐惧产生不了尊重。"父亲那双抖着的手，也成了他理解"中国式家长无奈"的最早教材——多年后他自己做了父亲，从未打过孩子一根手指。`,
     progress: 2
   },
 
@@ -37,7 +39,7 @@ export const NODES = {
 <b>书是我的，命也是我的。规则不合理的时候，公道得自己拿回来。那一夜你偷的不是书，是属于自己的解释权。</b>`,
     choices: [
       { label: `"书是我的！没收了我就偷回来，天经地义。"`, next: 'act0_childhood', effects: { pride: 1, wealth: 0, reputation: 1 } },
-      { label: `"偷书万一被抓，退学就更说不清……找老师据理力争。"`, next: 'ending_scholar', effects: { pride: -1, wealth: 1, reputation: 1 } },
+      { label: `"偷书万一被抓，退学就更说不清……找老师据理力争。"`, next: 'ending_scholar', effects: { pride: -1, wealth: 1, reputation: 1 }, maxAttr: { pride: 3 } },
       { label: `"把书还给老师，但要求当面辩论——说得有理，就得把书还我。"`, next: 'act0_childhood', effects: { pride: 1, wealth: 0, reputation: -1 } }
     ],
     historyNote: `历史上，老罗确实翻窗偷回了被没收的书。翻窗偷书的那个夜晚，埋下了他二十年后"砸冰箱"的种子——面对不合理的规则，他的本能反应从来不是忍，而是动手。他后来在新东方课堂上讲这段，学生笑得前仰后合，但他说："那是我人生第一次意识到，规则不合理的时候，你得自己动手把公道拿回来。"二十年后，同样的逻辑让他把西门子的冰箱砸成了碎片。而那本偷回来的书，后来被他反复提及，成了他"自学精神"最早的图腾。`,
@@ -55,10 +57,10 @@ export const NODES = {
 <b>从今天起，没人能再没收你的书，也没人能再安排你的人生。书包空了，但比装满课本时还沉——因为里面装的是你选的路，而不是别人塞给你的答案。</b>`,
     choices: [
       { label: `"回家读书！家里满柜子的书，比学校有意思多了。"`, next: 'act0_b', effects: { pride: 1, wealth: 0, reputation: 0 } },
-      { label: `"先混社会！纸上得来终觉浅，街头才是真课堂。"`, next: 'act0_street', effects: { pride: 2, wealth: -1, reputation: -1, achievement: '社会大学', icon: '◄' }, flag: 'dropout' },
-      { label: `"去书店打工！一边看书一边赚钱，两不耽误。"`, next: 'act0_bookstore', effects: { pride: 1, wealth: 0, reputation: 0 } },
+      { label: `"先混社会！纸上得来终觉浅，街头才是真课堂。"`, next: 'act0_street', effects: { pride: 2, wealth: -1, reputation: -1, achievement: '社会大学', icon: '◄' , pressure: -1}, flag: 'dropout' },
+      { label: `"去书店打工！一边看书一边赚钱，两不耽误。"`, next: 'act0_bookstore', effects: { pride: 1, wealth: 0, reputation: 0 , pressure: -1} },
       { label: `"退学了，心里空落落的——先在街头游荡几天，理清思路再说。"`, next: 'act0_confusion', effects: { pride: 0, wealth: 0, reputation: -1, pressure: 1 } },
-      { label: `"邻居家的朝鲜族小孩都乖乖上学，我偏不——去看看他们怎么看我。"`, next: 'act0_neighbor', effects: { pride: 1, wealth: 0, reputation: -1 } }
+      { label: `"邻居家的朝鲜族小孩都乖乖上学，我偏不——去看看他们怎么看我。"`, next: 'act0_neighbor', effects: { pride: 1, wealth: 0, reputation: -1 , pressure: -1} }
     ],
     historyNote: `历史上，老罗退学后在家读了三年闲书，从文学、哲学到经济学，什么杂书都看。三年杂书生涯，验证了他最核心的学习方式：不是被灌输，而是被点燃。后来他学英语、学做手机、学做直播，用的都是同一种方法——先被某个东西点燃，然后像疯了一样扑上去。这三年杂书成了他最值钱的底牌，也让他后来能在新东方讲段子、在发布会上讲工业设计、在脱口秀上讲哲学。而那本带血渍的书，成了他后来反复讲述的"起点象征"。`,
     progress: 5
@@ -89,7 +91,7 @@ export const NODES = {
   act0_b: {
     act: '第一章',
     actSub: '社会大学 · 摆摊岁月 1989-1995',
-    sceneType: SCENE_TYPES.STREET,
+    sceneType: SCENE_TYPES.STREET_DAY,
     character: '小罗',
     text: `退学后的日子，你成了延边街头的"职业折腾家"。卖二手书——被城管追了三条街，鞋底磨穿了一双又一双；烤羊肉串——把肉烤成了炭，烟雾把整条巷子熏得像着了火；倒腾药材——一仓库发霉，赔了个底儿掉，连本带利全打了水漂。你什么都敢干，什么都干不长，但什么都干得理直气壮，像一只撞了南墙也不回头的犟牛。
 
@@ -99,10 +101,10 @@ export const NODES = {
 
 <b>折腾本身就是答案。所有失败加在一起，也比从没试过强。在延边，你输掉的是钱；在别处，你输掉的是可能性。</b>`,
     choices: [
-      { label: `"认命吧……找个稳定工作打工，折腾够了。"`, next: 'act0_fail1', effects: { pride: -2, wealth: 1, reputation: -1 } },
-      { label: `"还没完！去韩国打工，攒点本钱再折腾。"`, next: 'act0_korea', effects: { pride: 1, wealth: -1, reputation: 0 } },
-      { label: `"倒腾药材试试？听说能赚大钱！"`, next: 'act0_fail3', effects: { pride: 1, wealth: -1, reputation: 0 } },
-      { label: `"去书店打工吧……一边看书一边攒钱，也许答案不在街上，在书里。"`, next: 'act0_bookstore', effects: { pride: 0, wealth: 0, reputation: 0 } }
+      { label: `"认命吧……找个稳定工作打工，折腾够了。"`, next: 'act0_fail1', effects: { pride: -2, wealth: 1, reputation: -1 , pressure: -1} },
+      { label: `"还没完！去韩国打工，攒点本钱再折腾。"`, next: 'act0_korea', effects: { pride: 1, wealth: -1, reputation: 0 , pressure: -1} },
+      { label: `"倒腾药材试试？听说能赚大钱！"`, next: 'act0_fail3', effects: { pride: 1, wealth: -1, reputation: 0 , pressure: -1} },
+      { label: `"去书店打工吧……一边看书一边攒钱，也许答案不在街上，在书里。"`, next: 'act0_bookstore', effects: { pride: 0, wealth: 0, reputation: 0 , pressure: -1} }
     ],
     historyNote: `历史上，老罗在延边折腾了好几年，卖过书、烤过串、倒腾过药材。这些失败不是浪费——每一次赔钱，都让他更清楚自己不是什么。他后来回忆："那几年我学到的最重要的事就是脸皮要厚，胆子要大。"后来他做锤子手机时，有人说他不懂供应链，他说："我连药材都能发霉，供应链算什么？"——这是用十年失败换来的胆量。而延边街头的失败，也成了他后来脱口秀里最丰富的"素材库"。`,
     progress: 8
@@ -110,7 +112,7 @@ export const NODES = {
   act0_street: {
     act: '第一章',
     actSub: '摆地摊被城管追 1990',
-    sceneType: SCENE_TYPES.STREET,
+    sceneType: SCENE_TYPES.STREET_DAY,
     character: '小罗',
     text: `你在延边街头摆地摊卖二手书，生意还行，就是城管来得太勤。这天你刚把《百年孤独》摆在最显眼的位置，远远看见城管的蓝制服——你条件反射一样卷起塑料布，书都没来得及装袋就往巷子里跑，几本书从缝隙里掉出来，骨碌碌滚到马路牙子上，被路人踩了一脚，封面印上了半个泥脚印。
 
@@ -130,7 +132,7 @@ export const NODES = {
   act0_fail1: {
     act: '第一章',
     actSub: '认命打工 · 朝九晚五的日子 1990',
-    sceneType: SCENE_TYPES.STREET,
+    sceneType: SCENE_TYPES.STREET_DAY,
     character: '小罗',
     text: `你认命了。折腾了这么久，什么都没干成，不如找个稳定工作老老实实上班。你托关系进了县城一家单位，每天朝九晚五，抄报表、盖章、喝茶。日子安稳得像一潭死水，连涟漪都懒得泛。办公室里永远飘着一股茉莉花茶和旧报纸混在一起的味道，暖气管"咣当咣当"地响，像在替你数着熬不完的日子。
 
@@ -150,7 +152,7 @@ export const NODES = {
   act0_fail2: {
     act: '第一章',
     actSub: '烤羊肉串 · 肉烤成了炭 1991',
-    sceneType: SCENE_TYPES.STREET,
+    sceneType: SCENE_TYPES.STREET_DAY,
     character: '小罗',
     text: `你从二手书转行烤羊肉串。心想这有什么难的？把肉串往炭火上一放，翻两翻，撒点孜然辣椒面，齐活。结果第一次烤就把肉烤成了炭——黑乎乎的，掰开里面还是生的，外焦里生，简直是烹饪界的奇迹。油烟熏得你眼睛都睁不开，眼泪和汗混在一起往下淌。
 
@@ -170,7 +172,7 @@ export const NODES = {
   act0_fail3: {
     act: '第一章',
     actSub: '倒腾药材 · 发霉赔钱 1992',
-    sceneType: SCENE_TYPES.STREET,
+    sceneType: SCENE_TYPES.STREET_DAY,
     character: '小罗',
     text: `你听人说倒腾药材能赚钱，就从延边进了批人参须和鹿茸片，准备倒到沈阳去卖。你把药材堆在出租屋的角落里，心想这回总该赚了吧——书上说"低买高卖"四个字，简单得很。你甚至已经在脑子里算好了赚多少钱，给家里寄多少，自己留多少。
 
@@ -181,7 +183,7 @@ export const NODES = {
 <b>这口苦，逼你离开了延边。你蹲在发霉的药材旁边做了一个决定：这地方不能再待了，得出去。再待下去，连自己都要发霉了。</b>`,
     choices: [
       { label: `"赔了就赔了！大不了从头再来，我小罗不信邪！"`, next: 'act0_korea', effects: { pride: 1, wealth: 0, reputation: 0 } },
-      { label: `"也许我真不是做生意的料……找个安稳日子，别再折腾了。"`, next: 'ending_ordinary', effects: { pride: -1, wealth: 0, reputation: 0 }, maxAttr: { pride: 4 } },
+      { label: `"也许我真不是做生意的料……找个安稳日子，别再折腾了。"`, next: 'ending_ordinary', effects: { pride: -1, wealth: 0, reputation: 0 }, maxAttr: { pride: 2, wealth: 3, reputation: 2 } },
       { label: `"把发霉的药材当教训，写个失败日记总结经验。"`, next: 'act0_korea', effects: { pride: 1, wealth: -1, reputation: 0 } }
     ],
     historyNote: `历史上，老罗确实倒腾过药材，结果因为存储不当发霉赔了钱。这批发霉的药材逼他做了一个关键决定：离开延边，去更大的世界碰运气。如果没有这批货，他可能永远窝在县城里，也就不会有后来的新东方、锤子和真还传。多年后他回头看，发现那些失败不是白费的：每一次赔钱，都让他更清楚自己不是什么。`,
@@ -190,7 +192,7 @@ export const NODES = {
   act0_korea_life: {
     act: '第一章',
     actSub: '韩国打工 · 洗碗搬砖的日子 1995-1999',
-    sceneType: SCENE_TYPES.STREET,
+    sceneType: SCENE_TYPES.STREET_DAY,
     character: '小罗',
     text: `你到了韩国，语言不通，全靠比划。白天在工地上搬砖，砖头比你脑袋还大，手上全是血泡，晚上回去用针挑破，"嘶"地吸一口凉气。晚上去餐馆洗碗，洗洁精把手泡得发白起皱，指纹都磨没了。
 
@@ -208,7 +210,7 @@ export const NODES = {
   act0_korea: {
     act: '第一章',
     actSub: '韩国打工 · 卖壮阳药 1995-1999',
-    sceneType: SCENE_TYPES.STREET,
+    sceneType: SCENE_TYPES.STREET_DAY,
     character: '小罗',
     text: `你去了韩国打工。语言不通？没关系，全靠比划。你在工地上搬过砖，在餐馆里洗过碗，最离谱的一份工作是——卖壮阳药。你站在首尔街头，对着路过的中年男人比划"你懂的"手势，脸上的表情比韩剧还到位。
 
@@ -216,7 +218,7 @@ export const NODES = {
 
 <b>卖壮阳药不是你的赛道，你只是还没找到那个赛道。而那条赛道，不能在韩国的地下室里找。</b>`,
     choices: [
-      { label: `"在韩国攒够钱，回国做小生意安安稳稳过日子。"`, next: 'ending_ordinary', effects: { pride: -1, wealth: 2, reputation: 0 }, maxAttr: { pride: 4 } },
+      { label: `"在韩国攒够钱，回国做小生意安安稳稳过日子。"`, next: 'ending_ordinary', effects: { pride: -1, wealth: 2, reputation: 0 }, maxAttr: { pride: 2, wealth: 3, reputation: 2 } },
       { label: `"回国！听说新东方老师年薪百万，赌一把！"`, next: 'act0_gre', effects: { pride: 2, wealth: -1, reputation: 1 } },
       { label: `"在韩国的打工生活到底是怎样的？"`, next: 'act0_korea_life', effects: { pride: 0, wealth: 0, reputation: 0 } },
       { label: `"回国！不一定要去新东方，先做点小生意再说。"`, next: 'act0_b', effects: { pride: 0, wealth: 1, reputation: -1 } },
@@ -291,7 +293,7 @@ export const NODES = {
   act0_neighbor: {
     act: '序章',
     actSub: '朝鲜族邻居 · 谁家的孩子更"出息" 1985',
-    sceneType: SCENE_TYPES.STREET,
+    sceneType: SCENE_TYPES.STREET_DAY,
     character: '小罗',
     text: `延边这地方，汉族和朝鲜族混着住。隔壁金大叔家三个孩子，个个考第一，见了长辈九十度鞠躬，用朝鲜语问好的声音脆得像铃铛。金大叔每次见你父亲都要"炫耀"一遍："我家老大又考了全校第一，准备考延边大学呢。"父亲笑得勉强，回家就拿你跟人家比。
 
@@ -311,7 +313,7 @@ export const NODES = {
   act0_confusion: {
     act: '序章',
     actSub: '退学后的迷茫 · 街头游荡的日子 1989',
-    sceneType: SCENE_TYPES.STREET,
+    sceneType: SCENE_TYPES.STREET_DAY,
     character: '小罗',
     text: `退学头几个月，你像一条被放出笼子的狗，兴奋了三天，然后就开始发慌。没人告诉你今天该干什么——以前是课表，现在是一片空白。你每天睡到日上三竿，起来扒两口饭，就蹲在巷子口看人来人往。
 
@@ -322,7 +324,7 @@ export const NODES = {
 <b>迷茫不是因为你走错了路，是因为你第一次自己选路——而自己选的路，没人替你兜底。这种慌，是自由的代价。</b>`,
     choices: [
       { label: `"不能再游荡了——回家读书，用知识填满空白。"`, next: 'act0_b', effects: { pride: 1, wealth: 0, reputation: 0, pressure: -1 } },
-      { label: `"迷茫是因为没本事——去书店打工，边看书边攒钱。"`, next: 'act0_bookstore', effects: { pride: 0, wealth: 0, reputation: 1 } },
+      { label: `"迷茫是因为没本事——去书店打工，边看书边攒钱。"`, next: 'act0_bookstore', effects: { pride: 0, wealth: 0, reputation: 1 , pressure: -1} },
       { label: `"迷茫就迷茫着——总有一天会想明白，急也没用。"`, next: 'act0_street', effects: { pride: 1, wealth: -1, reputation: -1, pressure: 1 } },
       { label: `"心里乱糟糟的……巷子口那个隔壁班的女孩，最近总在我脑子里转。"`, next: 'act0_first_love', effects: { pride: 0, wealth: 0, reputation: 0, pressure: 1 } }
     ],
@@ -353,7 +355,7 @@ export const NODES = {
   act0_identity: {
     act: '第一章',
     actSub: '韩国打工 · "你到底算哪边的人" 1996',
-    sceneType: SCENE_TYPES.STREET,
+    sceneType: SCENE_TYPES.STREET_DAY,
     character: '小罗',
     text: `在韩国打工的日子，最折磨你的不是累，是身份。你长着一张朝鲜族的脸，会说朝鲜语，韩国人一开始把你当同胞——"哟，朝鲜族啊，同胞同胞"。但聊深了发现你不会写韩文、不认识韩国典故、用的是中国护照，他们的眼神就变了："哦，中国人啊。"那种变很微妙，不是敌意，是"原来不是自己人"的疏离。
 
@@ -363,7 +365,7 @@ export const NODES = {
 
 <b>身份认同的困惑不是病，是礼物——它让你从一开始就不属于任何标签，所以你一辈子都在自己给自己造标签。</b>`,
     choices: [
-      { label: `"不属于任何地方，反而自由——我谁也不是，我就是我。"`, next: 'act0_gre', effects: { pride: 2, wealth: 0, reputation: 0 } },
+      { label: `"不属于任何地方，反而自由——我谁也不是，我就是我。"`, next: 'act0_gre', effects: { pride: 1, wealth: 0, reputation: 0 } },
       { label: `"这种夹缝感太难受了……回国吧，至少在中国我是中国人。"`, next: 'act0_gre', effects: { pride: 0, wealth: 0, reputation: 1, pressure: -1 } },
       { label: `"学会韩语，融入韩国——也许这边才是我的归属。"`, next: 'act0_korea_life', effects: { pride: -1, wealth: 1, reputation: 0 } }
     ],

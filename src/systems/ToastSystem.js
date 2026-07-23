@@ -58,10 +58,10 @@ const TOAST_STYLES = `
 `;
 
 const TOAST_TYPES = {
-  info:    { color: '#4090e0', icon: 'ℹ' },
-  success: { color: '#40c060', icon: '✓' },
-  warning: { color: '#f0c040', icon: '⚠' },
-  error:   { color: '#e04040', icon: '✕' }
+  info:    { color: 'var(--color-info)', icon: 'ℹ' },
+  success: { color: 'var(--color-success)', icon: '✓' },
+  warning: { color: 'var(--color-warning)', icon: '⚠' },
+  error:   { color: 'var(--color-danger)', icon: '✕' }
 };
 
 const DEFAULT_DURATION = 3000;
