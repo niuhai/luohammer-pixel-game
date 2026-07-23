@@ -513,7 +513,10 @@ export class GameScene extends Phaser.Scene {
     this.soundToggleEl = document.getElementById('ui-sound-toggle');
     this.soundIconEl = document.getElementById('ui-sound-icon');
     if (this.soundIconEl) this.soundIconEl.textContent = this.audio.enabled ? '♪' : '×';
-    if (this.soundToggleEl) this.soundToggleEl.classList.add('visible');
+    if (this.soundToggleEl) {
+      this.soundToggleEl.classList.add('visible');
+      this._updateSoundToggleState();
+    }
 
     // Sound toggle event listener (managed by AbortController for cleanup)
     this._uiAbortController = new AbortController();
@@ -522,6 +525,7 @@ export class GameScene extends Phaser.Scene {
       this.soundToggleEl.addEventListener('click', () => {
         this.audio.toggle();
         if (this.soundIconEl) this.soundIconEl.textContent = this.audio.enabled ? '♪' : '×';
+        this._updateSoundToggleState();
       }, uiSignalOpts);
     }
 
@@ -530,12 +534,12 @@ export class GameScene extends Phaser.Scene {
     this.narrationIconEl = document.getElementById('ui-narration-icon');
     if (this.narrationIconEl) this.narrationIconEl.textContent = this.audio.isNarrationEnabled() ? '朗读✓' : '朗读';
     if (this.narrationToggleEl) {
-      this.narrationToggleEl.classList.toggle('active', this.audio.isNarrationEnabled());
+      this._updateNarrationToggleState(this.audio.isNarrationEnabled());
       this.narrationToggleEl.classList.add('visible');
       this.narrationToggleEl.addEventListener('click', () => {
         const on = this.audio.toggleNarration();
-        this.narrationToggleEl.classList.toggle('active', on);
         if (this.narrationIconEl) this.narrationIconEl.textContent = on ? '朗读✓' : '朗读';
+        this._updateNarrationToggleState(on);
         if (!on) this.audio.stopSpeaking();
       }, uiSignalOpts);
     }
@@ -617,6 +621,10 @@ export class GameScene extends Phaser.Scene {
     this._escHandler = (e) => {
       if (e.key === 'Escape') {
         e.preventDefault();
+        if (this._quickVoicePanelEl) {
+          this._closeQuickVoicePanel();
+          return;
+        }
         // 存档面板打开时，ESC 由面板自行处理，避免冲突
         const saveload = document.getElementById('ui-saveload-overlay');
         if (saveload && saveload.classList.contains('visible')) return;
@@ -2865,6 +2873,28 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * 同步声音按钮的可访问状态。
+   */
+  _updateSoundToggleState() {
+    if (!this.soundToggleEl || !this.audio) return;
+    const muted = !this.audio.enabled;
+    this.soundToggleEl.setAttribute('aria-pressed', String(muted));
+    this.soundToggleEl.setAttribute('aria-label', muted ? '开启声音' : '静音');
+    this.soundToggleEl.title = muted ? '开启声音' : '静音';
+  }
+
+  /**
+   * 同步剧情朗读按钮的可访问状态。
+   */
+  _updateNarrationToggleState(enabled) {
+    if (!this.narrationToggleEl) return;
+    this.narrationToggleEl.classList.toggle('active', enabled);
+    this.narrationToggleEl.setAttribute('aria-pressed', String(enabled));
+    this.narrationToggleEl.setAttribute('aria-label', enabled ? '关闭剧情朗读' : '开启剧情朗读');
+    this.narrationToggleEl.title = enabled ? '关闭剧情朗读' : '开启剧情朗读';
+  }
+
+  /**
    * 更新音色切换按钮的标签（显示当前预设简称）
    */
   _updateVoiceToggleLabel() {
@@ -2893,6 +2923,10 @@ export class GameScene extends Phaser.Scene {
     const currentKey = audio.getVoicePresetKey();
 
     const panel = document.createElement('div');
+    panel.id = 'ui-quick-voice-panel';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('aria-label', '配音音色切换');
     panel.style.cssText = [
       'position: fixed',
       'inset: 0',
@@ -3003,12 +3037,19 @@ export class GameScene extends Phaser.Scene {
     };
     window.addEventListener('keydown', onKey);
 
+    this._voicePreviousFocus = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
     document.body.appendChild(panel);
     this._quickVoicePanelEl = panel;
     this._quickVoicePanelOnKey = onKey;
+    if (this.voiceToggleEl) this.voiceToggleEl.setAttribute('aria-expanded', 'true');
+    const uiOverlay = document.getElementById('ui-overlay');
+    if (uiOverlay) uiOverlay.inert = true;
+    closeBtn.focus({ preventScroll: true });
   }
 
-  _closeQuickVoicePanel() {
+  _closeQuickVoicePanel(restoreFocus = true) {
     if (!this._quickVoicePanelEl) return;
     if (this._quickVoicePanelOnKey) {
       window.removeEventListener('keydown', this._quickVoicePanelOnKey);
@@ -3018,6 +3059,16 @@ export class GameScene extends Phaser.Scene {
       this._quickVoicePanelEl.parentNode.removeChild(this._quickVoicePanelEl);
     }
     this._quickVoicePanelEl = null;
+    if (this.voiceToggleEl) this.voiceToggleEl.setAttribute('aria-expanded', 'false');
+    const uiOverlay = document.getElementById('ui-overlay');
+    if (uiOverlay) uiOverlay.inert = false;
+    if (restoreFocus) {
+      const target = this._voicePreviousFocus?.isConnected
+        ? this._voicePreviousFocus
+        : this.voiceToggleEl;
+      target?.focus({ preventScroll: true });
+    }
+    this._voicePreviousFocus = null;
     // 切换面板时停止试听语音
     try { this.audio.stopSpeaking(); } catch(e) {}
   }
@@ -3031,7 +3082,7 @@ export class GameScene extends Phaser.Scene {
 
     // 清理快捷音色切换面板（避免场景切换时 DOM 残留）
     if (this._quickVoicePanelEl) {
-      this._closeQuickVoicePanel();
+      this._closeQuickVoicePanel(false);
     }
 
     // 清理阶段结算的 setInterval（避免场景切换时内存泄漏）
@@ -3169,6 +3220,11 @@ export class GameScene extends Phaser.Scene {
     this.chapterEl = null;
     this.soundToggleEl = null;
     this.soundIconEl = null;
+    this.narrationToggleEl = null;
+    this.narrationIconEl = null;
+    this.voiceToggleEl = null;
+    this.voiceIconEl = null;
+    this._voicePreviousFocus = null;
     this.menuToggleEl = null;
     this.menuConfirmEl = null;
     this.menuCancelBtn = null;

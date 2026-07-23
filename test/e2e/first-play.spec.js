@@ -71,6 +71,20 @@ test.describe('首次游玩流程', () => {
     await expect(page.locator('#ui-stage-rail .ui-stage-segment.current')).toHaveCount(1);
     await expect(page.locator('#ui-stage-rail')).toHaveAttribute('aria-valuenow', '1');
 
+    const topControls = await page.locator(
+      '#ui-sound-toggle, #ui-menu-toggle, #ui-narration-toggle, #ui-voice-toggle'
+    ).evaluateAll(elements => elements.map(element => {
+      const rect = element.getBoundingClientRect();
+      return {
+        tagName: element.tagName,
+        width: rect.width,
+        height: rect.height
+      };
+    }));
+    expect(topControls).toHaveLength(4);
+    expect(topControls.every(control => control.tagName === 'BUTTON')).toBe(true);
+    expect(topControls.every(control => control.width >= 44 && control.height >= 44)).toBe(true);
+
     // 对话框可能在打字机效果中，给一定时间
     await expect(page.locator('#ui-dialog')).toHaveClass(/visible/, { timeout: 10_000 });
     const dialogVisible = await page.locator('#ui-dialog').isVisible().catch(() => false);
