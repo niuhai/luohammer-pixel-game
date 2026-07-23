@@ -3020,7 +3020,7 @@ export class GameScene extends Phaser.Scene {
     }
     // 清理 ChoiceSystem（键盘事件监听器）
     if (this.choices) {
-      this.choices.hide(); // 确保移除键盘监听器
+      this.choices.destroy();
       this.choices = null;
     }
     // 清理 StatsSystem（隐藏 DOM 元素）

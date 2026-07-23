@@ -32,6 +32,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   document.body.innerHTML = '';
 });
@@ -94,5 +95,70 @@ describe('ChoiceSystem - 同局支线防重复', () => {
     keyHandler({ key: 'b' });
     expect(onChoice).toHaveBeenCalledOnce();
     expect(onChoice).toHaveBeenCalledWith(choices[1]);
+  });
+
+  it('长按显示完整影响且松手不会误触选择', () => {
+    vi.useFakeTimers();
+    const onChoice = vi.fn();
+    const scene = createScene({ history: [], flags: new Set() });
+    const system = new ChoiceSystem(scene);
+    const choice = {
+      label: '押上一切继续',
+      next: 'next',
+      effects: { pride: 2, pressure: 1, failures: 1 }
+    };
+
+    system.show([choice], onChoice);
+    const button = document.querySelector('.ui-choice-btn');
+    button.dispatchEvent(new Event('touchstart', { bubbles: true }));
+    vi.advanceTimersByTime(500);
+
+    const preview = document.querySelector('.choice-preview');
+    expect(preview).not.toBeNull();
+    expect(preview.parentElement).toBe(document.body);
+    expect(preview.textContent).toContain('理想+2');
+    expect(preview.textContent).toContain('压力+1');
+    expect(preview.textContent).toContain('翻车+1');
+
+    button.dispatchEvent(new Event('touchend', { bubbles: true }));
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onChoice).not.toHaveBeenCalled();
+
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onChoice).toHaveBeenCalledOnce();
+  });
+
+  it('新选项出现时取消旧退场计时器，不会误清空当前选择', () => {
+    vi.useFakeTimers();
+    const scene = createScene({ history: [], flags: new Set() });
+    const system = new ChoiceSystem(scene);
+
+    system.show([{ label: '旧选择', next: 'old' }], vi.fn());
+    system.hide();
+    vi.advanceTimersByTime(100);
+    system.show([{ label: '新选择', next: 'new' }], vi.fn());
+    vi.advanceTimersByTime(200);
+
+    expect(document.querySelector('#ui-choices').classList.contains('visible')).toBe(true);
+    expect(document.querySelector('.ui-choice-btn').textContent).toContain('新选择');
+  });
+
+  it('销毁时立即清理预览、退场计时器和 DOM', () => {
+    vi.useFakeTimers();
+    const scene = createScene({ history: [], flags: new Set() });
+    const system = new ChoiceSystem(scene);
+
+    system.show([{ label: '查看影响', next: 'next', effects: { wealth: -1 } }], vi.fn());
+    const button = document.querySelector('.ui-choice-btn');
+    button.dispatchEvent(new Event('touchstart', { bubbles: true }));
+    vi.advanceTimersByTime(500);
+    expect(document.querySelector('.choice-preview')).not.toBeNull();
+
+    system.destroy();
+    vi.runAllTimers();
+
+    expect(document.querySelector('.choice-preview')).toBeNull();
+    expect(document.querySelector('#ui-choices').children).toHaveLength(0);
+    expect(scene.input.keyboard.off).toHaveBeenCalled();
   });
 });

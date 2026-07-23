@@ -6,6 +6,10 @@ export class ChoiceSystem {
     this._keyHandler = null;
     this._orientationHandler = null;
     this._resizeHandler = null;
+    this._leaveTimer = null;
+    this._transientTimers = new Set();
+    this._activePreview = null;
+    this._previewTimer = null;
   }
 
   /**
@@ -179,6 +183,12 @@ export class ChoiceSystem {
   }
 
   show(choices, onChoice) {
+    if (this._leaveTimer) {
+      clearTimeout(this._leaveTimer);
+      this._leaveTimer = null;
+    }
+    this._clearTransientInteractions();
+    this.el.classList.remove('leaving');
     this.el.innerHTML = '';
     this.choices = choices;
     this._choiceLock = false;
@@ -271,7 +281,22 @@ export class ChoiceSystem {
       if (locked) {
         btn.disabled = true;
       } else {
+        let pressTimer = null;
+        let previewedByLongPress = false;
+        const cancelPressTimer = () => {
+          if (pressTimer === null) return;
+          clearTimeout(pressTimer);
+          this._transientTimers.delete(pressTimer);
+          pressTimer = null;
+        };
+
         btn.addEventListener('click', (event) => {
+          if (previewedByLongPress) {
+            previewedByLongPress = false;
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+          }
           if (this._choiceLock) return;
           this._choiceLock = true;
           this.el.querySelectorAll('.ui-choice-btn').forEach(b => b.disabled = true);
@@ -282,10 +307,24 @@ export class ChoiceSystem {
         });
 
         // 移动端触控反馈：按下高亮，抬起/取消恢复
-        const removeTouchActive = () => btn.classList.remove('touch-active');
-        btn.addEventListener('touchstart', () => btn.classList.add('touch-active'), { passive: true });
-        btn.addEventListener('touchend', removeTouchActive, { passive: true });
-        btn.addEventListener('touchcancel', removeTouchActive, { passive: true });
+        const finishTouch = () => {
+          cancelPressTimer();
+          btn.classList.remove('touch-active');
+        };
+        btn.addEventListener('touchstart', () => {
+          previewedByLongPress = false;
+          cancelPressTimer();
+          btn.classList.add('touch-active');
+          pressTimer = this._setTransientTimer(() => {
+            pressTimer = null;
+            previewedByLongPress = true;
+            btn.classList.remove('touch-active');
+            this._showChoicePreview(choice, btn);
+            if (this.scene && typeof this.scene.vibrate === 'function') this.scene.vibrate(12);
+          }, 500);
+        }, { passive: true });
+        btn.addEventListener('touchend', finishTouch, { passive: true });
+        btn.addEventListener('touchcancel', finishTouch, { passive: true });
 
         // 任务1：天平倾斜效果——hover 时天平向该方向倾斜
         btn.addEventListener('mouseenter', () => {
@@ -301,18 +340,8 @@ export class ChoiceSystem {
         });
 
         // 任务4：长按预览选项效果
-        let pressTimer = null;
-        btn.addEventListener('touchstart', () => {
-          clearTimeout(pressTimer);
-          pressTimer = setTimeout(() => {
-            this._showChoicePreview(choice, btn);
-          }, 500);
-        }, { passive: true });
-        btn.addEventListener('touchend', () => {
-          clearTimeout(pressTimer);
-        }, { passive: true });
         btn.addEventListener('touchmove', () => {
-          clearTimeout(pressTimer);
+          finishTouch();
         }, { passive: true });
         btn.addEventListener('contextmenu', (e) => {
           e.preventDefault();
@@ -377,15 +406,37 @@ export class ChoiceSystem {
     ripple.addEventListener('animationend', onAnimationEnd);
   }
 
+  _setTransientTimer(callback, delay) {
+    const id = setTimeout(() => {
+      this._transientTimers.delete(id);
+      callback();
+    }, delay);
+    this._transientTimers.add(id);
+    return id;
+  }
+
+  _clearTransientInteractions() {
+    for (const id of this._transientTimers) {
+      clearTimeout(id);
+    }
+    this._transientTimers.clear();
+    this._previewTimer = null;
+    if (this._activePreview) {
+      this._activePreview.remove();
+      this._activePreview = null;
+    }
+  }
+
   /**
    * 任务4：长按/右键预览选项可能的影响
    */
   _showChoicePreview(choice, button) {
-    // 移除已有预览
-    document.querySelectorAll('.choice-preview').forEach(el => el.remove());
+    this._clearTransientInteractions();
 
     const preview = document.createElement('div');
     preview.className = 'choice-preview';
+    preview.setAttribute('role', 'status');
+    preview.setAttribute('aria-live', 'polite');
 
     // 显示选项的 effects 预览
     const effects = choice.effects || {};
@@ -395,15 +446,39 @@ export class ChoiceSystem {
     if (effects.reputation) effectTexts.push(`名声${effects.reputation > 0 ? '+' : ''}${effects.reputation}`);
     if (effects.trust) effectTexts.push(`信任${effects.trust > 0 ? '+' : ''}${effects.trust}`);
     if (effects.pressure) effectTexts.push(`压力${effects.pressure > 0 ? '+' : ''}${effects.pressure}`);
+    if (effects.failures) effectTexts.push(`翻车${effects.failures > 0 ? '+' : ''}${effects.failures}`);
 
-    preview.innerHTML = effectTexts.length > 0
-      ? `<div class="preview-title">可能的影响</div><div class="preview-effects">${effectTexts.join(' · ')}</div>`
-      : `<div class="preview-title">这个选择的后果</div><div class="preview-effects">未知...</div>`;
+    const title = document.createElement('div');
+    title.className = 'preview-title';
+    title.textContent = effectTexts.length > 0 ? '可能的影响' : '这个选择的后果';
+    const details = document.createElement('div');
+    details.className = 'preview-effects';
+    details.textContent = effectTexts.length > 0 ? effectTexts.join(' · ') : '未知…';
+    preview.append(title, details);
 
-    button.appendChild(preview);
+    document.body.appendChild(preview);
+    this._activePreview = preview;
 
-    // 3秒后自动消失
-    setTimeout(() => { if (preview.parentNode) preview.remove(); }, 3000);
+    const buttonRect = button.getBoundingClientRect();
+    const previewRect = preview.getBoundingClientRect();
+    const gutter = 12;
+    const minCenter = previewRect.width / 2 + gutter;
+    const maxCenter = window.innerWidth - previewRect.width / 2 - gutter;
+    const centerX = Math.max(minCenter, Math.min(maxCenter, buttonRect.left + buttonRect.width / 2));
+    let top = buttonRect.top - previewRect.height - 10;
+    if (top < gutter) {
+      top = Math.min(window.innerHeight - previewRect.height - gutter, buttonRect.bottom + 10);
+    }
+    preview.style.left = `${centerX}px`;
+    preview.style.top = `${Math.max(gutter, top)}px`;
+
+    this._previewTimer = this._setTransientTimer(() => {
+      if (this._activePreview === preview) {
+        preview.remove();
+        this._activePreview = null;
+        this._previewTimer = null;
+      }
+    }, 3000);
   }
 
   /**
@@ -434,7 +509,7 @@ export class ChoiceSystem {
     flash.classList.add('flash');
   }
 
-  hide() {
+  hide(immediate = false) {
     // Remove keyboard handler
     if (this._keyHandler) {
       this.scene.input.keyboard.off('keydown', this._keyHandler);
@@ -448,9 +523,11 @@ export class ChoiceSystem {
       window.removeEventListener('resize', this._resizeHandler);
       this._resizeHandler = null;
     }
+    this._clearTransientInteractions();
     // 退场淡出动画
     this.el.classList.add('leaving');
     const cleanup = () => {
+      this._leaveTimer = null;
       this.el.classList.remove('visible', 'leaving');
       this.el.innerHTML = '';
       if (this.scene.dialog && this.scene.dialog.notifyChoicesVisible) {
@@ -458,6 +535,17 @@ export class ChoiceSystem {
       }
     };
     if (this._leaveTimer) clearTimeout(this._leaveTimer);
-    this._leaveTimer = setTimeout(cleanup, 200);
+    if (immediate) {
+      cleanup();
+    } else {
+      this._leaveTimer = setTimeout(cleanup, 200);
+    }
+  }
+
+  destroy() {
+    this.hide(true);
+    this.choices = [];
+    this.el = null;
+    this.scene = null;
   }
 }

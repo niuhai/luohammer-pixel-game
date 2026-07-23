@@ -4927,15 +4927,23 @@
 
     /* === 任务4：长按预览选项效果 === */
     .choice-preview {
-      position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
-      background: rgba(10, 12, 18, 0.95); border: 1px solid rgba(240, 192, 64, 0.4);
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      width: max-content;
+      max-width: min(320px, calc(100vw - 24px));
+      background: var(--color-bg-elevated);
+      border: 1px solid rgba(var(--color-gold-rgb), 0.5);
       border-radius: var(--radius-sharp); padding: 8px 12px; margin-bottom: 8px;
-      white-space: nowrap; z-index: 100; pointer-events: none;
+      white-space: normal;
+      text-align: center;
+      z-index: 3200;
+      pointer-events: none;
       animation: previewIn 0.2s ease;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
     }
-    .preview-title { font-size: 0.7rem; color: #888; margin-bottom: 4px; }
-    .preview-effects { font-size: 0.85rem; color: #F0C040; }
+    .preview-title { font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 4px; }
+    .preview-effects { font-size: 0.85rem; color: var(--color-gold); }
     @keyframes previewIn {
       from { opacity: 0; transform: translateX(-50%) translateY(4px); }
       to { opacity: 1; transform: translateX(-50%) translateY(0); }
