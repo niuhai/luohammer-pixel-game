@@ -651,7 +651,7 @@ export class GameScene extends Phaser.Scene {
     if (!('ontouchstart' in window) && !localStorage.getItem('luohammer_kbd_hint_shown')) {
       localStorage.setItem('luohammer_kbd_hint_shown', '1');
       this._trackedTimeout(() => {
-        try { toast('键盘提示：A 自动播放 · S 打字速度 · 空格继续', 3500); } catch (e) {}
+        try { toast('键盘：1–9 选择 · A 自动播放 · S 速度 · 空格继续', 3500); } catch (e) {}
       }, 2500);
     }
 

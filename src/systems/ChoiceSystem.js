@@ -239,11 +239,10 @@ export class ChoiceSystem {
       window.addEventListener('resize', this._resizeHandler);
     }
 
-    const markers = ['A', 'B', 'C', 'D'];
-
     choices.forEach((choice, i) => {
       const state = this.scene.state || {};
       const { locked, hint: lockHint } = this._getChoiceLock(choice, state, choices);
+      const marker = String(i + 1);
 
       // === 跨周目技能：命运之眼 — 显示选项导向（好/坏/中性）===
       let alignmentHtml = '';
@@ -264,6 +263,7 @@ export class ChoiceSystem {
       const btn = document.createElement('button');
       btn.className = 'ui-choice-btn' + (locked ? ' locked' : '');
       btn.type = 'button';
+      if (!locked && i < 9) btn.setAttribute('aria-keyshortcuts', marker);
       // 任务1：选项逐个 stagger 入场，每个按钮延迟 80ms 出现
       btn.style.animationDelay = `${i * 80}ms`;
       const checkHintHtml = this._buildCheckHint(choice, state);
@@ -272,7 +272,7 @@ export class ChoiceSystem {
         <span class="corner-deco tr"></span>
         <span class="corner-deco bl"></span>
         <span class="corner-deco br"></span>
-        <span class="ui-choice-marker">${locked ? '<span class="lock-icon">▣</span>' : `<span class="marker-icon">${markers[i] || '?'}</span><span class="marker-key-hint">${markers[i] || ''}</span>`}</span>
+        <span class="ui-choice-marker">${locked ? '<span class="lock-icon">▣</span>' : `<span class="marker-icon">${marker}</span><span class="marker-key-hint">${marker}</span>`}</span>
         <span class="ui-choice-text">${choice.label}${checkHintHtml}${autoPreviewHtml}</span>
         ${alignmentHtml}
         ${locked ? `<span class="ui-choice-lock-hint">${lockHint}</span>` : '<span class="ui-choice-arrow">→</span>'}
@@ -352,11 +352,11 @@ export class ChoiceSystem {
       this.el.appendChild(btn);
     });
 
-    // Keyboard shortcuts (A/B/C/D) — 跳过被锁定的选项
+    // 数字键快捷选择（1-9）— 与 A 自动播放、S 速度切换等全局快捷键解耦
     this._keyHandler = (event) => {
-      const keyMap = { 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
-      const idx = keyMap[event.key.toLowerCase()];
-      if (idx !== undefined && idx < choices.length) {
+      const key = String(event.key || '');
+      const idx = /^[1-9]$/.test(key) ? Number(key) - 1 : -1;
+      if (idx >= 0 && idx < choices.length) {
         if (this._choiceLock) return;
         const c = choices[idx];
         const state = this.scene.state || {};

@@ -89,12 +89,38 @@ describe('ChoiceSystem - 同局支线防重复', () => {
 
     system.show(choices, onChoice);
     const keyHandler = scene.input.keyboard.on.mock.calls[0][1];
+    keyHandler({ key: '1' });
+    expect(onChoice).not.toHaveBeenCalled();
+
+    keyHandler({ key: '2' });
+    expect(onChoice).toHaveBeenCalledOnce();
+    expect(onChoice).toHaveBeenCalledWith(choices[1]);
+  });
+
+  it('八个选项均显示明确数字并可用对应数字键选择', () => {
+    const onChoice = vi.fn();
+    const scene = createScene({ history: [], flags: new Set() });
+    const system = new ChoiceSystem(scene);
+    const choices = Array.from({ length: 8 }, (_, index) => ({
+      label: `选择 ${index + 1}`,
+      next: `node_${index + 1}`
+    }));
+
+    system.show(choices, onChoice);
+    const markers = [...document.querySelectorAll('.marker-icon')].map(el => el.textContent);
+    const buttons = [...document.querySelectorAll('.ui-choice-btn')];
+
+    expect(markers).toEqual(['1', '2', '3', '4', '5', '6', '7', '8']);
+    expect(document.querySelector('#ui-choices').textContent).not.toContain('?');
+    expect(buttons[7].getAttribute('aria-keyshortcuts')).toBe('8');
+
+    const keyHandler = scene.input.keyboard.on.mock.calls[0][1];
     keyHandler({ key: 'a' });
     expect(onChoice).not.toHaveBeenCalled();
 
-    keyHandler({ key: 'b' });
+    keyHandler({ key: '8' });
     expect(onChoice).toHaveBeenCalledOnce();
-    expect(onChoice).toHaveBeenCalledWith(choices[1]);
+    expect(onChoice).toHaveBeenCalledWith(choices[7]);
   });
 
   it('长按显示完整影响且松手不会误触选择', () => {
