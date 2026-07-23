@@ -7,6 +7,7 @@ import { ChoiceSystem } from '../systems/ChoiceSystem.js';
 import { StatsSystem } from '../systems/StatsSystem.js';
 import { Transition } from '../systems/Transition.js';
 import { AudioSystem, VOICE_PRESETS } from '../systems/AudioSystem.js';
+import { StageProgressSystem } from '../systems/StageProgressSystem.js';
 import { SaveSystem } from '../systems/SaveSystem.js';
 import { HistoryCard } from '../ui/HistoryCard.js';
 import { showSaveLoadPanel } from '../ui/SaveLoadPanel.js';
@@ -503,8 +504,9 @@ export class GameScene extends Phaser.Scene {
     // Chapter display (DOM overlay)
     this.chapterNameEl = document.getElementById('ui-chapter-name');
     this.chapterSubEl = document.getElementById('ui-chapter-sub');
-    this.progressFillEl = document.getElementById('ui-progress-fill');
     this.chapterEl = document.getElementById('ui-chapter');
+    this.stageProgress = new StageProgressSystem({ rootEl: this.chapterEl });
+    this.stageProgress.mount();
     if (this.chapterEl) this.chapterEl.classList.add('visible');
 
     // Sound toggle (DOM overlay)
@@ -829,9 +831,8 @@ export class GameScene extends Phaser.Scene {
     if (this.chapterNameEl) this.chapterNameEl.textContent = node.act || '';
     if (this.chapterSubEl) this.chapterSubEl.textContent = node.actSub || '';
 
-    if (this.progressFillEl) {
-      this.progressFillEl.style.width = Math.min((node.progress || 0), 100) + '%';
-    }
+    const currentStage = getStageByNodeId(this.state.currentNode);
+    this.stageProgress?.update(currentStage?.id, node.progress || 0);
 
     // === 跨周目技能：洞察人心 — 进入节点时显示 NPC 真实态度提示 ===
     if (this.state._showNpcAttitude) {
@@ -3121,7 +3122,10 @@ export class GameScene extends Phaser.Scene {
     }
     this.chapterNameEl = null;
     this.chapterSubEl = null;
-    this.progressFillEl = null;
+    if (this.stageProgress) {
+      this.stageProgress.destroy();
+      this.stageProgress = null;
+    }
     this.chapterEl = null;
     this.soundToggleEl = null;
     this.soundIconEl = null;

@@ -65,6 +65,11 @@ test.describe('首次游玩流程', () => {
     // === 5. 进入游戏场景：章节名应可见 + 对话框/选项至少有一个可见 ===
     await expect(page.locator('#ui-chapter')).toHaveClass(/visible/, { timeout: 15_000 });
     await expect(page.locator('#ui-chapter-name')).not.toBeEmpty({ timeout: 15_000 });
+    await expect(page.locator('#ui-stage-position')).toHaveText('第 1 / 6 阶段');
+    await expect(page.locator('#ui-stage-current')).toHaveText('延边少年');
+    await expect(page.locator('#ui-stage-rail .ui-stage-segment')).toHaveCount(6);
+    await expect(page.locator('#ui-stage-rail .ui-stage-segment.current')).toHaveCount(1);
+    await expect(page.locator('#ui-stage-rail')).toHaveAttribute('aria-valuenow', '1');
 
     // 对话框可能在打字机效果中，给一定时间
     await expect(page.locator('#ui-dialog')).toHaveClass(/visible/, { timeout: 10_000 });
