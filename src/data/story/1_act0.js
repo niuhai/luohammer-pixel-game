@@ -200,9 +200,9 @@ export const NODES = {
 
 <b>苦不是问题，问题是你在哪儿吃苦。在延边吃苦，至少是在自己的地盘上；在韩国吃苦，连个说话的人都没有。</b>`,
     choices: [
-      { label: `"吃苦是暂时的！攒够钱回国大干一场，这苦不白吃！"`, next: 'act0_korea', effects: { pride: 1, wealth: 0, reputation: 0 } },
-      { label: `"省吃俭用多攒点钱……回国没本钱，连折腾的资格都没有。"`, next: 'act0_korea', effects: { wealth: 1, pride: 0, reputation: 0 } },
-      { label: `"跟工友学韩语，至少把语言关过了。"`, next: 'act0_korea', effects: { pride: 0, wealth: -1, reputation: 1 } }
+      { label: `"吃苦是暂时的！攒够钱回国学英语，这苦不白吃！"`, next: 'act0_gre', effects: { pride: 1, wealth: 0, reputation: 0 } },
+      { label: `"省吃俭用多攒点钱……回国学英语，也得先交得起房租。"`, next: 'act0_gre', effects: { wealth: 1, pride: 0, reputation: 0 } },
+      { label: `"跟工友学韩语练出语感，回国再拿下英语。"`, next: 'act0_gre', effects: { pride: 0, wealth: -1, reputation: 1 } }
     ],
     historyNote: `历史上，老罗确实在韩国打过工，搬过砖洗过碗。异国打工的日子让老罗第一次真正理解了"根"的意义——后来他做锤子手机，所有人都劝他去深圳，他偏要留在北京，就是因为"在自己的地盘上折腾，输了也甘心"。他后来在新东方课堂上讲这段经历，学生笑得前仰后合，但那段日子里的孤独和屈辱，只有他自己知道。`,
     progress: 12
@@ -221,7 +221,7 @@ export const NODES = {
       { label: `"在韩国攒够钱，回国做小生意安安稳稳过日子。"`, next: 'ending_ordinary', effects: { pride: -1, wealth: 2, reputation: 0 }, maxAttr: { pride: 2, wealth: 3, reputation: 2 } },
       { label: `"回国！听说新东方老师年薪百万，赌一把！"`, next: 'act0_gre', effects: { pride: 2, wealth: -1, reputation: 1 } },
       { label: `"在韩国的打工生活到底是怎样的？"`, next: 'act0_korea_life', effects: { pride: 0, wealth: 0, reputation: 0 } },
-      { label: `"回国！不一定要去新东方，先做点小生意再说。"`, next: 'act0_b', effects: { pride: 0, wealth: 1, reputation: -1 } },
+      { label: `"回国！先做点小生意；碰了壁，再学英语找新方向。"`, next: 'act0_gre', effects: { pride: 0, wealth: 1, reputation: -1 } },
       { label: `"在韩国街头被人叫'同胞'又被叫'外国人'——我到底算哪边的人？"`, next: 'act0_identity', effects: { pride: 0, wealth: 0, reputation: 0, pressure: 1 } }
     ],
     historyNote: `历史上，老罗确实去韩国打过工，卖过壮阳药。转折发生在2000年——他听说新东方老师年薪百万后，决定回国闯一闯——这是老罗人生的第一个真正转折点：从"什么都试"到"锁定一个方向全力冲刺"。后来他做手机、做直播，每一次转型都是同一个模式：先在泥里打滚，然后突然抬头看见一座山，就不管不顾地往上爬。`,

@@ -83,6 +83,35 @@ export class ChoiceSystem {
   }
 
   /**
+   * 同一局支线防重复：当目标节点已经历，且当前仍有一个条件满足的未经历出口时，
+   * 将旧支线标记为已完成。这样既允许玩家探索支线，也不会在返回枢纽后无限刷属性。
+   */
+  _checkRevisitLock(choice, state, allChoices) {
+    if (choice.allowRepeat || !choice.next || !Array.isArray(state.history)) {
+      return { locked: false, hint: '' };
+    }
+
+    const visitedNodes = new Set(state.history.map(item => item && item.nodeId).filter(Boolean));
+    if (!visitedNodes.has(choice.next)) return { locked: false, hint: '' };
+
+    const hasAvailableUnvisitedExit = allChoices.some((candidate) => {
+      if (candidate === choice || candidate.allowRepeat || !candidate.next) return false;
+      if (visitedNodes.has(candidate.next)) return false;
+      return !this._checkLock(candidate, state).locked;
+    });
+
+    return hasAvailableUnvisitedExit
+      ? { locked: true, hint: '这段经历已完成，请探索新的选择' }
+      : { locked: false, hint: '' };
+  }
+
+  _getChoiceLock(choice, state, allChoices) {
+    const conditionLock = this._checkLock(choice, state);
+    if (conditionLock.locked) return conditionLock;
+    return this._checkRevisitLock(choice, state, allChoices);
+  }
+
+  /**
    * 构建检定提示 HTML（选项有 check 字段时显示）
    * @param {object} choice - 选项对象
    * @param {object} state - 游戏状态
@@ -204,7 +233,7 @@ export class ChoiceSystem {
 
     choices.forEach((choice, i) => {
       const state = this.scene.state || {};
-      const { locked, hint: lockHint } = this._checkLock(choice, state);
+      const { locked, hint: lockHint } = this._getChoiceLock(choice, state, choices);
 
       // === 跨周目技能：命运之眼 — 显示选项导向（好/坏/中性）===
       let alignmentHtml = '';
@@ -302,7 +331,7 @@ export class ChoiceSystem {
         if (this._choiceLock) return;
         const c = choices[idx];
         const state = this.scene.state || {};
-        const { locked } = this._checkLock(c, state);
+        const { locked } = this._getChoiceLock(c, state, choices);
         if (!locked && onChoice) {
           this._choiceLock = true;
           this.el.querySelectorAll('.ui-choice-btn').forEach(b => b.disabled = true);

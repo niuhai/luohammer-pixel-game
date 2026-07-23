@@ -34,6 +34,24 @@ function simulateCheck(choice, state) {
   return { effects, nextNode, passed };
 }
 
+// Mulberry32：轻量、可复现的伪随机数。策略名中的种子必须真的生效，
+// 否则同一份代码每次验证会走不同路径，门禁结果不可复核。
+function createSeededRandom(seed) {
+  let value = seed >>> 0;
+  return () => {
+    value += 0x6D2B79F5;
+    let result = value;
+    result = Math.imul(result ^ (result >>> 15), result | 1);
+    result ^= result + Math.imul(result ^ (result >>> 7), result | 61);
+    return ((result ^ (result >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function createRandomStrategy(seed) {
+  const random = createSeededRandom(seed);
+  return (choices) => Math.floor(random() * choices.length);
+}
+
 // 选择策略
 const strategies = {
   'A_默认第一项': (choices) => 0,
@@ -97,9 +115,9 @@ const strategies = {
     });
     return best;
   },
-  'J_随机_种子7': (choices) => Math.floor(Math.random() * choices.length),
-  'K_随机_种子42': (choices) => Math.floor(Math.random() * choices.length),
-  'L_随机_种子99': (choices) => Math.floor(Math.random() * choices.length),
+  'J_随机_种子7': createRandomStrategy(7),
+  'K_随机_种子42': createRandomStrategy(42),
+  'L_随机_种子99': createRandomStrategy(99),
   // 隐士路径：优先推进到 act7_payback，再退网到 act7_retire，再选 retired
   'M_隐士路径': (choices) => {
     const retiredChoice = choices.find(c => c.flag === 'retired');
@@ -141,13 +159,40 @@ function simulatePath(strategyName, choiceFn) {
   const maxSteps = 200;
   const pathTrace = [];
   const endingFlags = new Set();
+  const seenStates = new Map();
+  const visitedNodes = new Set();
+  let terminationReason = 'UNKNOWN';
+  let loopInfo = null;
 
   while (nodeId && steps < maxSteps) {
     const node = STORY[nodeId];
     if (!node) {
       pathTrace.push({ step: steps, nodeId, event: 'NODE_NOT_FOUND' });
+      terminationReason = 'NODE_NOT_FOUND';
       break;
     }
+
+    // 节点 + 完整可变状态相同，意味着后续确定性策略只会重复同一轨迹。
+    // 过去仅靠 200 步上限静默截断，会把真实死循环误报成“已匹配结局”。
+    const stateSignature = [
+      nodeId,
+      ...Object.keys(ATTRIBUTES).sort().map(key => `${key}:${state[key] ?? 0}`),
+      `flags:${[...flags].sort().join(',')}`
+    ].join('|');
+    if (seenStates.has(stateSignature)) {
+      const firstSeenStep = seenStates.get(stateSignature);
+      loopInfo = {
+        nodeId,
+        firstSeenStep,
+        repeatStep: steps,
+        cycleLength: steps - firstSeenStep
+      };
+      pathTrace.push({ step: steps, nodeId, event: 'LOOP_DETECTED', ...loopInfo });
+      terminationReason = 'LOOP_DETECTED';
+      break;
+    }
+    seenStates.set(stateSignature, steps);
+    visitedNodes.add(nodeId);
 
     // 处理 flag consequences（阶段切换时）
     const stage = getStageByNodeId ? getStageByNodeId(nodeId) : null;
@@ -177,15 +222,24 @@ function simulatePath(strategyName, choiceFn) {
 
     if (!node.choices || node.choices.length === 0) {
       pathTrace.push({ step: steps, nodeId, event: 'NO_CHOICES' });
+      terminationReason = 'NO_CHOICES';
       break;
     }
 
     // 过滤可选 choices
-    const available = node.choices.filter(c => isChoiceAvailable(c, state, flags));
+    let available = node.choices.filter(c => isChoiceAvailable(c, state, flags));
     if (available.length === 0) {
       pathTrace.push({ step: steps, nodeId, event: 'NO_AVAILABLE_CHOICE' });
+      terminationReason = 'NO_AVAILABLE_CHOICE';
       break;
     }
+
+    // 与 ChoiceSystem 的同局支线防重复规则保持一致：有未经历出口时，
+    // 已经历目标不再参与选择；没有新出口时保留原选择，避免误锁死路。
+    const unvisitedAvailable = available.filter(choice =>
+      choice.allowRepeat || !choice.next || !visitedNodes.has(choice.next)
+    );
+    if (unvisitedAvailable.length > 0) available = unvisitedAvailable;
 
     const idx = choiceFn(available);
     const choice = available[idx];
@@ -213,6 +267,7 @@ function simulatePath(strategyName, choiceFn) {
     if (nextNode && nextNode.startsWith('ending_')) {
       endingFlags.add(nextNode);
       pathTrace.push({ step: steps, nodeId, choice: choice.label?.slice(0, 20), event: 'ENDING_BRANCH', nextNode });
+      terminationReason = 'ENDING_BRANCH';
       break;
     }
 
@@ -230,6 +285,9 @@ function simulatePath(strategyName, choiceFn) {
 
     steps++;
   }
+  if (terminationReason === 'UNKNOWN') {
+    terminationReason = steps >= maxSteps ? 'STEP_LIMIT' : 'NO_NEXT_NODE';
+  }
 
   // 匹配结局
   const matchedEndings = ENDINGS
@@ -245,7 +303,9 @@ function simulatePath(strategyName, choiceFn) {
     matchedEnding: matchedEndings[0] || null,
     allMatchedEndings: matchedEndings.map(e => `${e.id}(p${e.priority})`),
     endingBranch: [...endingFlags],
-    pathTrace
+    pathTrace,
+    terminationReason,
+    loopInfo
   };
 }
 
@@ -267,11 +327,19 @@ for (const [name, fn] of Object.entries(strategies)) {
     results.push(r);
     const s = r.finalState;
     console.log(`  步数: ${r.steps}`);
+    console.log(`  终止原因: ${r.terminationReason}`);
     console.log(`  最终属性: pride=${s.pride} wealth=${s.wealth} rep=${s.reputation} fail=${s.failures} pressure=${s.pressure} trust=${s.trust}`);
     console.log(`  结局分支: ${r.endingBranch.length ? r.endingBranch.join(',') : '(无 - 走到 final 由 matchEnding 判定)'}`);
     console.log(`  匹配结局: ${r.matchedEnding ? r.matchedEnding.id + ' (' + r.matchedEnding.name + ')' : '【无任何结局匹配】'}`);
     if (r.allMatchedEndings.length > 1) {
       console.log(`  全部匹配: ${r.allMatchedEndings.join(' | ')}`);
+    }
+    if (r.loopInfo) {
+      console.log(`  ❌ 状态循环: ${r.loopInfo.nodeId}，首次第 ${r.loopInfo.firstSeenStep} 步，周期 ${r.loopInfo.cycleLength} 步`);
+      console.log('  循环前轨迹:');
+      r.pathTrace.slice(-8).forEach(item => {
+        console.log(`    [${item.step}] ${item.nodeId} ${item.choice ? `→ ${item.choice}` : ''} ${item.event || ''}`.trimEnd());
+      });
     }
     console.log('');
   } catch (err) {
@@ -295,6 +363,24 @@ results.forEach(r => {
     '  ' + (r.matchedEnding ? r.matchedEnding.id : 'NONE')
   );
 });
+
+const fatalTerminations = new Set([
+  'NODE_NOT_FOUND',
+  'NO_AVAILABLE_CHOICE',
+  'LOOP_DETECTED',
+  'STEP_LIMIT'
+]);
+const failedRuns = results.filter(result => fatalTerminations.has(result.terminationReason));
+if (failedRuns.length > 0) {
+  console.error(`\n❌ 模拟门禁失败：${failedRuns.length} 条策略未正常终止`);
+  failedRuns.forEach(result => {
+    const detail = result.loopInfo
+      ? ` (${result.loopInfo.nodeId}, 周期 ${result.loopInfo.cycleLength})`
+      : '';
+    console.error(`  - ${result.strategy}: ${result.terminationReason}${detail}`);
+  });
+  process.exitCode = 1;
+}
 
 // 阈值差距分析
 console.log('\n=== 阈值差距分析（最接近但未达成的结局）===');

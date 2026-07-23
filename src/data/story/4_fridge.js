@@ -27,7 +27,7 @@ export const NODES = {
 
 你忽然觉得荒诞至极：一个跨国企业，面对铁证如山的质量缺陷，不是解决问题，而是解决提出问题的人。你的微博维权引发了大量关注，很多西门子用户站出来声援——原来沉默的人有那么多，原来沉默不是因为没事，是因为说了也没人听。但西门子依然不松口。你攥着手机，心想：既然你们听不懂人话，那就换个语言——一种全世界都看得懂的语言。`,
     choices: [
-      { label: `"走法律途径！起诉西门子，用法律说话——虽然慢，但站得住脚"`, next: 'act_fridge_weibo', effects: { pride: 1, wealth: -1, reputation: 2, achievement: '理性维权者', icon: '⚖', trust: 1 } },
+      { label: `"走法律途径！起诉西门子，用法律说话——虽然慢，但站得住脚"`, next: 'ending_rational', effects: { pride: 1, wealth: -1, reputation: 2, achievement: '理性维权者', icon: '⚖', trust: 1 } },
       { label: `"砸！去西门子总部砸冰箱！让全世界看到！——法律太慢，舆论才是一把快刀"`, next: 'act_fridge_smash', effects: { pride: 3, wealth: -1, reputation: 2, pressure: 1, achievement: '砸冰箱', icon: '▣' } },
       { label: `"先收集更多用户的投诉证据，人多力量大——一个人维权是闹事，一百个人维权就是事件"`, next: 'act_fridge_smash', effects: { pride: -1, wealth: 0, reputation: 1 } }
     ],

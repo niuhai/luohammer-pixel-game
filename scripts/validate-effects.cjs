@@ -115,6 +115,24 @@ function extractFlagsFromFile(filePath) {
 }
 
 /**
+ * 提取 choices 中 requiresFlags / blocksFlags 消费的机制 flag。
+ */
+function extractConsumedFlagsFromFile(filePath) {
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const flags = new Set();
+  const arrayRegex = /(?:requiresFlags|blocksFlags):\s*\[([^\]]*)\]/g;
+  let arrayMatch;
+  while ((arrayMatch = arrayRegex.exec(content)) !== null) {
+    const stringRegex = /['"]([^'"]+)['"]/g;
+    let stringMatch;
+    while ((stringMatch = stringRegex.exec(arrayMatch[1])) !== null) {
+      flags.add(stringMatch[1]);
+    }
+  }
+  return flags;
+}
+
+/**
  * 从 effects.js 和 endings.js 中提取所有被处理的 flag
  * 包括 checkThresholdTriggers 和 checkFlagConsequences 中引用的 flag
  * 以及 endings.js 中结局判定引用的 flag
@@ -169,10 +187,19 @@ function validate() {
   }
 
   const handledFlags = extractHandledFlags();
+  const storyConsumedFlags = new Set();
+  for (const file of files) {
+    const consumed = extractConsumedFlagsFromFile(path.join(storyDir, file));
+    consumed.forEach(flag => {
+      storyConsumedFlags.add(flag);
+      handledFlags.add(flag);
+    });
+  }
 
   console.log(`扫描文件数: ${files.length}`);
   console.log(`Effects 条目数: ${allEffects.length}`);
   console.log(`Story 中 Flag 数: ${allStoryFlags.length}`);
+  console.log(`Story 条件消费 Flag 数: ${storyConsumedFlags.size}`);
   console.log(`Effects.js 中处理 Flag 数: ${handledFlags.size}`);
   console.log();
 

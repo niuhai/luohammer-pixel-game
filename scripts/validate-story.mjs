@@ -680,10 +680,16 @@ sectionStart('【6】flag 链路完整性检查');
 
 // 收集 story 中所有设置的 flag
 const storyFlags = new Set();
+const storyRequiredFlags = new Set();
 for (const [nodeId, node] of Object.entries(STORY)) {
   if (node.choices) {
     for (const choice of node.choices) {
       if (choice.flag) storyFlags.add(choice.flag);
+      for (const field of ['requiresFlags', 'blocksFlags']) {
+        if (Array.isArray(choice[field])) {
+          choice[field].forEach(flag => storyRequiredFlags.add(flag));
+        }
+      }
     }
   }
 }
@@ -702,7 +708,7 @@ const allSetFlags = new Set([...storyFlags, ...eventFlags]);
 // 收集 effects.js 和 endings.js 中引用的 flag
 const effectsFlags = extractEffectsFlags();
 const endingsFlags = extractEndingsFlags();
-const allReferencedFlags = new Set([...effectsFlags, ...endingsFlags]);
+const allReferencedFlags = new Set([...effectsFlags, ...endingsFlags, ...storyRequiredFlags]);
 
 // 分类汇总
 const storyOnlyFlags = [...storyFlags].filter(f => !allReferencedFlags.has(f));
@@ -711,12 +717,13 @@ const thresholdFlags = codeOnlyFlags.filter(f => THRESHOLD_TRIGGERED_FLAGS.has(f
 const trulyMissingFlags = codeOnlyFlags.filter(f => !THRESHOLD_TRIGGERED_FLAGS.has(f));
 
 console.log(`  story 中设置的 flag: ${[...storyFlags].join(', ') || '无'}`);
+console.log(`  story 条件中消费的 flag: ${[...storyRequiredFlags].join(', ') || '无'}`);
 console.log(`  effects.js 中引用的 flag: ${[...effectsFlags].join(', ') || '无'}`);
 console.log(`  endings.js 中引用的 flag: ${[...endingsFlags].join(', ') || '无'}`);
 console.log(`  随机事件中设置的 flag: ${eventFlags.size} 个`);
 console.log(`  阈值触发器内部 flag: ${[...thresholdFlags].join(', ') || '无'}`);
 
-// 6a. story 中设置的 flag 在 effects.js/endings.js 中无对应处理
+// 6a. story 中设置的 flag 在条件/effects.js/endings.js 中无对应处理
 //     叙事性 flag（白名单）仅作为剧情记忆，不影响机制，不报警告
 for (const flag of storyOnlyFlags) {
   if (NARRATIVE_FLAGS.has(flag)) {
@@ -724,11 +731,11 @@ for (const flag of storyOnlyFlags) {
     sectionItem('pass', `叙事性 flag [${flag}] 已记录（白名单）`);
     continue;
   }
-  warn(`story flag [${flag}] 在 effects.js 和 endings.js 中均无对应处理`);
-  sectionItem('warn', `flag [${flag}] 未被 effects.js/endings.js 处理`);
+  warn(`story flag [${flag}] 未被 story 条件、effects.js 或 endings.js 消费`);
+  sectionItem('warn', `flag [${flag}] 未被任何机制消费`);
 }
 
-// 6b. effects.js/endings.js 中引用的 flag 在 story/随机事件 中均无设置 —— 区分阈值触发器 flag
+// 6b. story 条件/effects.js/endings.js 中引用的 flag 在 story/随机事件 中均无设置
 for (const flag of thresholdFlags) {
   info(`阈值触发器 flag [${flag}] 由 checkThresholdTriggers 内部设置，无需 story choice 设置`);
   sectionItem('pass', `阈值触发器 flag [${flag}] 由内部逻辑设置`);
