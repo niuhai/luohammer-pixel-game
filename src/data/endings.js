@@ -25,7 +25,7 @@ export const ENDINGS = [
     icon: '★',
     priority: 10,
     sceneType: 'ending',
-    check: (state, flags) => state.pride >= 8 && (state.failures || 0) >= 2 && state.wealth < 3
+    check: (state, _flags) => state.pride >= 8 && (state.failures || 0) >= 2 && state.wealth < 3
   },
   {
     id: 'tycoon',
@@ -36,7 +36,7 @@ export const ENDINGS = [
     icon: '¤',
     priority: 8,
     sceneType: 'ending',
-    check: (state, flags) => state.wealth >= 8 && state.pride < 3
+    check: (state, _flags) => state.wealth >= 8 && state.pride < 3
   },
   {
     id: 'warrior',
@@ -47,7 +47,7 @@ export const ENDINGS = [
     icon: '⚔',
     priority: 9,
     sceneType: 'ending',
-    check: (state, flags) => state.pride >= 7 && state.reputation >= 7 && (state.failures || 0) >= 2
+    check: (state, _flags) => state.pride >= 7 && state.reputation >= 7 && (state.failures || 0) >= 2
   },
   {
     id: 'scapegoat',
@@ -58,7 +58,7 @@ export const ENDINGS = [
     icon: '◇',
     priority: 7,
     sceneType: 'ending',
-    check: (state, flags) => state.reputation < 3 && (state.failures || 0) >= 3
+    check: (state, _flags) => state.reputation < 3 && (state.failures || 0) >= 3
   },
   {
     id: 'balance',
@@ -69,7 +69,7 @@ export const ENDINGS = [
     icon: '⚖',
     priority: 12,
     sceneType: 'ending',
-    check: (state, flags) => state.pride >= 6 && state.wealth >= 6 && state.reputation >= 6 && state.trust >= 5 && (state.failures || 0) <= 2
+    check: (state, _flags) => state.pride >= 6 && state.wealth >= 6 && state.reputation >= 6 && state.trust >= 5 && (state.failures || 0) <= 2
   },
   {
     id: 'rational',
@@ -80,7 +80,7 @@ export const ENDINGS = [
     icon: '◈',
     priority: 6,
     sceneType: 'ending',
-    check: (state, flags) => state.pride >= 5 && state.wealth <= 3 && (state.failures || 0) >= 3
+    check: (state, _flags) => state.pride >= 5 && state.wealth <= 3 && (state.failures || 0) >= 3
   },
   {
     id: 'supply_chain',
@@ -91,7 +91,7 @@ export const ENDINGS = [
     icon: '▣',
     priority: 5,
     sceneType: 'ending',
-    check: (state, flags) => state.wealth >= 4 && state.pride <= 3 && (state.failures || 0) >= 2
+    check: (state, _flags) => state.wealth >= 4 && state.pride <= 3 && (state.failures || 0) >= 2
   },
   {
     id: 'talkshow_star',
@@ -102,7 +102,7 @@ export const ENDINGS = [
     icon: '♪',
     priority: 8,
     sceneType: 'ending',
-    check: (state, flags) => state.reputation >= 8 && state.pride >= 5
+    check: (state, _flags) => state.reputation >= 8 && state.pride >= 5
   },
   {
     id: 'ai_visionary',
@@ -113,7 +113,7 @@ export const ENDINGS = [
     icon: '▦',
     priority: 7,
     sceneType: 'ending',
-    check: (state, flags) => state.wealth >= 7 && state.reputation >= 5 && state.pride <= 4
+    check: (state, _flags) => state.wealth >= 7 && state.reputation >= 5 && state.pride <= 4
   },
   {
     id: 'phoenix',
@@ -146,7 +146,7 @@ export const ENDINGS = [
     icon: '~',
     priority: 3,
     sceneType: 'ending',
-    check: (state, flags) => {
+    check: (state, _flags) => {
       const attrs = [state.pride, state.wealth, state.reputation, state.trust];
       return attrs.every(a => a >= 3 && a <= 6) && (state.failures || 0) <= 2;
     }
@@ -160,7 +160,7 @@ export const ENDINGS = [
     icon: '◈',
     priority: 2,
     sceneType: 'ending',
-    check: (state, flags) => (state.failures || 0) >= 4
+    check: (state, _flags) => (state.failures || 0) >= 4
   },
   {
     id: 'craftsman',
@@ -193,7 +193,7 @@ export const ENDINGS = [
     icon: '▣',
     priority: 2,
     sceneType: 'ending',
-    check: (state, flags) => state.pride <= 2 && state.wealth <= 3 && state.reputation <= 2
+    check: (state, _flags) => state.pride <= 2 && state.wealth <= 3 && state.reputation <= 2
   },
   {
     id: 'comfort',
@@ -461,8 +461,11 @@ export const ENDING_HINTS = {
  * @returns {object|null} 匹配的结局，优先级最高的
  */
 export function matchEnding(state, flags) {
+  // 显式 tie-breaker：同 priority 时按 ENDINGS 声明顺序（idx 升序）优先，
+  // 避免依赖 Array.sort 的隐式稳定性（ES2019 前规范不保证），确保跨引擎结果一致
   const matched = ENDINGS
-    .filter(e => e.check(state, flags))
-    .sort((a, b) => b.priority - a.priority);
-  return matched.length > 0 ? matched[0] : null;
+    .map((e, idx) => ({ e, idx }))
+    .filter(({ e }) => e.check(state, flags))
+    .sort((a, b) => b.e.priority - a.e.priority || a.idx - b.idx);
+  return matched.length > 0 ? matched[0].e : null;
 }

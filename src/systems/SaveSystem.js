@@ -34,8 +34,22 @@ function sanitizeForJSON(state) {
 /**
  * 校验 parsed 是否为合法存档对象（避免 localStorage 被篡改为原始值）
  */
+// 游戏状态必含的核心属性键及其合法数值范围（与 ATTRIBUTES 对齐）
+// 用于校验存档完整性，防止损坏数据导致游戏中途崩溃
+const REQUIRED_ATTRS = ['pride', 'wealth', 'reputation'];
+const ATTR_RANGE = { min: -50, max: 50 }; // 容忍迁移期数值越界，但拒绝明显异常值
+
 function _isValidState(parsed) {
-  return parsed && typeof parsed === 'object' && !Array.isArray(parsed);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return false;
+  // 必须存在核心属性且为有限数字
+  for (const key of REQUIRED_ATTRS) {
+    const v = parsed[key];
+    if (typeof v !== 'number' || !Number.isFinite(v)) return false;
+    if (v < ATTR_RANGE.min || v > ATTR_RANGE.max) return false;
+  }
+  // currentNode 必须是非空字符串（空字符串会导致 getStageByNodeId 返回 null 后续崩溃）
+  if (typeof parsed.currentNode !== 'string' || parsed.currentNode.length === 0) return false;
+  return true;
 }
 
 function _toArray(val) {
