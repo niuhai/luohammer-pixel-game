@@ -28,9 +28,9 @@ export const NODES = {
       { label: `"这次……我想选一条不一样的路。也许安稳也是一种勇气。"`, next: 'act9_final', effects: { pride: 0, pressure: -1 } },
       { label: `"先不急着选——让我再想想，也许答案不在两条路之间，而在两条路之外。"`, next: 'act9_final', effects: { pride: 0, wealth: 0, reputation: 0 } },
       { label: `"把选择权交给命运——抛硬币决定，正面是疯狂，反面是安稳。"`, next: 'act9_final', effects: { pride: -1, wealth: 0, reputation: 0 } },
-      { label: `"做数码博主去吧——用这张嘴把评测做成脱口秀，黑产品也能黑出情怀，流量也是一条路"`, next: 'ending_tech_blogger', effects: { pride: 0, wealth: 1, reputation: 2, achievement: '数码博主', icon: '▦' }, flag: 'became_tech_blogger' },
+      { label: `"做数码博主去吧——用这张嘴把评测做成脱口秀，黑产品也能黑出情怀，流量也是一条路"`, next: 'ending_tech_blogger', effects: { pride: 0, wealth: 1, reputation: 2, achievement: '数码博主', icon: '▦' }, flag: 'became_tech_blogger', requires: { reputation: 4 } },
       { label: `"继续当维权斗士——大厂一个都别想跑，官司打到天荒地老，反正我证据多、粉丝能众筹"`, next: 'ending_rights_fighter', effects: { pride: 2, wealth: -1, reputation: 1, achievement: '维权斗士', icon: '⚖' }, flag: 'public_feud_champion', requires: { reputation: 5 } },
-      { label: `"出家吧——钱赚够了，脸也丢够了，去庙里图个清净，从此不再解释"`, next: 'ending_monk', effects: { pride: -3, wealth: -1, reputation: 0, achievement: '法号志恒', icon: '◯' }, flag: 'became_monk' },
+      { label: `"出家吧——钱赚够了，脸也丢够了，去庙里图个清净，从此不再解释"`, next: 'ending_monk', effects: { pride: -3, wealth: -1, reputation: 0, achievement: '法号志恒', icon: '◯' }, flag: 'became_monk', maxAttr: { pride: 3 } },
       { label: `"去做公益吧——如果这一路你没有坑过人、还清了债、还愿意相信普通人，那就把剩下的影响力换成孩子们的学费"`, next: 'ending_philanthropist', effects: { pride: 2, wealth: -2, reputation: 2, trust: 2, achievement: '罗老师基金会', icon: '✦' }, flag: 'philanthropy_champion', requires: { reputation: 4 } }
     ],
     historyNote: `历史还在书写中。老罗的每一个十字路口，都是一次对自我的重新定义。这件事之所以重要，是因为选择本身比结果更重要——他从来不会选"不选"，哪怕选错了，也比不选强。后来，无论他选了哪条路，都证明了同一个道理：人生没有白走的路，每一步都算数。这种"必须选"的执念，既是他的铠甲，也是他的枷锁——但至少，他从来没有把铠甲脱下来。而每一种选择都通向一种活法，没有哪种活法比另一种更正确——只有更适合自己的那一种。适合自己的，才是最好的路，哪怕那条路上只有你一个人在走。`,
@@ -59,9 +59,9 @@ export const NODES = {
     text: `从延边街头被城管追着跑的退学少年，到新东方讲台上笑翻全场的"相声老师"，到西门子总部前举着铁锤的维权斗士，到鸟巢发布会上演砸了TNT的悲情创业者，到直播间还债8.24亿的"真还传"主角……\n\n你这辈子最不缺的就是十字路口。\n\n而你最不缺的，是在每个十字路口前选择最难走的那条路——哪怕那条路通向悬崖，你也先走到崖边看一眼再决定要不要跳。\n\n有人选了安稳，在柴米油盐里找到了久违的平静——那条路上的风景是窗台上的花、餐桌上的饭、睡前的一杯热茶，平凡但温暖，像一条缓缓流淌的河，不急不缓，但一直在流。有人选了疯狂，在悬崖边看见了最壮阔的日出——那条路上的风景是风、是雪、是悬崖下翻涌的云海，壮烈但孤独，像一颗永远燃烧的星，照亮了别人，烧尽了自己。有人选了回归，在话筒前找到了最初的自己——那条路上的风景是录音棚里安静的红灯、嘉宾沉默后开口的那句话、听众深夜发来的长信，安静但深刻，像一盏不灭的灯，不刺眼，但一直在亮。有人选了传承，把摔过的坑变成后来者的路标——那条路上的风景是年轻人眼中的光、他们少走的弯路、他们替你到达的远方，温柔但有力，像一条越走越宽的路，你走完了，但路还在延伸。\n\n<b>下一个章节，由你自己书写。但无论写什么，请记住：这个世界上，总有人在十字路口选择了最难的那条路——而那条路上，风景独好。也总有人选了另一条路，那条路上，花开满径。还有人选了第三条路、第四条路——每一条路都值得走，每一个你都值得被记住。因为人生没有标准答案，只有你自己的答案。而你的答案，就是你走过的每一步——那些步子有的深有的浅，有的直有的弯，但没有一步是白走的，每一步都在告诉你：你还在走，这就够了。</b>`,
     choices: [
       { label: `"生命不息，折腾不止——下一章继续！"`, next: 'ending_comeback', effects: { pride: 3, wealth: 0, reputation: 3, achievement: '永不言弃', icon: '▲' }, flag: 'final_comeback', requires: { pride: 6 }, requiresFlags: ['honest_repay'] },
-      { label: `"终于可以休息了。谢谢陪我走到这里的每一个人。"`, next: 'ending_peace', effects: { pride: 2, wealth: 2, reputation: 3, achievement: '与世界和解', icon: '~', pressure: -2 } },
-      { label: `"折腾和休息之间，也许还有第三条路——带着经历重新出发，不赌身家，也不躺平。"`, next: 'ending_peace', effects: { pride: 1, wealth: 1, reputation: 1 } },
-      { label: `"不是折腾也不是休息——是传承。把我走过的路告诉后来人，让他们少走弯路。"`, next: 'ending_mentor', effects: { pride: 1, wealth: 1, reputation: 2 } },
+      { label: `"终于可以休息了。谢谢陪我走到这里的每一个人。"`, next: 'ending_peace', effects: { pride: 2, wealth: 2, reputation: 3, achievement: '与世界和解', icon: '~', pressure: -2 }, requires: { pride: 3, reputation: 3 } },
+      { label: `"折腾和休息之间，也许还有第三条路——带着经历重新出发，不赌身家，也不躺平。"`, next: 'ending_peace', effects: { pride: 1, wealth: 1, reputation: 1 }, requires: { pride: 3, wealth: 3 } },
+      { label: `"不是折腾也不是休息——是传承。把我走过的路告诉后来人，让他们少走弯路。"`, next: 'ending_mentor', effects: { pride: 1, wealth: 1, reputation: 2 }, requires: { trust: 5 } },
       { label: `"让这一路的选择自己说话——不管结局如何，我接受。"`, next: null, effects: {} }
     ],
     historyNote: `真还传仍在继续。罗远的下一章，取决于你在游戏中做出的每一个选择。为什么这件事重要：因为他的故事告诉每一个普通人——结局从来不是终点，选择才是；而每一个选择都通向一种活法，没有哪种活法比另一种更高贵，只有哪种更像是你自己。在中国互联网的商业叙事里，老罗是一个特殊的存在：他不是最成功的，但一定是最让人忘不掉的——因为忘不掉的从来不是成功，是一个人摔了那么多次还愿意站起来的姿态。后来怎样了：无论他走向何方——是继续做AR、是回到播客、是退入安静——都已经有人因为他的故事而选择了不放弃。这种"还在走"本身，就是对这个时代最好的回答——不是成功，不是失败，而是不停止。而"不停止"这三个字，比任何奖杯都重，也比任何墓志铭都暖。每一条路都有意义，每一步都算数——这就是罗远的十字路口留给每一个人的启示：你走过的路，就是你最好的答案。而最好的答案，从来都不是别人给的，是你自己一步一步走出来的。`,

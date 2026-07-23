@@ -232,7 +232,7 @@ export const NODES = {
 <b>一个人最可怕的不是失去什么，是发现自己正在变成另一个人，而那个人自己都讨厌。</b>`,
     choices: [
       { label: `"不装了！辞职！老子要自己搞！"`, next: 'act1_resign', effects: { pride: 2, wealth: 0, reputation: -1 } },
-      { label: `"再想想……五六十万年薪呢，辞职了什么都没有。"`, next: 'ending_comfort', effects: { pride: -1, wealth: 2, reputation: 0 }, flag: 'stayed_xinfang' },
+      { label: `"再想想……五六十万年薪呢，辞职了什么都没有。"`, next: 'ending_comfort', effects: { pride: -1, wealth: 2, reputation: 0 }, flag: 'stayed_xinfang', maxAttr: { pride: 5 } },
       { label: `"上最后一堂课，跟学生告别吧。"`, next: 'act1_last_class', effects: {"pride":1,"wealth":0,"reputation":1} }
     ],
     historyNote: `历史上老罗辞职前确实经历了长时间的内心挣扎。他后来回忆说："那是我人生中最艰难的决定之一。五六十万年薪啊，2006年的五六十万，说出来谁都觉得我疯了。"但他最终还是选择了离开——因为"留下来会舒服，但会变成另一个人"。后来有人问他后不后悔，他说："后悔过，但不是后悔辞职，是后悔没早点辞。"`,
