@@ -5,8 +5,6 @@ const CARD_X = 40;
 const CARD_Y = GAME_HEIGHT - 170;
 const CARD_W = GAME_WIDTH - 80;
 const CARD_H = 50;
-const CORNER_LEN = 8;
-const CORNER_THICK = 2;
 
 export class HistoryCard {
   constructor(scene) {

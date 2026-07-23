@@ -12,7 +12,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 1,                    // 单 worker 避免端口/localStorage 冲突
-  reporter: process.env.CI ? 'line' : ['list', { printSteps: true }],
+  reporter: process.env.CI ? 'line' : [['list', { printSteps: true }]],
   timeout: 60_000,               // 单测超时 60s（游戏场景加载较慢）
   expect: { timeout: 10_000 },
   use: {

@@ -1,9 +1,8 @@
 import Phaser from 'phaser';
-import { COLORS, UI_COLORS, GAME_WIDTH, GAME_HEIGHT } from '../config.js';
+import { GAME_WIDTH, GAME_HEIGHT } from '../config.js';
 import { TALENTS } from '../data/talents.js';
 import {
   drawClassroom,
-  drawLecture,
   drawOffice,
   drawStage,
   drawLivestream,
@@ -44,7 +43,7 @@ function releaseParticle(p) {
 
 // ---- 背景粒子配置 ----
 const BG_PARTICLE_COUNT = 40;
-const BG_PARTICLE_COLOR = 0xf0c040; // 金色
+
 const BG_PARTICLE_MIN_SIZE = 1;
 const BG_PARTICLE_MAX_SIZE = 5;
 const BG_PARTICLE_MIN_SPEED = 8;
@@ -253,7 +252,7 @@ export class PixelRenderer {
       return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
     };
 
-    const dimColor = '#9a8a6a';
+    const dimColor = '#b3a789';
     const gridColor = '#1a1a2e';
     const bgColor = '#0a0a1a';
     const fontFamily = '"Microsoft YaHei", "PingFang SC", sans-serif';
@@ -315,23 +314,44 @@ export class PixelRenderer {
 
     const titleText = (ending.title || '结局').replace(/罗远/g, '老罗');
     ctx.fillStyle = accentColor;
-    ctx.font = 'bold 24px ' + fontFamily;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const titleMaxWidth = 480;
-    const titleLines = [];
-    let titleLine = '';
-    for (let ci = 0; ci < titleText.length; ci++) {
-      const testLine = titleLine + titleText[ci];
-      if (ctx.measureText(testLine).width > titleMaxWidth && titleLine.length > 0) {
-        titleLines.push(titleLine);
-        titleLine = titleText[ci];
-      } else {
-        titleLine = testLine;
+    // 智能标题排版：优先单行显示，超出则逐级缩小字号；
+    // 仍超限时按标点（·、，）优先断行，避免最后一个字被挤到第二行
+    const titleMaxWidth = 500;
+    let titleFontSize = 24;
+    let titleLines = [];
+    const wrapTitle = (text, fontSize) => {
+      ctx.font = `bold ${fontSize}px ` + fontFamily;
+      if (ctx.measureText(text).width <= titleMaxWidth) return [text];
+      // 优先在标点处断行
+      const breakChars = ['·', '，', '——', '：', '、'];
+      let bestBreak = -1;
+      for (let ci = Math.floor(text.length / 2); ci < text.length; ci++) {
+        if (breakChars.includes(text[ci])) { bestBreak = ci + 1; break; }
       }
+      if (bestBreak > 0 && ctx.measureText(text.slice(0, bestBreak)).width <= titleMaxWidth) {
+        return [text.slice(0, bestBreak), text.slice(bestBreak)];
+      }
+      // 兜底：逐字断行（从尾部找能放下的位置）
+      let line = '';
+      for (let ci = 0; ci < text.length; ci++) {
+        const test = line + text[ci];
+        if (ctx.measureText(test).width > titleMaxWidth && line.length > 0) {
+          return [line, text.slice(line.length)];
+        }
+        line = test;
+      }
+      return [text];
+    };
+    while (titleFontSize > 16) {
+      titleLines = wrapTitle(titleText, titleFontSize);
+      const lastLineShort = titleLines.length > 1 && titleLines[titleLines.length - 1].length <= 2;
+      if (titleLines.length === 1 || !lastLineShort) break;
+      titleFontSize -= 2;
     }
-    if (titleLine) titleLines.push(titleLine);
-    const titleLineH = 30;
+    ctx.font = `bold ${titleFontSize}px ` + fontFamily;
+    const titleLineH = titleFontSize + 6;
     const titleStartY = 120 - ((titleLines.length - 1) * titleLineH) / 2;
     titleLines.forEach((l, i) => {
       ctx.fillText(l, W / 2, titleStartY + i * titleLineH);
@@ -429,25 +449,22 @@ export class PixelRenderer {
     }
     ctx.shadowBlur = 0;
 
-    // 轴标签
-    ctx.fillStyle = dimColor;
-    ctx.font = '12px ' + fontFamily;
+    // 轴标签（带数值，便于分享时一眼看懂属性）
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const labelR = radius + 22;
     for (let i = 0; i < 6; i++) {
       const x = cx + labelR * Math.cos(angles[i]);
       const y = cy + labelR * Math.sin(angles[i]);
-      ctx.fillText(axes[i].label, x, y);
+      ctx.fillStyle = dimColor;
+      ctx.font = '12px ' + fontFamily;
+      ctx.fillText(axes[i].label, x, y - 8);
+      ctx.fillStyle = accentColor;
+      ctx.font = 'bold 12px ' + fontFamily;
+      ctx.fillText(String(axes[i].value), x, y + 7);
     }
 
     // === 天赋区 (470-590) ===
-    ctx.fillStyle = dimColor;
-    ctx.font = '11px ' + fontFamily;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('— 天赋 —', W / 2, 488);
-
     let talentStr = state.talent || '';
     if (Array.isArray(talentStr)) talentStr = talentStr.join(',');
     const talentIds = String(talentStr).split(',').map(s => s.trim()).filter(Boolean).slice(0, 3);
@@ -465,12 +482,17 @@ export class PixelRenderer {
     };
 
     if (talents.length > 0) {
+      ctx.fillStyle = dimColor;
+      ctx.font = '11px ' + fontFamily;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('— 天赋 —', W / 2, 506);
       const cardW = 150;
       const cardH = 70;
       const cardGap = 15;
       const totalCardW = talents.length * cardW + (talents.length - 1) * cardGap;
       const startCardX = (W - totalCardW) / 2;
-      const cardY = 502;
+      const cardY = 520;
 
       talents.forEach((t, i) => {
         const x = startCardX + i * (cardW + cardGap);
@@ -512,11 +534,8 @@ export class PixelRenderer {
         ctx.font = '9px ' + fontFamily;
         ctx.fillText(rarityLabel, x + cardW / 2, cardY + 62);
       });
-    } else {
-      ctx.fillStyle = dimColor;
-      ctx.font = '12px ' + fontFamily;
-      ctx.fillText('— 无 —', W / 2, 535);
     }
+    // 无天赋时整块留白（真实玩家开局必选 2 个天赋，此分支仅兜底注入存档等异常态）
 
     // === 金句区 (590-680) ===
     const quote = (ending.quote || '').replace(/罗远/g, '老罗');
@@ -626,7 +645,17 @@ export class PixelRenderer {
 
     ctx.fillStyle = dimColor;
     ctx.font = '11px ' + fontFamily;
-    ctx.fillText('luohammer.pages.dev', W / 2, 875);
+    // 分享卡 URL：优先取当前部署地址（本地/调试环境回退到线上正式地址）
+    const shareUrl = (() => {
+      try {
+        const host = window.location.host;
+        if (host && !/localhost|127\.0\.0\.1/.test(host)) {
+          return host + window.location.pathname.replace(/\/$/, '');
+        }
+      } catch (e) {}
+      return 'niuhai.github.io/luohammer-pixel-game';
+    })();
+    ctx.fillText(shareUrl, W / 2, 875);
 
     // === 四角装饰（氛围色，加粗） ===
     const cornerSize = 24;

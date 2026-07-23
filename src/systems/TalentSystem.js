@@ -6,6 +6,32 @@
  * 桌面端 hover / 移动端长按可预览天赋详细效果（tooltip）
  */
 
+/** 天赋特殊效果 key → 中文文案（卡片与 tooltip 共用；新增天赋 special 时必须同步补充，否则玩家会看到英文 key） */
+export const SPECIAL_LABELS = {
+  random_events_bias_positive: '随机事件更偏向好结果',
+  failure_heals_pride: '每次跌倒让理想主义更坚定',
+  fans_loyalty_bonus: '公众信任和名声双倍增长',
+  low_stats_bonus: '劣势状态下获得额外加成',
+  debt_reduction_bonus: '还债效率提升',
+  pressure_never_max: '压力永远不会爆表',
+  stage_events_bonus: '舞台表现事件奖励加倍',
+  product_events_bonus: '产品相关事件奖励加倍',
+  reality_distortion_field: '现实扭曲力场：极低概率的选择反而更稳',
+  high_risk_high_reward: '高风险选择收益翻倍，代价也翻倍',
+  late_game_bonus: '后半生阶段属性加成额外+1',
+  reputation_gain_doubled: '名声增长翻倍',
+  pressure_recovery: '每个阶段结束自动降低2点压力',
+  failure_wealth_bonus: '每次失败后获得额外财富加成',
+  trust_gain_bonus: '公众信任增长额外+1',
+  replay_bonus: '多周目游戏初始属性额外+1',
+  all_choices_bonus: '所有选项的正面效果+1',
+  titan_heart_effect: '压力越高，理想主义加成越大',
+  pressure_crash_halved: '压力崩溃时属性损失减半',
+  pressure_gain_halved: '压力增长减半',
+  trust_check_bonus: '信任≥5时检定自动加成',
+  achievement_hunter_bonus: '解锁成就越多，属性加成越强'
+};
+
 export class TalentSystem {
   constructor(scene) {
     this.scene = scene;
@@ -62,34 +88,15 @@ export class TalentSystem {
       pressure: '压力', trust: '公众信任', pressureMax: '压力上限',
       failurePenalty: '翻车惩罚', successBonus: '成功奖励'
     };
-    const specialLabels = {
-      random_events_bias_positive: '随机事件更偏向好结果',
-      failure_heals_pride: '每次跌倒让理想主义更坚定',
-      fans_loyalty_bonus: '公众信任和名声双倍增长',
-      low_stats_bonus: '劣势状态下获得额外加成',
-      debt_reduction_bonus: '还债效率提升',
-      pressure_never_max: '压力永远不会爆表',
-      stage_events_bonus: '舞台表现事件奖励加倍',
-      product_events_bonus: '产品相关事件奖励加倍',
-      reality_distortion_field: '现实扭曲力场：极低概率的选择反而更稳',
-      high_risk_high_reward: '高风险选择收益翻倍，代价也翻倍',
-      late_game_bonus: '后半生阶段属性加成额外+1',
-      reputation_gain_doubled: '名声增长翻倍',
-      pressure_recovery: '每个阶段结束自动降低2点压力',
-      failure_wealth_bonus: '每次失败后获得额外财富加成',
-      trust_gain_bonus: '公众信任增长额外+1',
-      replay_bonus: '多周目游戏初始属性额外+1',
-      all_choices_bonus: '所有选项的正面效果+1',
-      titan_heart_effect: '压力越高，理想主义加成越大'
-    };
+    const specialLabels = SPECIAL_LABELS;
 
-    talents.forEach((talent, i) => {
+    talents.forEach((talent, _i) => {
       const card = document.createElement('div');
       card.className = 'ui-talent-card';
       card.setAttribute('data-rarity', talent.rarity);
 
       // Build effects HTML
-      const effectEntries = Object.entries(talent.effects).filter(([k, v]) => v !== 0);
+      const effectEntries = Object.entries(talent.effects).filter(([_k, v]) => v !== 0);
       let effectsHtml = '';
       for (const [key, val] of effectEntries) {
         const sign = val > 0 ? '+' : '';
@@ -174,7 +181,7 @@ export class TalentSystem {
     card.addEventListener('mouseleave', () => this._hideTooltip());
 
     // 移动端：长按 500ms 显示
-    const onTouchStart = (e) => {
+    const onTouchStart = (_e) => {
       this._longPressActive = false;
       this._longPressTimer = setTimeout(() => {
         this._longPressActive = true;
@@ -230,29 +237,10 @@ export class TalentSystem {
       pressure: '压力', trust: '公众信任', pressureMax: '压力上限',
       failurePenalty: '翻车惩罚', successBonus: '成功奖励'
     };
-    const specialLabels = {
-      random_events_bias_positive: '随机事件更偏向好结果',
-      failure_heals_pride: '每次跌倒让理想主义更坚定',
-      fans_loyalty_bonus: '公众信任和名声双倍增长',
-      low_stats_bonus: '劣势状态下获得额外加成',
-      debt_reduction_bonus: '还债效率提升',
-      pressure_never_max: '压力永远不会爆表',
-      stage_events_bonus: '舞台表现事件奖励加倍',
-      product_events_bonus: '产品相关事件奖励加倍',
-      reality_distortion_field: '现实扭曲力场：极低概率的选择反而更稳',
-      high_risk_high_reward: '高风险选择收益翻倍，代价也翻倍',
-      late_game_bonus: '后半生阶段属性加成额外+1',
-      reputation_gain_doubled: '名声增长翻倍',
-      pressure_recovery: '每个阶段结束自动降低2点压力',
-      failure_wealth_bonus: '每次失败后获得额外财富加成',
-      trust_gain_bonus: '公众信任增长额外+1',
-      replay_bonus: '多周目游戏初始属性额外+1',
-      all_choices_bonus: '所有选项的正面效果+1',
-      titan_heart_effect: '压力越高，理想主义加成越大'
-    };
+    const specialLabels = SPECIAL_LABELS;
 
     // 效果描述：拼成一句话，如 "初始理想+2，财富+1"
-    const effectEntries = Object.entries(talent.effects).filter(([k, v]) => v !== 0);
+    const effectEntries = Object.entries(talent.effects).filter(([_k, v]) => v !== 0);
     const effectParts = effectEntries.map(([key, val]) => {
       const sign = val > 0 ? '+' : '';
       return `${attrNames[key] || key}${sign}${val}`;

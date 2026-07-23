@@ -1,0 +1,30 @@
+{
+  "project_name": "真还传·创业模拟器",
+  "project_type": "2D像素风互动视觉小说",
+  "tech_stack": "Phaser 3.80 + Vite 5 + Canvas 2D",
+  "root_path": ".",
+  "main_module_path": ".",
+  "story_dir": "src/data/story",
+  "story_files": [
+    "0_intro.js",
+    "1_act0.js",
+    "2_act1.js",
+    "3_act2.js",
+    "4_fridge.js",
+    "5_fang.js",
+    "6_act3.js",
+    "7_act4.js",
+    "8_act5.js",
+    "9_act6.js",
+    "10_act7.js",
+    "11_act8.js",
+    "12_act9.js",
+    "13_endings_nodes.js",
+    "14_endings.js",
+    "15_charinfo.js"
+  ],
+  "current_phase": "内容完善期（故事节点文案润色 + 系统功能增强）",
+  "default_concurrency": 8,
+  "tasks_file": ".trae/skills/concurrent-dispatcher/task-pool.md",
+  "template_file": ".trae/skills/concurrent-dispatcher/worker-template.md"
+}

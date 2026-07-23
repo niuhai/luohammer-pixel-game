@@ -1,5 +1,5 @@
-import { rect, px, scanlines, miniFigure } from '../primitives.js';
-import { COLORS, GAME_WIDTH, GAME_HEIGHT } from '../../../config.js';
+import { rect } from '../primitives.js';
+import { COLORS } from '../../../config.js';
 
 export function drawCharacter(g, pose = 'standing') {
   const skin = COLORS.character?.skin || 0xf0c8a0;

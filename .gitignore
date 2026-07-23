@@ -80,9 +80,6 @@ REVIEW_REPORT.md
 *.py
 !generate_poster.py
 
-# Trae工作目录
-.trae/
-
 # Git worktree for deployment
 .worktrees/
 

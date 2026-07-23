@@ -1,9 +1,6 @@
 import {
   ALL_ACHIEVEMENTS,
   HIDDEN_ACHIEVEMENTS,
-  COMBO_ACHIEVEMENTS,
-  isHiddenAchievement,
-  isComboAchievement,
   loadUnlockedAchievements,
   loadComboAchievements,
   getAchievementScore
@@ -28,7 +25,6 @@ export function showAchievementGallery(options = {}) {
   const allDefs = Object.values(ALL_ACHIEVEMENTS);
   const hiddenDefs = Object.values(HIDDEN_ACHIEVEMENTS);
   const comboList = loadComboAchievements();
-  const comboUnlockedNames = new Set(comboList.map(a => a.name));
   const hiddenNames = new Set(hiddenDefs.map(d => d.name));
 
   // === 计算总积分 ===
@@ -50,11 +46,11 @@ export function showAchievementGallery(options = {}) {
   // === 计算里程碑进度 ===
   const claimedMilestones = meta.getClaimedMilestones();
   const totalAchievementCount = unlockedNames.size + comboList.length;
-  let highestMs = null;
+  let _highestMs = null;
   let nextMs = null;
   for (const ms of MILESTONE_REWARDS) {
     if (totalAchievementCount >= ms.threshold) {
-      highestMs = ms;
+      _highestMs = ms;
     } else if (!nextMs) {
       nextMs = ms;
     }
@@ -71,10 +67,6 @@ export function showAchievementGallery(options = {}) {
   const unlockedCount = allDefs.filter(d => unlockedNames.has(d.name)).length;
   const totalCount = allDefs.length;
   const pct = totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0;
-
-  const msProgress = MILESTONE_REWARDS.length > 0
-    ? Math.round((claimedMilestones.length / MILESTONE_REWARDS.length) * 100)
-    : 0;
 
   overlay.innerHTML = `
     <div class="ui-achievement-gallery-card">

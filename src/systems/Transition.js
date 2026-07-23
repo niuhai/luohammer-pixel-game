@@ -1,4 +1,4 @@
-import { GAME_WIDTH, GAME_HEIGHT, UI_COLORS } from '../config.js';
+import { GAME_WIDTH, GAME_HEIGHT } from '../config.js';
 
 export class Transition {
   constructor(scene) {

@@ -1,4 +1,4 @@
-import { rect, px, scanlines, miniFigure } from '../primitives.js';
+import { rect } from '../primitives.js';
 import { COLORS, GAME_WIDTH, GAME_HEIGHT } from '../../../config.js';
 
 export function drawTalkshow(g) {

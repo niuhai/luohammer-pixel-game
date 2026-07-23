@@ -289,7 +289,6 @@ export class DialogSystem {
       // 如果正则没匹配到任何内容（极端情况），将整段作为一个句子
       if (sentences.length === 0 || sentences[sentences.length - 1] !== seg.trim()) {
         // 检查是否有遗漏的文本
-        const matched = (seg.match(/[^。！？!?.]+[。！？!?.]*/g) || []).join('');
         const remainder = seg.replace(/[^。！？!?.]+[。！？!?.]*/g, '').trim();
         if (remainder) sentences.push(remainder);
       }
@@ -542,7 +541,7 @@ export class DialogSystem {
   /**
    * 通知对话框选项面板状态变化（由 ChoiceSystem 调用）
    */
-  notifyChoicesVisible(visible) {
+  notifyChoicesVisible(_visible) {
     this._updateDialogPosition();
   }
 

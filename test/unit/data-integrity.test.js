@@ -90,6 +90,18 @@ describe('talents.js 数据完整性', () => {
     });
     expect(unhandled, `未实现的 special: ${unhandled.join(', ')}`).toEqual([]);
   });
+
+  // 2026-07-23 走查发现：斯多葛派/成就猎人等天赋卡片直接显示了英文 special key
+  it('special 字段在 TalentSystem.SPECIAL_LABELS 中有中文文案（防英文 key 泄露）', async () => {
+    const { SPECIAL_LABELS } = await import('../../src/systems/TalentSystem.js');
+    const missing = [];
+    TALENTS.forEach(t => {
+      if (t.special && !SPECIAL_LABELS[t.special]) {
+        missing.push(`${t.id} → ${t.special}`);
+      }
+    });
+    expect(missing, `缺中文文案的 special: ${missing.join(', ')}`).toEqual([]);
+  });
 });
 
 describe('skillTree.js 数据完整性', () => {
