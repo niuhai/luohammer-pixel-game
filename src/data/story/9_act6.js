@@ -43,7 +43,7 @@ export const NODES = {
           successNext: 'act6_crash', failNext: 'act6_crash',
           successText: '你的理想主义感染了团队，虽然演示翻车，但团队士气未散，有人愿意陪你再战！',
           failText: '演示翻车后团队信心崩溃，核心成员开始动摇，你的理想主义没能撑住现实的重压。',
-          successEffects: { pride: 1, trust: 1 }, failEffects: { pride: -1, pressure: 2, trust: -1 }
+          successEffects: { pride: 2, trust: 2, reputation: 1 }, failEffects: { pride: -2, pressure: 3, trust: -2, reputation: -1 }
         }
       },
       { label: `"不砍也不加码，维持最小团队继续迭代。"`, next: 'act6_crash', effects: { pride: 0, wealth: -1, reputation: 0 } },
