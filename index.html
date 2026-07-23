@@ -60,14 +60,16 @@
       --color-bg-panel: #16213e;
       --color-bg-border: #1a1a2e;
       --color-bg-hover: #1a3a5c;
+      --color-bg-elevated: #12122a;
 
       /* 文字色 */
       --color-text-primary: #e0d0b0;
-      --color-text-secondary: #9a8a6a;
-      --color-text-muted: #6a5a3a;
+      --color-text-secondary: #b8a984;
+      --color-text-muted: #8c7b59;
       --color-text-light: #ccc;
-      --color-text-gray: #888;
-      --color-text-dim: #666;
+      --color-text-gray: #9a9aaa;
+      --color-text-dim: #77778c;
+      --color-hidden: #ff88cc;
 
       /* 属性色 */
       --color-pride: #f0c040;
@@ -94,8 +96,8 @@
       /* 字体层级（标题/名字/正文/说明）—— clamp 响应式 */
       --fs-title:  clamp(18px, 2.5vw, 22px);   /* 标题 */
       --fs-name:   clamp(15px, 2vw, 17px);     /* 角色名 */
-      --fs-body:   clamp(13px, 1.8vw, 15px);   /* 正文 */
-      --fs-caption: clamp(11px, 1.4vw, 12px);  /* 说明/注释 */
+      --fs-body:   clamp(14px, 1.8vw, 16px);   /* 正文 */
+      --fs-caption: clamp(12px, 1.4vw, 14px);  /* 说明/注释 */
 
       /* 动画 */
       --ease-pixel: steps(4);
@@ -1361,14 +1363,19 @@
     .ui-talent-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(10, 10, 10, 0.85);
+      background:
+        linear-gradient(180deg, rgba(5, 5, 12, 0.78), rgba(5, 5, 12, 0.92)),
+        radial-gradient(circle at 50% 38%, rgba(240, 192, 64, 0.07), transparent 46%);
       display: none;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       pointer-events: auto;
       z-index: 50;
-      padding: 2vh 2vw;
+      padding: max(16px, calc(env(safe-area-inset-top, 0px) + 2vh)) 2vw
+        max(16px, calc(env(safe-area-inset-bottom, 0px) + 2vh));
+      overflow-y: auto;
+      overscroll-behavior: contain;
     }
 
     .ui-talent-overlay.visible { display: flex; }
@@ -1384,8 +1391,8 @@
     }
 
     .ui-talent-subtitle {
-      font-size: clamp(11px, 1.6vw, 15px);
-      color: #8a7a5a;
+      font-size: clamp(13px, 1.6vw, 15px);
+      color: var(--color-text-secondary);
       margin-bottom: clamp(10px, 2vh, 20px);
       text-align: center;
     }
@@ -1402,7 +1409,7 @@
     .ui-talent-card {
       width: clamp(110px, 18vw, 160px);
       min-width: clamp(100px, 15vw, 140px);
-      background: #12122a;
+      background: linear-gradient(180deg, rgba(18, 18, 42, 0.96), rgba(12, 12, 30, 0.96));
       border: clamp(1px, 0.25vh, 2px) solid var(--color-bg-border);
       padding: clamp(8px, 1.5vh, 12px) clamp(6px, 1vw, 10px);
       cursor: pointer;
@@ -1411,6 +1418,12 @@
       flex-direction: column;
       align-items: center;
       position: relative;
+      color: var(--color-text-primary);
+      font-family: inherit;
+      appearance: none;
+      text-align: inherit;
+      border-radius: var(--radius-sharp);
+      min-height: 44px;
     }
 
     .ui-talent-card:hover {
@@ -1421,7 +1434,8 @@
 
     .ui-talent-card.selected {
       border-color: var(--color-gold);
-      box-shadow: 0 0 20px rgba(240, 192, 64, 0.25);
+      background: linear-gradient(180deg, rgba(34, 31, 52, 0.98), rgba(16, 18, 38, 0.98));
+      box-shadow: 0 0 20px rgba(240, 192, 64, 0.25), inset 0 0 0 1px rgba(240, 192, 64, 0.12);
     }
 
     .ui-talent-card.selected::after {
@@ -1432,6 +1446,16 @@
       color: var(--color-gold);
       font-size: 14px;
       font-weight: 700;
+    }
+
+    .ui-talent-card.selection-denied {
+      animation: talentSelectionDenied 0.32s ease;
+    }
+
+    @keyframes talentSelectionDenied {
+      0%, 100% { transform: translateX(0); }
+      30% { transform: translateX(-5px); border-color: var(--color-danger); }
+      70% { transform: translateX(5px); border-color: var(--color-danger); }
     }
 
     .ui-talent-card[data-rarity="common"] { border-color: #4a4a5a; }
@@ -1460,7 +1484,7 @@
 
     .ui-talent-icon { font-size: clamp(22px, 3.5vw, 32px); margin-bottom: 4px; }
     .ui-talent-name { font-size: clamp(12px, 1.8vw, 15px); font-weight: 700; color: #E8D5A3; margin-bottom: 3px; text-align: center; }
-    .ui-talent-desc { font-size: clamp(9px, 1.3vw, 12px); color: #8a7a5a; text-align: center; line-height: 1.4; margin-bottom: 6px; }
+    .ui-talent-desc { font-size: clamp(11px, 1.3vw, 13px); color: var(--color-text-secondary); text-align: center; line-height: 1.5; margin-bottom: 6px; }
 
     .ui-talent-effects {
       width: 100%;
@@ -1470,7 +1494,7 @@
     }
 
     .ui-talent-effect {
-      font-size: clamp(9px, 1.3vw, 12px);
+      font-size: clamp(11px, 1.3vw, 13px);
       color: #c09830;
       padding: 1px 4px;
       background: rgba(240, 192, 64, 0.05);
@@ -1481,7 +1505,7 @@
     .ui-talent-effect.negative { color: #E04040; }
 
     .ui-talent-special {
-      font-size: clamp(9px, 1.3vw, 12px);
+      font-size: clamp(11px, 1.3vw, 13px);
       color: var(--color-gold);
       text-align: center;
       margin-top: 4px;
@@ -1491,9 +1515,8 @@
     }
 
     .ui-talent-hint {
-      margin-top: clamp(8px, 1.5vh, 14px);
-      font-size: clamp(10px, 1.4vw, 13px);
-      color: #5a5a6a;
+      font-size: clamp(12px, 1.4vw, 14px);
+      color: var(--color-text-secondary);
       letter-spacing: 1px;
       text-align: center;
     }
@@ -1503,8 +1526,17 @@
       font-weight: 700;
     }
 
+    .ui-talent-footer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: clamp(10px, 1.8vh, 16px);
+      min-height: 48px;
+    }
+
     .ui-talent-confirm {
-      margin-top: clamp(8px, 1.5vh, 14px);
       padding: clamp(6px, 1.2vh, 10px) clamp(16px, 3vw, 32px);
       min-height: 44px;
       background: var(--color-bg-panel);
@@ -1514,16 +1546,167 @@
       font-size: clamp(12px, 1.7vw, 16px);
       cursor: pointer;
       transition: all 0.2s;
-      display: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       touch-action: manipulation;
     }
 
-    .ui-talent-confirm.visible { display: inline-block; }
+    .ui-talent-confirm:disabled {
+      cursor: not-allowed;
+      color: var(--color-text-dim);
+      border-color: var(--color-bg-border);
+      background: rgba(18, 18, 42, 0.7);
+      opacity: 0.72;
+    }
+
+    .ui-talent-confirm.visible:not(:disabled) {
+      border-color: var(--color-gold);
+      box-shadow: 0 0 14px rgba(240, 192, 64, 0.16);
+    }
+
+    #ui-talent-reroll {
+      border-color: var(--color-trust);
+      color: var(--color-trust);
+    }
 
     .ui-talent-confirm:hover {
       border-color: var(--color-gold);
       background: var(--color-bg-hover);
       color: #ffffff;
+    }
+
+    @media (orientation: portrait) and (max-width: 768px) {
+      .ui-talent-overlay {
+        justify-content: flex-start;
+        padding: max(72px, calc(env(safe-area-inset-top, 0px) + 64px)) 14px
+          max(16px, env(safe-area-inset-bottom, 0px));
+      }
+
+      .ui-talent-title {
+        font-size: clamp(24px, 7vw, 30px);
+        margin-bottom: 6px;
+      }
+
+      .ui-talent-subtitle {
+        width: min(100%, 360px);
+        font-size: 14px;
+        line-height: 1.55;
+        margin-bottom: 16px;
+      }
+
+      .ui-talent-cards {
+        width: min(100%, 360px);
+        max-width: none;
+        padding: 0;
+        flex-direction: column;
+        flex-wrap: nowrap;
+        gap: 10px;
+      }
+
+      .ui-talent-card {
+        width: 100%;
+        min-width: 0;
+        min-height: 132px;
+        display: grid;
+        grid-template-columns: 46px minmax(0, 1fr);
+        grid-template-areas:
+          "rarity rarity"
+          "icon name"
+          "icon desc"
+          "effects effects"
+          "special special";
+        column-gap: 12px;
+        row-gap: 4px;
+        align-items: center;
+        padding: 12px 14px;
+        text-align: left;
+      }
+
+      .ui-talent-card:hover {
+        transform: none;
+      }
+
+      .ui-talent-rarity {
+        grid-area: rarity;
+        justify-self: start;
+        margin: 0 0 2px;
+        font-size: 12px;
+      }
+
+      .ui-talent-icon {
+        grid-area: icon;
+        align-self: center;
+        margin: 0;
+        font-size: 30px;
+        text-align: center;
+      }
+
+      .ui-talent-name {
+        grid-area: name;
+        margin: 0;
+        font-size: 16px;
+        text-align: left;
+      }
+
+      .ui-talent-desc {
+        grid-area: desc;
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.55;
+        text-align: left;
+      }
+
+      .ui-talent-effects {
+        grid-area: effects;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 4px;
+      }
+
+      .ui-talent-effect {
+        flex: 1 1 44%;
+        min-width: 118px;
+        padding: 4px 6px;
+        font-size: 14px;
+        line-height: 1.35;
+      }
+
+      .ui-talent-special {
+        grid-area: special;
+        margin-top: 4px;
+        padding: 6px 4px 0;
+        font-size: 14px;
+        line-height: 1.45;
+        text-align: left;
+      }
+
+      .ui-talent-footer {
+        position: sticky;
+        bottom: -1px;
+        z-index: 4;
+        width: calc(100% + 28px);
+        margin-top: 14px;
+        padding: 12px 14px max(12px, env(safe-area-inset-bottom, 0px));
+        background: linear-gradient(180deg, rgba(5, 5, 12, 0), rgba(5, 5, 12, 0.96) 24%);
+      }
+
+      .ui-talent-hint {
+        display: none;
+      }
+
+      .ui-talent-confirm {
+        width: min(100%, 260px);
+        min-height: 48px;
+        font-size: 15px;
+      }
+    }
+
+    @media (hover: none), (pointer: coarse) {
+      .ui-talent-tooltip {
+        display: none;
+      }
     }
 
     /* === Talent Preview Tooltip === */
@@ -1927,16 +2110,73 @@
       position: fixed;
       inset: 0;
       display: none;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
       pointer-events: auto;
       z-index: 50;
-      padding: 2vh 2vw;
-      overflow-y: auto;
+      padding:
+        max(12px, env(safe-area-inset-top, 0px))
+        max(12px, env(safe-area-inset-right, 0px))
+        max(12px, env(safe-area-inset-bottom, 0px))
+        max(12px, env(safe-area-inset-left, 0px));
+      overflow: hidden;
     }
 
     .ui-ending-overlay.visible { display: flex; }
+
+    .ui-ending-content {
+      position: relative;
+      width: min(960px, 96vw);
+      max-height: min(94vh, 780px);
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      padding: clamp(18px, 3vh, 30px) clamp(18px, 3vw, 34px) 0;
+      overflow-y: auto;
+      background:
+        linear-gradient(180deg, rgba(7, 7, 20, 0.46), rgba(7, 7, 20, 0.76)),
+        repeating-linear-gradient(0deg, transparent 0 3px, rgba(255, 255, 255, 0.01) 3px 4px);
+      border-top: 1px solid rgba(240, 192, 64, 0.18);
+      border-bottom: 1px solid rgba(240, 192, 64, 0.16);
+      box-shadow: 0 22px 70px rgba(0, 0, 0, 0.28);
+      scrollbar-gutter: stable;
+    }
+
+    .ui-ending-content::before,
+    .ui-ending-content::after {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      pointer-events: none;
+    }
+    .ui-ending-content::before {
+      top: 8px;
+      left: 8px;
+      border-top: 1px solid rgba(240, 192, 64, 0.65);
+      border-left: 1px solid rgba(240, 192, 64, 0.65);
+    }
+    .ui-ending-content::after {
+      right: 8px;
+      bottom: 8px;
+      border-right: 1px solid rgba(240, 192, 64, 0.65);
+      border-bottom: 1px solid rgba(240, 192, 64, 0.65);
+    }
+
+    .ui-ending-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .ui-ending-kicker {
+      margin-bottom: 5px;
+      color: var(--color-text-secondary);
+      font-size: 12px;
+      letter-spacing: 0.28em;
+      animation: endingFadeUp 0.7s ease-out both;
+    }
 
     /* 结局页入场动画 */
     @keyframes endingTitleIn {
@@ -1949,37 +2189,49 @@
     }
 
     .ui-ending-title {
-      font-size: clamp(16px, 2.8vw, 24px);
+      font-size: clamp(25px, 3.2vw, 38px);
       color: var(--color-gold);
       font-weight: 700;
       letter-spacing: 2px;
-      margin-bottom: clamp(4px, 1vh, 8px);
-      text-shadow: 0 0 10px rgba(240, 192, 64, 0.3);
+      margin-bottom: clamp(6px, 1vh, 10px);
+      text-shadow: 0 0 16px rgba(240, 192, 64, 0.34);
       text-align: center;
       animation: endingTitleIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
 
     .ui-ending-desc {
-      font-size: clamp(11px, 1.5vw, 14px);
+      max-width: 720px;
+      font-size: clamp(14px, 1.5vw, 16px);
       color: var(--color-text-secondary);
-      margin-bottom: clamp(10px, 2vh, 18px);
+      line-height: 1.6;
+      margin-bottom: clamp(8px, 1.4vh, 12px);
       text-align: center;
-      animation: endingFadeUp 0.8s ease-out 0.3s both;
+      animation: endingFadeUp 0.8s ease-out 0.18s both;
+    }
+
+    .ui-ending-analysis {
+      width: min(860px, 100%);
+      display: grid;
+      grid-template-columns: minmax(250px, 310px) minmax(320px, 1fr);
+      gap: clamp(20px, 3vw, 40px);
+      align-items: center;
+      align-self: center;
+      margin: 4px 0 10px;
+      animation: endingFadeUp 0.8s ease-out 0.5s both;
     }
 
     .ui-ending-stats {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: clamp(6px, 1.2vh, 10px);
-      width: clamp(260px, 50vw, 420px);
-      margin-bottom: clamp(8px, 1.5vh, 14px);
+      width: 100%;
+      margin: 0;
     }
 
     /* === 六维雷达图（结局页核心视觉）=== */
     .ui-ending-radar {
-      width: clamp(220px, 52vw, 300px);
-      height: clamp(220px, 52vw, 300px);
+      width: clamp(230px, 25vw, 290px);
+      height: clamp(230px, 25vw, 290px);
       animation: endingRadarIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
     }
     .ui-radar-grid {
@@ -2075,27 +2327,47 @@
     }
 
     .ui-ending-quote {
-      font-size: clamp(11px, 1.5vw, 14px);
+      position: relative;
+      width: min(720px, 92%);
+      padding: 8px 18px;
+      font-size: clamp(15px, 1.6vw, 18px);
       color: var(--color-gold);
       font-style: italic;
       text-align: center;
-      max-width: clamp(280px, 60vw, 520px);
-      margin-bottom: clamp(6px, 1.2vh, 10px);
-      animation: endingFadeUp 0.8s ease-out 0.5s both;
+      line-height: 1.55;
+      margin-bottom: 6px;
+      animation: endingFadeUp 0.8s ease-out 0.36s both;
+    }
+
+    .ui-ending-quote::before,
+    .ui-ending-quote::after {
+      color: rgba(240, 192, 64, 0.52);
+      font-size: 22px;
+      font-style: normal;
+    }
+    .ui-ending-quote::before { content: '「'; }
+    .ui-ending-quote::after { content: '」'; }
+
+    .ui-ending-copy {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      padding: 16px 18px;
+      background: linear-gradient(90deg, rgba(18, 18, 42, 0.64), rgba(18, 18, 42, 0.34));
+      border-left: 1px solid rgba(240, 192, 64, 0.32);
     }
 
     /* === AI 动态洞察金句（复赛创新性记忆点）=== */
     /* 在原 quote 之后浮现，金色发光 + 打字机式淡入 */
     .ui-ending-insight {
-      font-size: clamp(10px, 1.3vw, 13px);
+      font-size: clamp(14px, 1.35vw, 16px);
       color: var(--color-success-text);
-      text-align: center;
-      max-width: clamp(280px, 62vw, 540px);
-      margin: clamp(2px, 0.6vh, 6px) 0 clamp(8px, 1.5vh, 14px);
-      padding: clamp(6px, 1vh, 10px) clamp(10px, 2vw, 18px);
+      text-align: left;
+      margin: 0 0 14px;
+      padding: 8px 12px;
       border-left: 2px solid var(--color-success);
-      border-right: 2px solid var(--color-success);
-      background: linear-gradient(90deg, rgba(64, 192, 96, 0.04), rgba(64, 192, 96, 0.08), rgba(64, 192, 96, 0.04));
+      background: linear-gradient(90deg, rgba(64, 192, 96, 0.09), rgba(64, 192, 96, 0.02));
       letter-spacing: 0.04em;
       line-height: 1.7;
       opacity: 0;
@@ -2107,31 +2379,33 @@
     }
 
     .ui-ending-summary {
-      font-size: clamp(10px, 1.3vw, 12px);
-      color: var(--color-text-secondary);
-      text-align: center;
-      max-width: clamp(280px, 60vw, 520px);
-      margin-bottom: clamp(8px, 1.5vh, 14px);
+      font-size: clamp(14px, 1.35vw, 16px);
+      color: var(--color-text-primary);
+      text-align: left;
+      line-height: 1.75;
+      margin-bottom: 14px;
       animation: endingFadeUp 0.8s ease-out 0.7s both;
     }
 
     /* IP 改编声明 */
     .ui-ending-disclaimer {
-      font-size: clamp(8px, 1vw, 10px);
-      color: #5a5a6a;
-      text-align: center;
-      max-width: clamp(280px, 70vw, 600px);
-      margin: 0 auto clamp(8px, 1.5vh, 14px);
+      font-size: 12px;
+      color: var(--color-text-dim);
+      text-align: left;
+      margin: 0;
       letter-spacing: 0.5px;
-      opacity: 0.7;
+      line-height: 1.55;
+      opacity: 0.9;
       animation: endingFadeUp 0.8s ease-out 0.9s both;
     }
 
     .ui-ending-achievements {
-      font-size: clamp(9px, 1.2vw, 11px);
+      width: min(860px, 100%);
+      align-self: center;
+      font-size: clamp(11px, 1.2vw, 13px);
       color: var(--color-gold);
       text-align: center;
-      margin-bottom: clamp(8px, 1.5vh, 14px);
+      margin-bottom: 8px;
     }
 
     /* 文本符号语义图例 */
@@ -2163,16 +2437,24 @@
     }
 
     .ui-ending-buttons {
+      position: sticky;
+      bottom: 0;
+      z-index: 4;
       display: flex;
-      gap: clamp(10px, 2vw, 20px);
+      gap: clamp(8px, 1.4vw, 14px);
       flex-wrap: wrap;
       justify-content: center;
+      margin: 0 clamp(-34px, -3vw, -18px);
+      padding: 12px clamp(18px, 3vw, 34px)
+        max(12px, calc(env(safe-area-inset-bottom, 0px) + 6px));
+      background: linear-gradient(180deg, rgba(7, 7, 20, 0), rgba(7, 7, 20, 0.96) 28%);
       animation: endingFadeUp 0.8s ease-out 0.9s both;
     }
 
     .ui-ending-btn {
       padding: clamp(6px, 1.2vh, 10px) clamp(14px, 2.5vw, 24px);
       min-height: 44px;
+      min-width: 146px;
       background: var(--color-bg-panel);
       border: 1px solid var(--color-bg-border);
       color: var(--color-gold);
@@ -2181,6 +2463,13 @@
       cursor: pointer;
       transition: all 0.2s;
       touch-action: manipulation;
+    }
+
+    .ui-ending-btn-ai {
+      color: var(--color-trust);
+      border-color: var(--color-trust);
+      background: linear-gradient(180deg, rgba(22, 55, 70, 0.88), rgba(14, 35, 48, 0.92));
+      box-shadow: 0 0 14px rgba(64, 192, 192, 0.1);
     }
 
     .ui-ending-btn:hover {
@@ -2199,6 +2488,7 @@
     /* "更多" 折叠菜单 */
     .ui-ending-more-menu {
       display: none;
+      flex: 1 1 100%;
       flex-direction: column;
       gap: 6px;
       margin-top: 6px;
@@ -2206,7 +2496,8 @@
       background: rgba(22, 33, 62, 0.6);
       border: 1px solid rgba(240, 192, 64, 0.2);
       border-radius: 4px;
-      max-width: 90vw;
+      width: min(520px, 90vw);
+      max-width: 520px;
     }
     .ui-ending-btn-sub {
       min-height: 36px;
@@ -2222,15 +2513,17 @@
 
     /* 成就/图鉴区可折叠 */
     .ui-ending-achievements.collapsed {
-      max-height: 60px;
+      max-height: 48px;
       overflow: hidden;
       position: relative;
     }
     .ui-ending-expand-btn {
       display: block;
-      width: 100%;
-      margin-top: 6px;
-      padding: 6px;
+      width: min(860px, 100%);
+      align-self: center;
+      margin: 0 auto 4px;
+      min-height: 36px;
+      padding: 7px;
       background: transparent;
       border: 1px dashed rgba(240, 192, 64, 0.3);
       color: var(--color-gold-dark, #c49a2a);
@@ -3875,12 +4168,18 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      background: rgba(0, 0, 0, 0.88);
+      background:
+        radial-gradient(circle at 50% 18%, rgba(240, 192, 64, 0.06), transparent 34%),
+        rgba(0, 0, 0, 0.9);
       z-index: 3000;
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.25s ease;
-      padding: 16px;
+      padding:
+        max(16px, env(safe-area-inset-top, 0px))
+        max(16px, env(safe-area-inset-right, 0px))
+        max(16px, env(safe-area-inset-bottom, 0px))
+        max(16px, env(safe-area-inset-left, 0px));
     }
     .ui-achievement-gallery-overlay.visible {
       opacity: 1;
@@ -3891,12 +4190,17 @@
       pointer-events: none;
     }
     .ui-achievement-gallery-card {
-      width: min(640px, 96vw);
-      max-height: 86vh;
-      background: linear-gradient(180deg, #12122a, #0a0a1a);
-      border: 1px solid rgba(240, 192, 64, 0.35);
+      width: min(880px, 96vw);
+      max-height: min(92vh, 760px);
+      background:
+        linear-gradient(180deg, rgba(22, 25, 50, 0.98), rgba(8, 9, 24, 0.99)),
+        repeating-linear-gradient(0deg, transparent 0 3px, rgba(255, 255, 255, 0.012) 3px 4px);
+      border: 1px solid rgba(240, 192, 64, 0.42);
       border-radius: var(--radius-sharp);
-      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(240, 192, 64, 0.06);
+      box-shadow:
+        0 24px 80px rgba(0, 0, 0, 0.78),
+        0 0 32px rgba(240, 192, 64, 0.08),
+        inset 0 0 0 1px rgba(240, 192, 64, 0.06);
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -3907,29 +4211,29 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 14px 16px;
+      padding: 16px 20px;
       border-bottom: 1px solid rgba(240, 192, 64, 0.15);
     }
     .ui-achievement-gallery-title {
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: clamp(14px, 2.2vw, 18px);
+      font-size: clamp(18px, 2.2vw, 22px);
       font-weight: 700;
       color: var(--color-gold);
       letter-spacing: 1px;
     }
     .ui-achievement-gallery-count {
-      font-size: 12px;
+      font-size: 13px;
       color: var(--color-text-secondary);
       font-weight: 600;
       margin-left: auto;
       margin-right: 12px;
     }
     .ui-achievement-gallery-close {
-      width: 32px;
-      height: 32px;
-      line-height: 30px;
+      width: 44px;
+      height: 44px;
+      line-height: 42px;
       text-align: center;
       border: 1px solid rgba(240, 192, 64, 0.3);
       border-radius: var(--radius-sharp);
@@ -3943,10 +4247,9 @@
       background: rgba(240, 192, 64, 0.12);
     }
     .ui-achievement-gallery-progress {
-      height: 4px;
+      height: 3px;
       background: var(--color-bg-border);
-      margin: 10px 16px 6px;
-      border-radius: var(--radius-soft);
+      margin: 0;
       overflow: hidden;
     }
     .ui-achievement-gallery-progress-fill {
@@ -3954,6 +4257,89 @@
       background: linear-gradient(90deg, #c09830, var(--color-gold));
       border-radius: var(--radius-soft);
       transition: width 1s ease;
+    }
+    .ui-achievement-gallery-score-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      padding: 14px 20px 12px;
+    }
+    .ui-achievement-gallery-score-box {
+      position: relative;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      min-width: 0;
+      padding: 10px 12px;
+      background: rgba(8, 9, 24, 0.58);
+      border: 1px solid rgba(240, 192, 64, 0.16);
+    }
+    .ui-achievement-gallery-score-box::before {
+      content: '';
+      position: absolute;
+      top: -1px;
+      left: -1px;
+      width: 7px;
+      height: 7px;
+      border-top: 1px solid var(--color-gold);
+      border-left: 1px solid var(--color-gold);
+      opacity: 0.7;
+    }
+    .ui-achievement-gallery-score-label {
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      letter-spacing: 1px;
+    }
+    .ui-achievement-gallery-score-value {
+      font-size: clamp(18px, 2.2vw, 24px);
+      color: var(--color-gold);
+      font-weight: 700;
+      line-height: 1;
+    }
+    .ui-achievement-gallery-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+      padding: 0 20px 12px;
+      border-bottom: 1px solid rgba(240, 192, 64, 0.12);
+    }
+    .ui-achievement-gallery-tab {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 12px;
+      color: var(--color-text-secondary);
+      background: rgba(8, 9, 24, 0.46);
+      border: 1px solid rgba(184, 169, 132, 0.18);
+      font: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      appearance: none;
+      transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    }
+    .ui-achievement-gallery-tab b {
+      min-width: 36px;
+      padding: 2px 6px;
+      color: var(--color-text-muted);
+      background: rgba(255, 255, 255, 0.04);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .ui-achievement-gallery-tab:hover {
+      color: var(--color-text-primary);
+      border-color: rgba(240, 192, 64, 0.44);
+    }
+    .ui-achievement-gallery-tab.active {
+      color: var(--color-gold);
+      background: rgba(240, 192, 64, 0.09);
+      border-color: rgba(240, 192, 64, 0.55);
+      box-shadow: inset 0 -2px 0 var(--color-gold);
+    }
+    .ui-achievement-gallery-tab.active b {
+      color: var(--color-gold);
+      background: rgba(240, 192, 64, 0.1);
     }
     .ui-achievement-gallery-intro {
       padding: 8px 16px 4px;
@@ -3967,28 +4353,45 @@
     .ui-achievement-gallery-intro-row b { color: #c8a040; font-weight: 600; }
     .ui-achievement-gallery-intro-icon { font-size: 12px; flex-shrink: 0; }
     .ui-achievement-gallery-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      padding: 12px 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 7px;
+      padding: 14px 20px;
       overflow-y: auto;
-      max-height: 46vh;
-      align-content: flex-start;
-      justify-content: center;
+      min-height: 136px;
+      max-height: 32vh;
+      align-content: start;
     }
     .ui-achievement-gallery-item {
-      display: inline-flex;
+      display: flex;
       align-items: center;
       gap: 5px;
-      padding: 5px 9px;
+      min-width: 0;
+      min-height: 44px;
+      padding: 8px 10px;
       border-radius: var(--radius-sharp);
       border: 1px solid rgba(58, 58, 74, 0.6);
       background: rgba(26, 26, 46, 0.4);
       color: var(--color-text-secondary);
-      font-size: 11px;
+      font: inherit;
+      font-size: 13px;
+      text-align: left;
       cursor: pointer;
       user-select: none;
       transition: all 0.15s ease;
+      appearance: none;
+    }
+    .ui-achievement-gallery-item-icon {
+      width: 18px;
+      flex: 0 0 18px;
+      color: var(--color-text-muted);
+      text-align: center;
+    }
+    .ui-achievement-gallery-item-name {
+      min-width: 0;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
       white-space: nowrap;
     }
     .ui-achievement-gallery-item.unlocked {
@@ -3997,9 +4400,15 @@
       background: rgba(240, 192, 64, 0.08);
     }
     .ui-achievement-gallery-item.unlocked.hidden {
-      color: #ff88cc;
+      color: var(--color-hidden);
       border-color: rgba(255, 136, 204, 0.3);
       background: rgba(255, 136, 204, 0.08);
+    }
+    .ui-achievement-gallery-item.unlocked .ui-achievement-gallery-item-icon {
+      color: currentColor;
+    }
+    .ui-achievement-gallery-item.combo {
+      border-style: dashed;
     }
     .ui-achievement-gallery-item.active,
     .ui-achievement-gallery-item:hover {
@@ -4008,7 +4417,7 @@
       box-shadow: 0 2px 8px rgba(240, 192, 64, 0.15);
     }
     .ui-achievement-gallery-item.locked {
-      opacity: 0.55;
+      opacity: 0.62;
     }
     .ui-achievement-gallery-item-score {
       font-size: 9px;
@@ -4022,41 +4431,220 @@
       text-align: center;
     }
     .ui-achievement-gallery-item.unlocked.hidden .ui-achievement-gallery-item-score {
-      color: #ff88cc;
+      color: var(--color-hidden);
       background: rgba(255, 136, 204, 0.15);
     }
     .ui-achievement-gallery-detail {
       border-top: 1px solid rgba(240, 192, 64, 0.15);
-      padding: 14px 16px 16px;
-      min-height: 90px;
-      text-align: center;
-      background: rgba(0, 0, 0, 0.25);
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr);
+      grid-template-rows: auto auto 1fr;
+      column-gap: 14px;
+      align-items: center;
+      padding: 14px 20px;
+      min-height: 104px;
+      text-align: left;
+      background: rgba(0, 0, 0, 0.3);
     }
     .ui-achievement-gallery-detail-empty {
-      color: #5a5a6e;
-      font-size: 12px;
-      margin-top: 18px;
+      grid-column: 1 / -1;
+      align-self: center;
+      color: var(--color-text-dim);
+      font-size: 14px;
+      text-align: center;
     }
     .ui-achievement-gallery-detail-icon {
-      font-size: 28px;
-      margin-bottom: 6px;
+      grid-row: 1 / 4;
+      font-size: 30px;
+      color: var(--color-gold);
+      text-align: center;
     }
     .ui-achievement-gallery-detail-name {
-      font-size: 14px;
+      font-size: 16px;
       font-weight: 700;
       color: var(--color-gold);
-      margin-bottom: 4px;
     }
     .ui-achievement-gallery-detail-label {
-      font-size: 10px;
+      font-size: 12px;
       color: var(--color-text-secondary);
-      margin-bottom: 6px;
       letter-spacing: 1px;
     }
     .ui-achievement-gallery-detail-desc {
-      font-size: 12px;
-      color: #e8d5a3;
+      font-size: 14px;
+      color: var(--color-text-primary);
       line-height: 1.6;
+    }
+    .ui-achievement-gallery-milestones {
+      border-top: 1px solid rgba(240, 192, 64, 0.12);
+      background: rgba(8, 9, 24, 0.64);
+    }
+    .ui-achievement-gallery-milestone-details summary {
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 20px;
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+    }
+    .ui-achievement-gallery-milestone-details summary::-webkit-details-marker {
+      display: none;
+    }
+    .ui-achievement-gallery-milestone-details summary > span:first-child {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .ui-achievement-gallery-milestone-details summary b {
+      color: var(--color-gold);
+      font-size: 13px;
+      letter-spacing: 1px;
+      white-space: nowrap;
+    }
+    .ui-achievement-gallery-milestone-details summary em {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--color-text-secondary);
+      font-size: 12px;
+      font-style: normal;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ui-achievement-gallery-milestone-list {
+      display: grid;
+      gap: 6px;
+      max-height: 210px;
+      padding: 0 20px 14px;
+      overflow-y: auto;
+    }
+    .ui-achievement-gallery-milestone {
+      display: grid;
+      grid-template-columns: 20px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      min-height: 50px;
+      padding: 8px 10px;
+      color: var(--color-text-dim);
+      border: 1px solid rgba(119, 119, 140, 0.16);
+      background: rgba(18, 18, 42, 0.5);
+    }
+    .ui-achievement-gallery-milestone.reached {
+      color: var(--color-gold);
+      border-color: rgba(240, 192, 64, 0.28);
+      background: rgba(240, 192, 64, 0.06);
+    }
+    .ui-achievement-gallery-milestone-copy {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .ui-achievement-gallery-milestone-copy b {
+      color: var(--color-text-primary);
+      font-size: 13px;
+    }
+    .ui-achievement-gallery-milestone-copy small {
+      overflow: hidden;
+      color: var(--color-text-secondary);
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ui-achievement-gallery-milestone-state {
+      color: currentColor;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    @media (orientation: portrait) and (max-width: 768px) {
+      .ui-achievement-gallery-overlay {
+        align-items: center;
+        padding:
+          max(60px, calc(env(safe-area-inset-top, 0px) + 52px))
+          max(8px, env(safe-area-inset-right, 0px))
+          max(8px, env(safe-area-inset-bottom, 0px))
+          max(8px, env(safe-area-inset-left, 0px));
+      }
+      .ui-achievement-gallery-card {
+        width: 100%;
+        max-height: 100%;
+      }
+      .ui-achievement-gallery-header {
+        padding: 10px 12px;
+      }
+      .ui-achievement-gallery-title {
+        font-size: 18px;
+      }
+      .ui-achievement-gallery-score-row {
+        gap: 5px;
+        padding: 10px 12px;
+      }
+      .ui-achievement-gallery-score-box {
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px;
+      }
+      .ui-achievement-gallery-score-label {
+        font-size: 11px;
+      }
+      .ui-achievement-gallery-score-value {
+        font-size: 19px;
+      }
+      .ui-achievement-gallery-tabs {
+        gap: 4px;
+        padding: 0 12px 10px;
+      }
+      .ui-achievement-gallery-tab {
+        min-height: 46px;
+        flex-direction: column;
+        gap: 2px;
+        padding: 5px;
+        font-size: 14px;
+      }
+      .ui-achievement-gallery-tab b {
+        min-width: 0;
+        padding: 0;
+        background: transparent;
+      }
+      .ui-achievement-gallery-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        min-height: 170px;
+        max-height: 30vh;
+        padding: 10px 12px;
+      }
+      .ui-achievement-gallery-item {
+        min-height: 48px;
+        padding: 8px;
+        font-size: 13px;
+      }
+      .ui-achievement-gallery-detail {
+        grid-template-columns: 38px minmax(0, 1fr);
+        column-gap: 10px;
+        min-height: 108px;
+        padding: 12px;
+      }
+      .ui-achievement-gallery-detail-icon {
+        font-size: 25px;
+      }
+      .ui-achievement-gallery-detail-name {
+        font-size: 15px;
+      }
+      .ui-achievement-gallery-milestone-details summary {
+        padding: 10px 12px;
+      }
+      .ui-achievement-gallery-milestone-details summary > span:first-child {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .ui-achievement-gallery-milestone-list {
+        padding: 0 12px 12px;
+      }
     }
 
     /* === 结局图鉴面板 === */
@@ -4491,15 +5079,65 @@
 
       /* 结局页适配 */
       .ui-ending-overlay {
-        padding: 60px 4px 4px;
+        align-items: stretch;
+        padding:
+          max(58px, calc(env(safe-area-inset-top, 0px) + 52px))
+          max(6px, env(safe-area-inset-right, 0px))
+          max(6px, env(safe-area-inset-bottom, 0px))
+          max(6px, env(safe-area-inset-left, 0px));
+      }
+      .ui-ending-content {
+        width: 100%;
+        max-height: 100%;
+        padding: 18px 14px 0;
+      }
+      .ui-ending-kicker {
+        font-size: 11px;
+      }
+      .ui-ending-title {
+        max-width: 100%;
+        font-size: clamp(22px, 6vw, 25px);
+        line-height: 1.35;
+        letter-spacing: 1px;
+        text-wrap: balance;
+      }
+      .ui-ending-desc {
+        font-size: 14px;
+      }
+      .ui-ending-quote {
+        width: 100%;
+        padding: 8px 4px;
+        font-size: 16px;
+      }
+      .ui-ending-analysis {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        margin-top: 2px;
       }
       .ui-ending-stats {
-        width: 95vw;
+        width: 100%;
         align-items: center;
       }
       .ui-ending-radar {
-        width: clamp(200px, 65vw, 260px);
-        height: clamp(200px, 65vw, 260px);
+        width: clamp(210px, 68vw, 270px);
+        height: clamp(210px, 68vw, 270px);
+      }
+      .ui-ending-copy {
+        padding: 14px;
+      }
+      .ui-ending-summary,
+      .ui-ending-insight {
+        font-size: 14px;
+      }
+      .ui-ending-buttons {
+        position: static;
+        margin: 0 -14px;
+        padding-right: 14px;
+        padding-left: 14px;
+      }
+      .ui-ending-btn {
+        min-width: min(152px, 44vw);
+        flex: 1 1 142px;
       }
 
       /* 随机事件适配 */
@@ -4648,8 +5286,10 @@
       <div class="ui-talent-title">选择你的天赋</div>
       <div class="ui-talent-subtitle">天赋将影响你的初始属性和特殊能力</div>
       <div class="ui-talent-cards" id="ui-talent-cards"></div>
-      <div class="ui-talent-hint">选择 <span>2</span> 个天赋开始游戏</div>
-      <button class="ui-talent-confirm" id="ui-talent-confirm">确认选择</button>
+      <div class="ui-talent-footer">
+        <div class="ui-talent-hint" role="status" aria-live="polite">选择 <span>2</span> 个天赋开始游戏</div>
+        <button class="ui-talent-confirm" id="ui-talent-confirm" type="button" disabled>请选择 2 个天赋</button>
+      </div>
     </div>
 
     <!-- Intro Scene -->
@@ -4807,14 +5447,23 @@
     </div>
 
     <div class="ui-ending-overlay" id="ui-ending-overlay">
-      <div class="ui-ending-title" id="ui-ending-title"></div>
-      <div class="ui-ending-desc" id="ui-ending-desc"></div>
-      <div class="ui-ending-stats" id="ui-ending-stats"></div>
-      <div class="ui-ending-quote" id="ui-ending-quote"></div>
-      <div class="ui-ending-summary" id="ui-ending-summary"></div>
-      <div class="ui-ending-disclaimer">本作基于公开事迹改编，部分情节虚构。致敬每一位在十字路口做出选择的人。</div>
-      <div class="ui-ending-achievements" id="ui-ending-achievements"></div>
-      <div class="ui-ending-buttons safe-area-bottom" id="ui-ending-buttons"></div>
+      <div class="ui-ending-content">
+        <header class="ui-ending-hero">
+          <div class="ui-ending-kicker">本局人生终章</div>
+          <div class="ui-ending-title" id="ui-ending-title"></div>
+          <div class="ui-ending-desc" id="ui-ending-desc"></div>
+          <div class="ui-ending-quote" id="ui-ending-quote"></div>
+        </header>
+        <div class="ui-ending-analysis">
+          <div class="ui-ending-stats" id="ui-ending-stats"></div>
+          <div class="ui-ending-copy">
+            <div class="ui-ending-summary" id="ui-ending-summary"></div>
+            <div class="ui-ending-disclaimer">本作基于公开事迹改编，部分情节虚构。致敬每一位在十字路口做出选择的人。</div>
+          </div>
+        </div>
+        <div class="ui-ending-achievements" id="ui-ending-achievements"></div>
+        <div class="ui-ending-buttons safe-area-bottom" id="ui-ending-buttons"></div>
+      </div>
     </div>
 
     <!-- Life Map -->

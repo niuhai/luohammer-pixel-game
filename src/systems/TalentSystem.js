@@ -2,8 +2,7 @@
  * 天赋抽取系统
  *
  * 开局时随机抽取5个天赋，玩家5选2
- * UI：5张天赋卡片，点击选择2个后确认
- * 桌面端 hover / 移动端长按可预览天赋详细效果（tooltip）
+ * UI：5张语义化天赋卡片，点击选择2个后确认
  */
 
 /** 天赋特殊效果 key → 中文文案（卡片与 tooltip 共用；新增天赋 special 时必须同步补充，否则玩家会看到英文 key） */
@@ -43,11 +42,12 @@ export class TalentSystem {
     this.onSelect = null;
     this.maxSelection = 2;
     this._clickHandler = null;
+    this._rerollBtn = null;
+    this._rerollClickHandler = () => this._performReroll();
 
-    // 单例 tooltip 元素：避免每张卡片都创建一个
-    this._tooltipEl = null;
-    this._longPressTimer = null;
-    this._longPressActive = false;
+    // 切换周目会重建 TalentSystem；动态按钮不能复用旧实例遗留的闭包监听。
+    const staleRerollBtn = document.getElementById('ui-talent-reroll');
+    if (staleRerollBtn) staleRerollBtn.remove();
 
     // Confirm button handler
     this._confirmClickHandler = () => {
@@ -71,6 +71,8 @@ export class TalentSystem {
     this.selectedTalents = [];
     this.onSelect = onSelect;
     this.confirmBtn.classList.remove('visible');
+    this.confirmBtn.disabled = true;
+    this.confirmBtn.textContent = `请选择 ${this.maxSelection} 个天赋`;
     this._onReroll = opts.onReroll || null;
     this._rerollCount = opts.rerollCount || 0;
 
@@ -91,9 +93,12 @@ export class TalentSystem {
     const specialLabels = SPECIAL_LABELS;
 
     talents.forEach((talent, _i) => {
-      const card = document.createElement('div');
+      const card = document.createElement('button');
+      card.type = 'button';
       card.className = 'ui-talent-card';
       card.setAttribute('data-rarity', talent.rarity);
+      card.setAttribute('aria-pressed', 'false');
+      card.setAttribute('aria-label', `${talent.name}，${rarityLabels[talent.rarity]}天赋`);
 
       // Build effects HTML
       const effectEntries = Object.entries(talent.effects).filter(([_k, v]) => v !== 0);
@@ -123,9 +128,6 @@ export class TalentSystem {
         this._toggleTalent(talent, card);
       });
 
-      // 悬停 / 长按预览
-      this._attachPreviewEvents(card, talent);
-
       this.cardsEl.appendChild(card);
     });
 
@@ -137,20 +139,19 @@ export class TalentSystem {
    * 仅当存在 onReroll 回调且剩余次数 > 0 时显示
    */
   _updateRerollButton() {
-    let btn = document.getElementById('ui-talent-reroll');
+    let btn = this._rerollBtn;
     if (!this._onReroll || this._rerollCount <= 0) {
       if (btn) btn.style.display = 'none';
       return;
     }
     if (!btn) {
       btn = document.createElement('button');
+      btn.type = 'button';
       btn.id = 'ui-talent-reroll';
       btn.className = 'ui-talent-confirm';
-      btn.style.marginRight = '10px';
-      btn.style.borderColor = 'var(--color-trust)';
-      btn.style.color = 'var(--color-trust)';
       this.confirmBtn.parentNode.insertBefore(btn, this.confirmBtn);
-      btn.addEventListener('click', () => this._performReroll());
+      btn.addEventListener('click', this._rerollClickHandler);
+      this._rerollBtn = btn;
     }
     btn.style.display = 'inline-block';
     btn.textContent = `↻ 刷新天赋 (${this._rerollCount})`;
@@ -172,183 +173,35 @@ export class TalentSystem {
     });
   }
 
-  /**
-   * 为天赋卡片附加预览事件：桌面端 hover 显示，移动端长按显示
-   */
-  _attachPreviewEvents(card, talent) {
-    // 桌面端：hover 显示/隐藏
-    card.addEventListener('mouseenter', () => this._showTooltip(talent, card));
-    card.addEventListener('mouseleave', () => this._hideTooltip());
-
-    // 移动端：长按 500ms 显示
-    const onTouchStart = (_e) => {
-      this._longPressActive = false;
-      this._longPressTimer = setTimeout(() => {
-        this._longPressActive = true;
-        this._showTooltip(talent, card);
-      }, 500);
-    };
-    const onTouchEnd = () => {
-      if (this._longPressTimer) {
-        clearTimeout(this._longPressTimer);
-        this._longPressTimer = null;
-      }
-      if (this._longPressActive) {
-        this._hideTooltip();
-        // 阻止长按后的 click 触发选择
-        this._longPressActive = false;
-      }
-    };
-    const onTouchMove = () => {
-      if (this._longPressTimer) {
-        clearTimeout(this._longPressTimer);
-        this._longPressTimer = null;
-      }
-      this._hideTooltip();
-    };
-
-    card.addEventListener('touchstart', onTouchStart, { passive: true });
-    card.addEventListener('touchend', onTouchEnd);
-    card.addEventListener('touchmove', onTouchMove, { passive: true });
-
-    // 长按期间阻止 click 事件触发选择
-    card.addEventListener('click', (e) => {
-      if (this._longPressActive) {
-        e.preventDefault();
-        e.stopPropagation();
-        this._longPressActive = false;
-      }
-    }, true);
-  }
-
-  /**
-   * 显示天赋预览 tooltip
-   */
-  _showTooltip(talent, anchorEl) {
-    this._hideTooltip();
-
-    const tooltip = document.createElement('div');
-    tooltip.className = 'ui-talent-tooltip';
-    tooltip.setAttribute('data-rarity', talent.rarity);
-
-    const rarityLabels = { common: '普通', rare: '稀有', legendary: '传说' };
-    const attrNames = {
-      pride: '理想主义', wealth: '财富', reputation: '名声',
-      pressure: '压力', trust: '公众信任', pressureMax: '压力上限',
-      failurePenalty: '翻车惩罚', successBonus: '成功奖励'
-    };
-    const specialLabels = SPECIAL_LABELS;
-
-    // 效果描述：拼成一句话，如 "初始理想+2，财富+1"
-    const effectEntries = Object.entries(talent.effects).filter(([_k, v]) => v !== 0);
-    const effectParts = effectEntries.map(([key, val]) => {
-      const sign = val > 0 ? '+' : '';
-      return `${attrNames[key] || key}${sign}${val}`;
-    });
-    const effectDesc = effectParts.length > 0 ? effectParts.join('，') : '无属性加成';
-
-    // 特殊能力描述
-    const specialDesc = talent.special ? (specialLabels[talent.special] || talent.special) : '';
-
-    tooltip.innerHTML = `
-      <div class="ui-talent-tooltip-header">
-        <span class="ui-talent-tooltip-icon">${talent.icon}</span>
-        <span class="ui-talent-tooltip-name">${talent.name}</span>
-      </div>
-      <div class="ui-talent-tooltip-rarity ${talent.rarity}">${rarityLabels[talent.rarity] || talent.rarity}</div>
-      <div class="ui-talent-tooltip-desc">${talent.desc}</div>
-      <div class="ui-talent-tooltip-effects">${effectDesc}</div>
-      ${specialDesc ? `<div class="ui-talent-tooltip-special">★ ${specialDesc}</div>` : ''}
-    `;
-
-    this.overlay.appendChild(tooltip);
-    this._tooltipEl = tooltip;
-
-    // 定位：基于锚点元素的位置
-    this._positionTooltip(tooltip, anchorEl);
-
-    // 触发淡入动画
-    requestAnimationFrame(() => {
-      tooltip.classList.add('visible');
-    });
-  }
-
-  /**
-   * 定位 tooltip：优先显示在卡片上方，空间不足时显示在下方
-   */
-  _positionTooltip(tooltip, anchorEl) {
-    const anchorRect = anchorEl.getBoundingClientRect();
-    const overlayRect = this.overlay.getBoundingClientRect();
-    const tooltipRect = tooltip.getBoundingClientRect();
-
-    // 相对于 overlay 的坐标
-    const relLeft = anchorRect.left - overlayRect.left;
-    const relTop = anchorRect.top - overlayRect.top;
-
-    // 水平居中对齐卡片
-    let left = relLeft + (anchorRect.width - tooltipRect.width) / 2;
-    // 边界钳制
-    left = Math.max(8, Math.min(left, overlayRect.width - tooltipRect.width - 8));
-
-    // 垂直：优先上方，空间不足则下方
-    let top;
-    const spaceAbove = relTop;
-    const spaceBelow = overlayRect.height - (relTop + anchorRect.height);
-    if (spaceAbove > tooltipRect.height + 12) {
-      top = relTop - tooltipRect.height - 8;
-    } else if (spaceBelow > tooltipRect.height + 12) {
-      top = relTop + anchorRect.height + 8;
-    } else {
-      // 都不够，贴顶部
-      top = Math.max(8, relTop);
-    }
-
-    tooltip.style.left = `${left}px`;
-    tooltip.style.top = `${top}px`;
-  }
-
-  /**
-   * 隐藏 tooltip
-   */
-  _hideTooltip() {
-    if (this._tooltipEl) {
-      const el = this._tooltipEl;
-      el.classList.remove('visible');
-      // 等淡出动画结束后移除
-      setTimeout(() => {
-        if (el.parentNode) el.parentNode.removeChild(el);
-      }, 200);
-      this._tooltipEl = null;
-    }
-    if (this._longPressTimer) {
-      clearTimeout(this._longPressTimer);
-      this._longPressTimer = null;
-    }
-  }
-
   _toggleTalent(talent, cardEl) {
     const idx = this.selectedTalents.indexOf(talent);
     if (idx >= 0) {
       // Deselect
       this.selectedTalents.splice(idx, 1);
       cardEl.classList.remove('selected');
+      cardEl.setAttribute('aria-pressed', 'false');
     } else {
       // Select (max 2)
-      if (this.selectedTalents.length >= this.maxSelection) return;
+      if (this.selectedTalents.length >= this.maxSelection) {
+        cardEl.classList.remove('selection-denied');
+        void cardEl.offsetWidth;
+        cardEl.classList.add('selection-denied');
+        if (this.hintEl) this.hintEl.innerHTML = `最多选择 <span>${this.maxSelection}</span> 个天赋，请先取消一个`;
+        return;
+      }
       this.selectedTalents.push(talent);
       cardEl.classList.add('selected');
+      cardEl.setAttribute('aria-pressed', 'true');
     }
 
-    // Show/hide confirm button
-    if (this.selectedTalents.length === this.maxSelection) {
-      this.confirmBtn.classList.add('visible');
-    } else {
-      this.confirmBtn.classList.remove('visible');
-    }
+    const remaining = this.maxSelection - this.selectedTalents.length;
+    const complete = remaining === 0;
+    this.confirmBtn.disabled = !complete;
+    this.confirmBtn.classList.toggle('visible', complete);
+    this.confirmBtn.textContent = complete ? '带着这 2 个天赋出发' : `还需选择 ${remaining} 个`;
 
     // 更新提示文字
     if (this.hintEl) {
-      const remaining = this.maxSelection - this.selectedTalents.length;
       if (remaining > 0) {
         this.hintEl.innerHTML = `还需选择 <span>${remaining}</span> 个天赋`;
       } else {
@@ -375,11 +228,13 @@ export class TalentSystem {
   }
 
   hide() {
-    this._hideTooltip();
     this.overlay.classList.remove('visible');
     this.cardsEl.innerHTML = '';
     this.confirmBtn.classList.remove('visible');
+    this.confirmBtn.disabled = true;
+    this.confirmBtn.textContent = `请选择 ${this.maxSelection} 个天赋`;
     this.selectedTalents = [];
+    if (this._rerollBtn) this._rerollBtn.style.display = 'none';
   }
 
   /**
@@ -390,9 +245,14 @@ export class TalentSystem {
       this.confirmBtn.removeEventListener('click', this._confirmClickHandler);
       this._confirmClickHandler = null;
     }
-    this._hideTooltip();
+    if (this._rerollBtn) {
+      this._rerollBtn.removeEventListener('click', this._rerollClickHandler);
+      this._rerollBtn.remove();
+      this._rerollBtn = null;
+    }
     this.hide();
     this.onSelect = null;
+    this._onReroll = null;
     this.scene = null;
   }
 }

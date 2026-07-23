@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, SCENE_ASSETS, CHARACTER_ASSETS, ENDING_SCENE_MAP } from '../config.js';
+import { GAME_WIDTH, GAME_HEIGHT, SCENE_ASSETS, CHARACTER_ASSETS } from '../config.js';
 import { STORY, CHAR_INFO } from '../data/story.js';
 import { PixelRenderer } from '../systems/PixelRenderer.js';
 import { DialogSystem } from '../systems/DialogSystem.js';
@@ -2819,27 +2819,8 @@ export class GameScene extends Phaser.Scene {
       try { this.audio.fadeOutBGM(1.0); } catch(e) {}
     }
 
-    // 预读结局专属插图（避免结局页加载卡顿）
-    // 结局图在 EndingScene 中由 PixelRenderer.drawBackground 绘制，
-    // 提前用 Phaser load 预读到纹理缓存，场景切换时直接可用
-    this._preloadEndingScene(endingKey);
-
     try { this.debug.logEnding(endingKey, this.state); } catch(e) {}
     this.scene.start('EndingScene', { state: this.state, ending: endingKey });
-  }
-
-  /**
-   * 预读结局场景专属插图（fire-and-forget）。
-   * 根据 endingKey 查 ENDING_SCENE_MAP 获取场景 type，再触发纹理加载。
-   * 加载未完成时进入 EndingScene，PixelRenderer 会用 Graphics 兜底，不影响展示。
-   * @param {string} endingKey 结局 ID
-   */
-  _preloadEndingScene(endingKey) {
-    const sceneType = ENDING_SCENE_MAP[endingKey] || 'ending';
-    // 复用 _ensureSceneTexture 预读（已内置去重和失败兜底）
-    this._ensureSceneTexture(sceneType);
-    // 同时预读通用 ending 背景（兜底场景）
-    this._ensureSceneTexture('ending');
   }
 
   /**

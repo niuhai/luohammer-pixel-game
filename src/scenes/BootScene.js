@@ -231,7 +231,7 @@ export class BootScene extends Phaser.Scene {
       };
     }
 
-    // === 移动端竖屏提示：横屏优先，竖屏时暂停场景并显示提示 ===
+    // === 移动端竖屏提示：横屏优先，但不冻结标题动画或可访问操作 ===
     this._setupOrientationHint();
 
     // === PWA：标题画面提供"安装到桌面"入口，不主动弹窗打扰首次体验 ===
@@ -679,7 +679,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   /**
-   * 移动端竖屏提示：检测屏幕方向，竖屏时显示提示并暂停场景，横屏时恢复。
+   * 移动端竖屏提示：检测屏幕方向，竖屏时显示非阻塞提示。
    * 用户点击"继续竖屏游玩"后，不再强制弹出提示。
    */
   _setupOrientationHint() {
@@ -695,10 +695,8 @@ export class BootScene extends Phaser.Scene {
       if (userDismissed) return;
       if (isPortrait()) {
         hint.classList.remove('hidden');
-        this.scene.pause();
       } else {
         hint.classList.add('hidden');
-        this.scene.resume();
       }
     };
 
@@ -707,7 +705,6 @@ export class BootScene extends Phaser.Scene {
       dismissBtn.addEventListener('click', () => {
         userDismissed = true;
         hint.classList.add('hidden');
-        this.scene.resume();
       }, { once: true });
     }
 

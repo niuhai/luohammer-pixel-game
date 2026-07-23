@@ -327,6 +327,7 @@ export class EndingScene extends Phaser.Scene {
 
     // 清理上次渲染残留的"展开"按钮
     overlay.querySelectorAll('.ui-ending-expand-btn').forEach(el => el.remove());
+    overlay.querySelectorAll('.ui-ending-insight').forEach(el => el.remove());
 
     // Title
     titleEl.textContent = (this.ending.title || '').replace(/罗远/g, '老罗');
@@ -350,8 +351,8 @@ export class EndingScene extends Phaser.Scene {
       const insightEl = document.createElement('div');
       insightEl.className = 'ui-ending-insight';
       insightEl.textContent = insight;
-      // 插入到 quote 之后
-      quoteEl.parentNode.insertBefore(insightEl, quoteEl.nextSibling);
+      // 洞察属于复盘信息，进入数据/总结区域，不与结局金句争夺首屏焦点
+      summaryEl.parentNode.insertBefore(insightEl, summaryEl);
     }
 
     // Summary
@@ -635,22 +636,9 @@ export class EndingScene extends Phaser.Scene {
       this.scene.start('BootScene');
     });
 
-    // === 技能树按钮（主按钮：跨周目核心） ===
-    const skillTreeBtn = document.createElement('button');
-    skillTreeBtn.className = 'ui-ending-btn';
-    skillTreeBtn.style.borderColor = 'var(--color-gold)';
-    skillTreeBtn.style.color = 'var(--color-gold)';
-    const exp = this.meta.getExp();
-    skillTreeBtn.textContent = `♣ 技能树 (${exp} EXP)`;
-    skillTreeBtn.addEventListener('click', () => {
-      this._showSkillTree();
-    });
-
     // === AI 人生复盘按钮（主按钮：运行时 AI 能力展示） ===
     const aiReviewBtn = document.createElement('button');
-    aiReviewBtn.className = 'ui-ending-btn';
-    aiReviewBtn.style.borderColor = '#40c8c8';
-    aiReviewBtn.style.color = '#40c8c8';
+    aiReviewBtn.className = 'ui-ending-btn ui-ending-btn-ai';
     aiReviewBtn.textContent = '◈ AI 人生复盘';
     aiReviewBtn.addEventListener('click', () => {
       const review = new AIReviewSystem({
@@ -682,6 +670,8 @@ export class EndingScene extends Phaser.Scene {
       moreMenu.appendChild(btn);
     };
 
+    const exp = this.meta.getExp();
+    addMoreItem(`♣ 技能树 (${exp} EXP)`, () => this._showSkillTree());
     addMoreItem('决策回顾', () => this.toggleDecisionReview());
 
     // === 历史真相回顾 ===
@@ -720,7 +710,6 @@ export class EndingScene extends Phaser.Scene {
     });
 
     buttonsEl.appendChild(retryBtn);
-    buttonsEl.appendChild(skillTreeBtn);
     buttonsEl.appendChild(aiReviewBtn);
     buttonsEl.appendChild(moreBtn);
     buttonsEl.appendChild(moreMenu);
