@@ -19,6 +19,7 @@
     "test:e2e": "playwright test",
     "validate": "npm run lint && node scripts/validate-story.mjs && node scripts/simulate-paths.mjs && node scripts/validate-effects.cjs",
     "verify": "npm run validate && npm run test:unit && npm run build",
+    "verify:deployment": "node scripts/verify-deployment.mjs",
     "lint": "eslint src --ext .js --max-warnings 0",
     "lint:fix": "eslint src --ext .js --fix",
     "format": "prettier --write \"src/**/*.{js,css}\" \"index.html\""

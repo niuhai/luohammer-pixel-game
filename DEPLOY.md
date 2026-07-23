@@ -122,8 +122,16 @@ npm run build
 # 或使用第三方工具如 gh-pages npm 包
 ```
 
-注意：本游戏使用站点根路径部署（vite.config.js 中 `base: '/'`），
-如需部署到子路径，请将 `base` 改为对应子路径（如 `'/luohammer/'`）并重新构建。
+本仓库当前体验地址位于 GitHub Pages 子路径
+`https://niuhai.github.io/luohammer-pixel-game/`，因此 `vite.config.js`
+中的 `base` 必须保持为 `/luohammer-pixel-game/`。部署后执行：
+
+```bash
+npm run verify:deployment
+```
+
+该命令会比较本地 `dist` 与线上业务入口 hash、Service Worker 缓存版本；
+任一不一致都会返回非零退出码，不能把“代码已提交”误当成“评委已拿到新版”。
 
 ### Nginx 配置示例
 
@@ -200,6 +208,10 @@ server {
 
 用户在支持的浏览器中可「添加到主屏幕」，之后可离线游玩。
 
+导航页采用 network-first：联网时优先获取当前版本，离线时回退最近一次成功缓存的
+首页；Vite 内容哈希资源采用 cache-first，固定文件名图片采用 stale-while-revalidate。
+这样既保留离线能力，也避免评委被旧 Service Worker 长期锁在历史构建。
+
 ---
 
 ## 构建优化说明（vite.config.js）
@@ -208,7 +220,7 @@ server {
 
 ```javascript
 {
-  base: '/',                          // 站点根路径部署
+  base: '/luohammer-pixel-game/',     // GitHub Pages 子路径部署
   build: {
     target: 'es2015',                 // 兼容较低版本浏览器
     minify: 'terser',                 // 使用 terser 深度压缩

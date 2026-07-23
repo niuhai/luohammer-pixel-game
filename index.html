@@ -5519,8 +5519,23 @@
       if (mainScript) return;
 
       window.addEventListener('load', function() {
-        navigator.serviceWorker.register('./sw.js', { scope: './' })
-          .then(function(reg) { console.log('[PWA] Service Worker registered:', reg.scope); })
+        var hadController = Boolean(navigator.serviceWorker.controller);
+        var refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function() {
+          if (!hadController || refreshing) return;
+          refreshing = true;
+          window.location.reload();
+        });
+
+        navigator.serviceWorker.register('./sw.js', {
+          scope: './',
+          updateViaCache: 'none'
+        })
+          .then(function(reg) {
+            // GitHub Pages 默认给 sw.js 十分钟缓存；主动检查保证评委刷新即可拿到更新。
+            reg.update().catch(function() {});
+            console.log('[PWA] Service Worker registered:', reg.scope);
+          })
           .catch(function(err) { console.error('[PWA] Service Worker registration failed:', err); });
       });
     })();
