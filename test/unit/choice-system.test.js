@@ -123,6 +123,20 @@ describe('ChoiceSystem - 同局支线防重复', () => {
     expect(onChoice).toHaveBeenCalledWith(choices[7]);
   });
 
+  it('全屏模态层打开时忽略后台数字键选择', () => {
+    const onChoice = vi.fn();
+    const scene = createScene({ history: [], flags: new Set() });
+    scene.isGameplayInputBlocked = () => true;
+    const system = new ChoiceSystem(scene);
+
+    system.show([{ label: '后台选择', next: 'next' }], onChoice);
+    const keyHandler = scene.input.keyboard.on.mock.calls[0][1];
+    keyHandler({ key: '1' });
+
+    expect(onChoice).not.toHaveBeenCalled();
+    expect(document.querySelector('.ui-choice-btn').disabled).toBe(false);
+  });
+
   it('长按显示完整影响且松手不会误触选择', () => {
     vi.useFakeTimers();
     const onChoice = vi.fn();

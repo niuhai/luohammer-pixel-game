@@ -5336,9 +5336,11 @@
       <span class="ui-sound-icon" id="ui-sound-icon">♪</span>
     </div>
     <!-- Menu Toggle -->
-    <div class="ui-menu-toggle interactive" id="ui-menu-toggle" title="返回标题菜单 (ESC)">
+    <button class="ui-menu-toggle interactive" id="ui-menu-toggle" type="button"
+      title="暂停菜单 (ESC)" aria-label="暂停菜单" aria-haspopup="dialog"
+      aria-controls="ui-menu-confirm" aria-expanded="false">
       <span>菜单</span>
-    </div>
+    </button>
     <div class="ui-narration-toggle interactive" id="ui-narration-toggle">
       <span id="ui-narration-icon">朗读</span>
     </div>
@@ -5350,9 +5352,10 @@
   </div><!-- end of ui-overlay -->
 
   <!-- Menu Confirm Modal (移出 ui-overlay 避免层叠上下文限制 z-index) -->
-  <div class="ui-menu-confirm" id="ui-menu-confirm">
+  <div class="ui-menu-confirm" id="ui-menu-confirm" role="dialog" aria-modal="true"
+    aria-labelledby="ui-menu-confirm-title" aria-hidden="true">
     <div class="ui-menu-confirm-box">
-      <div class="ui-menu-confirm-text">确定返回标题菜单吗？<br><small>当前进度已自动保存。</small></div>
+      <div class="ui-menu-confirm-text" id="ui-menu-confirm-title">确定返回标题菜单吗？<br><small>当前进度已自动保存。</small></div>
       <div class="ui-menu-confirm-btns">
         <button class="ui-menu-confirm-btn" id="ui-menu-cancel">继续游戏</button>
         <button class="ui-menu-confirm-btn primary" id="ui-menu-ok">返回菜单</button>

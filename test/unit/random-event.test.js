@@ -71,6 +71,10 @@ describe('RandomEventSystem - 决策模态框', () => {
     expect(buttons.every((button) => button.tagName === 'BUTTON')).toBe(true);
     expect(buttons.every((button) => button.type === 'button')).toBe(true);
     expect(buttons[0].getAttribute('aria-label')).toContain('向左走');
+    expect(buttons[0].getAttribute('aria-keyshortcuts')).toBe('1');
+    expect(buttons[1].getAttribute('aria-keyshortcuts')).toBe('2');
+    expect([...document.querySelectorAll('.ui-random-event-choice-marker')].map(el => el.textContent))
+      .toEqual(['1', '2']);
     expect(document.activeElement).toBe(buttons[0]);
     expect(buttons[0].style.outline).toContain('2px');
 
@@ -80,6 +84,22 @@ describe('RandomEventSystem - 决策模态框', () => {
     keyHandler(tabEvent);
     expect(tabEvent.preventDefault).toHaveBeenCalledOnce();
     expect(document.activeElement).toBe(buttons[0]);
+  });
+
+  it('只响应数字键，不再与自动播放快捷键冲突', () => {
+    const system = new RandomEventSystem(createScene());
+    const selectChoice = vi.spyOn(system, '_selectChoice');
+    system._showEvent(EVENT);
+    const keyHandler = system.scene.input.keyboard.on.mock.calls[0][1];
+
+    keyHandler({ key: 'a', repeat: false });
+    expect(selectChoice).not.toHaveBeenCalled();
+
+    const numericEvent = { key: '2', repeat: false, preventDefault: vi.fn() };
+    keyHandler(numericEvent);
+    expect(numericEvent.preventDefault).toHaveBeenCalledOnce();
+    expect(selectChoice).toHaveBeenCalledOnce();
+    expect(selectChoice).toHaveBeenCalledWith(EVENT.choices[1], EVENT);
   });
 
   it('动画结束与超时兜底竞争时只结算一次', () => {

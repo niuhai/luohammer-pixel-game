@@ -561,10 +561,32 @@ export class GameScene extends Phaser.Scene {
     if (this.menuToggleEl) this.menuToggleEl.classList.add('visible');
 
     this._showMenuConfirm = () => {
-      if (this.menuConfirmEl) this.menuConfirmEl.classList.add('visible');
+      if (!this.menuConfirmEl || this.menuConfirmEl.classList.contains('visible')) return;
+      this._menuPreviousFocus = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+      this.menuConfirmEl.classList.add('visible');
+      this.menuConfirmEl.setAttribute('aria-hidden', 'false');
+      if (this.menuToggleEl) this.menuToggleEl.setAttribute('aria-expanded', 'true');
+      const uiOverlay = document.getElementById('ui-overlay');
+      if (uiOverlay) uiOverlay.inert = true;
+      this.menuCancelBtn?.focus({ preventScroll: true });
     };
-    this._hideMenuConfirm = () => {
-      if (this.menuConfirmEl) this.menuConfirmEl.classList.remove('visible');
+    this._hideMenuConfirm = (restoreFocus = true) => {
+      if (this.menuConfirmEl) {
+        this.menuConfirmEl.classList.remove('visible');
+        this.menuConfirmEl.setAttribute('aria-hidden', 'true');
+      }
+      if (this.menuToggleEl) this.menuToggleEl.setAttribute('aria-expanded', 'false');
+      const uiOverlay = document.getElementById('ui-overlay');
+      if (uiOverlay) uiOverlay.inert = false;
+      if (restoreFocus) {
+        const target = this._menuPreviousFocus?.isConnected
+          ? this._menuPreviousFocus
+          : this.menuToggleEl;
+        target?.focus({ preventScroll: true });
+      }
+      this._menuPreviousFocus = null;
     };
     this._returnToMenu = () => {
       this._hideMenuConfirm();
@@ -735,6 +757,24 @@ export class GameScene extends Phaser.Scene {
         this._showMenuConfirm();
       }
     }, { signal: this._gestureAbortController.signal, passive: true });
+  }
+
+  /**
+   * 剧情输入只在主界面可交互时生效。任何全屏模态层出现后，
+   * 对话推进与选项快捷键都必须暂停，避免玩家在看不到后台时误操作。
+   */
+  isGameplayInputBlocked() {
+    if (this._quickVoicePanelEl) return true;
+    const blockingSelectors = [
+      '#ui-menu-confirm.visible',
+      '#ui-saveload-overlay.visible',
+      '#ui-history-note-overlay.visible',
+      '#ui-achievement-gallery-overlay.visible',
+      '#ui-random-event-overlay.visible',
+      '.ui-settlement-overlay.visible',
+      '.check-animation-overlay.visible'
+    ];
+    return blockingSelectors.some(selector => document.querySelector(selector));
   }
 
   /**
@@ -3093,7 +3133,7 @@ export class GameScene extends Phaser.Scene {
     if (this.chapterEl) this.chapterEl.classList.remove('visible');
     if (this.soundToggleEl) this.soundToggleEl.classList.remove('visible');
     if (this.menuToggleEl) this.menuToggleEl.classList.remove('visible');
-    if (this.menuConfirmEl) this.menuConfirmEl.classList.remove('visible');
+    if (this._hideMenuConfirm) this._hideMenuConfirm(false);
     // 清理检定动画遮罩（防止场景切换时残留）
     document.querySelectorAll('.check-animation-overlay').forEach(el => el.remove());
     // 清理杀手时刻"6亿"数字 DOM 元素 + 阶段结算 overlay（防止 _trackedTimeout 被清除后残留）
@@ -3133,6 +3173,7 @@ export class GameScene extends Phaser.Scene {
     this.menuConfirmEl = null;
     this.menuCancelBtn = null;
     this.menuOkBtn = null;
+    this._menuPreviousFocus = null;
   }
 
   /**

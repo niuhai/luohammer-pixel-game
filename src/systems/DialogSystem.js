@@ -107,6 +107,11 @@ export class DialogSystem {
 
     // === 自动播放 & 速度快捷键（T28） ===
     this._keyHandler = (e) => {
+      if (this.scene
+        && typeof this.scene.isGameplayInputBlocked === 'function'
+        && this.scene.isGameplayInputBlocked()) {
+        return;
+      }
       const key = e.key.toLowerCase();
       if (key === 'a') {
         e.preventDefault();

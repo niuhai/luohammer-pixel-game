@@ -354,6 +354,11 @@ export class ChoiceSystem {
 
     // 数字键快捷选择（1-9）— 与 A 自动播放、S 速度切换等全局快捷键解耦
     this._keyHandler = (event) => {
+      if (this.scene
+        && typeof this.scene.isGameplayInputBlocked === 'function'
+        && this.scene.isGameplayInputBlocked()) {
+        return;
+      }
       const key = String(event.key || '');
       const idx = /^[1-9]$/.test(key) ? Number(key) - 1 : -1;
       if (idx >= 0 && idx < choices.length) {

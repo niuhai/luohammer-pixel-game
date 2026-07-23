@@ -141,12 +141,13 @@ export class RandomEventSystem {
     // 创建选项按钮
     this._choicesEl.innerHTML = '';
     this._clearTouchHandlers();
-    const markers = ['A', 'B'];
+    const markers = ['1', '2'];
 
     event.choices.forEach((choice, i) => {
       const btn = document.createElement('button');
       btn.className = 'ui-random-event-choice-btn';
       btn.type = 'button';
+      if (i < 9) btn.setAttribute('aria-keyshortcuts', markers[i] || String(i + 1));
       btn.setAttribute('aria-label', `${markers[i] || i + 1}：${replaceName(choice.label)}`);
       btn.innerHTML = `
         <span class="corner-deco tl" aria-hidden="true"></span>
@@ -200,7 +201,7 @@ export class RandomEventSystem {
         }
         return;
       }
-      const keyMap = { 'a': 0, 'b': 1, '1': 0, '2': 1 };
+      const keyMap = { '1': 0, '2': 1 };
       const idx = keyMap[e.key.toLowerCase()];
       if (idx !== undefined && idx < event.choices.length) {
         e.preventDefault();
