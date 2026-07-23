@@ -88,13 +88,21 @@ export class AudioSystem {
     this._bgmType = null;
     this._masterGain = null;       // 主增益节点，所有音效统一经过
     this._bgmTimer = null;
+    this._fadeOutTimer = null;
+    this._crossfadeTimer = null;
+    this._sfxTimers = new Set();   // 多音符 SFX 延迟任务，场景关闭时统一取消
+    this._destroyed = false;
     this._lastHoverTime = 0;       // 防止hover音效过于频繁
     this._narrationEnabled = true; // 剧情朗读默认开启
     this._cachedVoices = [];       // 缓存TTS语音列表
+    this._voiceChangeHandler = null;
+    this._previousVoiceChangeHandler = null;
     this._ttsResumeTimer = null;   // Chrome长文本bug修复定时器
     this._customAudioUrl = null;  // 自定义音频 Blob URL
     this._customAudioEl = null;   // 自定义音频 <audio> 元素
+    this._customAudioEndedHandler = null;
     this._pendingSpeechEndCallbacks = []; // 朗读结束回调队列（用于剧情自动推进同步）
+    this._sceneShutdownHandler = null;
     // 当前配音预设（持久化到 localStorage），默认为罗永浩风格（推荐）
     this._voicePresetKey = 'luo_style';
     /** 是否使用 Edge TTS（在线神经语音，效果更好、男女分明） */
@@ -122,6 +130,13 @@ export class AudioSystem {
       const savedType = localStorage.getItem('luohammer_custom_voice_type') || 'audio/mpeg';
       if (savedBase64) this._loadCustomAudio(savedBase64, savedType);
     } catch(e) {}
+
+    // AudioSystem 自己持有的浏览器资源必须跟随场景关闭。
+    // 统一在此绑定，覆盖 Scene 提前 return、异常兜底等调用方来不及手动 destroy 的路径。
+    if (this.scene?.events?.once) {
+      this._sceneShutdownHandler = () => this.destroy();
+      this.scene.events.once('shutdown', this._sceneShutdownHandler);
+    }
   }
 
   _initVoices() {
@@ -130,9 +145,28 @@ export class AudioSystem {
       this._cachedVoices = window.speechSynthesis.getVoices();
     };
     loadVoices();
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+    this._voiceChangeHandler = loadVoices;
+    if (typeof window.speechSynthesis.addEventListener === 'function') {
+      window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
+    } else if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      this._previousVoiceChangeHandler = window.speechSynthesis.onvoiceschanged;
       window.speechSynthesis.onvoiceschanged = loadVoices;
     }
+  }
+
+  /**
+   * 注册多音符音效中的延迟任务。回调执行后自动移除引用，
+   * 场景 shutdown 时全部取消，避免上一场景的尾音串到下一场景。
+   */
+  _scheduleSfx(fn, delay) {
+    if (this._destroyed) return null;
+    const timer = setTimeout(() => {
+      this._sfxTimers.delete(timer);
+      if (this._destroyed) return;
+      try { fn(); } catch(e) {}
+    }, delay);
+    this._sfxTimers.add(timer);
+    return timer;
   }
 
   _getCtx() {
@@ -299,7 +333,7 @@ export class AudioSystem {
    */
   playChoice() {
     this._playTone(660, 0.07);
-    setTimeout(() => this._playTone(990, 0.09), 55);
+    this._scheduleSfx(() => this._playTone(990, 0.09), 55);
   }
 
   /**
@@ -307,8 +341,8 @@ export class AudioSystem {
    */
   playTalentSelect() {
     this._playTone(880, 0.08, 'triangle', 0.1);
-    setTimeout(() => this._playTone(1100, 0.06, 'triangle', 0.08), 60);
-    setTimeout(() => this._playTone(1320, 0.15, 'sine', 0.06), 120);
+    this._scheduleSfx(() => this._playTone(1100, 0.06, 'triangle', 0.08), 60);
+    this._scheduleSfx(() => this._playTone(1320, 0.15, 'sine', 0.06), 120);
   }
 
   /**
@@ -346,9 +380,9 @@ export class AudioSystem {
    */
   playAchievement() {
     this._playTone(523, 0.09);  // C5
-    setTimeout(() => this._playTone(659, 0.09), 90); // E5
-    setTimeout(() => this._playTone(784, 0.09), 180); // G5
-    setTimeout(() => this._playTone(1047, 0.18), 270); // C6
+    this._scheduleSfx(() => this._playTone(659, 0.09), 90); // E5
+    this._scheduleSfx(() => this._playTone(784, 0.09), 180); // G5
+    this._scheduleSfx(() => this._playTone(1047, 0.18), 270); // C6
   }
 
   /**
@@ -356,11 +390,11 @@ export class AudioSystem {
    */
   playAchievementRare() {
     this._playTone(523, 0.08, 'triangle', 0.1);   // C5
-    setTimeout(() => this._playTone(659, 0.08, 'triangle', 0.1), 70);  // E5
-    setTimeout(() => this._playTone(784, 0.08, 'triangle', 0.1), 140); // G5
-    setTimeout(() => this._playTone(1047, 0.08, 'triangle', 0.1), 210); // C6
-    setTimeout(() => this._playTone(1319, 0.12, 'sine', 0.08), 280);   // E6
-    setTimeout(() => this._playTone(1568, 0.25, 'sine', 0.07), 360);   // G6 闪耀收尾
+    this._scheduleSfx(() => this._playTone(659, 0.08, 'triangle', 0.1), 70);  // E5
+    this._scheduleSfx(() => this._playTone(784, 0.08, 'triangle', 0.1), 140); // G5
+    this._scheduleSfx(() => this._playTone(1047, 0.08, 'triangle', 0.1), 210); // C6
+    this._scheduleSfx(() => this._playTone(1319, 0.12, 'sine', 0.08), 280);   // E6
+    this._scheduleSfx(() => this._playTone(1568, 0.25, 'sine', 0.07), 360);   // G6 闪耀收尾
   }
 
   /**
@@ -369,10 +403,10 @@ export class AudioSystem {
   playAchievementLegendary() {
     const notes = [523, 587, 659, 784, 880, 1047, 1175, 1319];
     notes.forEach((freq, i) => {
-      setTimeout(() => this._playTone(freq, 0.1, 'triangle', 0.08 + i * 0.005), i * 60);
+      this._scheduleSfx(() => this._playTone(freq, 0.1, 'triangle', 0.08 + i * 0.005), i * 60);
     });
     // 和弦收尾
-    setTimeout(() => {
+    this._scheduleSfx(() => {
       this._playTone(1047, 0.3, 'sine', 0.07);  // C6
       this._playTone(1319, 0.3, 'sine', 0.06);  // E6
       this._playTone(1568, 0.4, 'sine', 0.06);  // G6
@@ -385,7 +419,7 @@ export class AudioSystem {
   playStatUp(amount = 5) {
     const base = 520 + Math.min(amount, 20) * 10;
     this._playTone(base, 0.08, 'triangle', 0.08);
-    setTimeout(() => this._playTone(base * 1.5, 0.12, 'triangle', 0.06), 60);
+    this._scheduleSfx(() => this._playTone(base * 1.5, 0.12, 'triangle', 0.06), 60);
   }
 
   /**
@@ -393,8 +427,8 @@ export class AudioSystem {
    */
   playStageSettlement() {
     this._playTone(330, 0.15, 'triangle', 0.09);  // E4
-    setTimeout(() => this._playTone(440, 0.15, 'triangle', 0.09), 150); // A4
-    setTimeout(() => this._playTone(660, 0.3, 'triangle', 0.1), 300);   // E5 长音
+    this._scheduleSfx(() => this._playTone(440, 0.15, 'triangle', 0.09), 150); // A4
+    this._scheduleSfx(() => this._playTone(660, 0.3, 'triangle', 0.1), 300);   // E5 长音
   }
 
   /**
@@ -402,8 +436,8 @@ export class AudioSystem {
    */
   playHistoryCard() {
     this._playTone(440, 0.12, 'sine', 0.06);
-    setTimeout(() => this._playTone(392, 0.15, 'sine', 0.05), 120);
-    setTimeout(() => this._playTone(349, 0.2, 'sine', 0.04), 250);  // 渐弱回响
+    this._scheduleSfx(() => this._playTone(392, 0.15, 'sine', 0.05), 120);
+    this._scheduleSfx(() => this._playTone(349, 0.2, 'sine', 0.04), 250);  // 渐弱回响
   }
 
   /**
@@ -411,8 +445,8 @@ export class AudioSystem {
    */
   playRandomEvent() {
     this._playTone(784, 0.06, 'square', 0.07);  // G5 短促
-    setTimeout(() => this._playTone(988, 0.06, 'square', 0.07), 80); // B5
-    setTimeout(() => this._playTone(1175, 0.12, 'triangle', 0.06), 160); // D6
+    this._scheduleSfx(() => this._playTone(988, 0.06, 'square', 0.07), 80); // B5
+    this._scheduleSfx(() => this._playTone(1175, 0.12, 'triangle', 0.06), 160); // D6
   }
 
   /**
@@ -420,8 +454,8 @@ export class AudioSystem {
    */
   playThresholdTrigger() {
     this._playTone(660, 0.15, 'sine', 0.06);
-    setTimeout(() => this._playTone(880, 0.12, 'sine', 0.05), 100);
-    setTimeout(() => this._playTone(1100, 0.2, 'sine', 0.04), 200);
+    this._scheduleSfx(() => this._playTone(880, 0.12, 'sine', 0.05), 100);
+    this._scheduleSfx(() => this._playTone(1100, 0.2, 'sine', 0.04), 200);
   }
 
   /**
@@ -429,7 +463,7 @@ export class AudioSystem {
    */
   playConsequence() {
     this._playTone(262, 0.2, 'triangle', 0.07);  // C4
-    setTimeout(() => this._playTone(220, 0.25, 'triangle', 0.05), 180); // A3 回响
+    this._scheduleSfx(() => this._playTone(220, 0.25, 'triangle', 0.05), 180); // A3 回响
   }
 
   // ============================================================
@@ -441,9 +475,9 @@ export class AudioSystem {
    */
   playEnding() {
     this._playTone(523, 0.18, 'triangle', 0.09);
-    setTimeout(() => this._playTone(392, 0.18, 'triangle', 0.09), 180);
-    setTimeout(() => this._playTone(330, 0.2, 'triangle', 0.09), 360);
-    setTimeout(() => this._playTone(262, 0.4, 'triangle', 0.1), 540);
+    this._scheduleSfx(() => this._playTone(392, 0.18, 'triangle', 0.09), 180);
+    this._scheduleSfx(() => this._playTone(330, 0.2, 'triangle', 0.09), 360);
+    this._scheduleSfx(() => this._playTone(262, 0.4, 'triangle', 0.1), 540);
   }
 
   /**
@@ -452,9 +486,9 @@ export class AudioSystem {
   playEndingLegendary() {
     const scale = [262, 330, 392, 523, 659, 784, 1047];
     scale.forEach((freq, i) => {
-      setTimeout(() => this._playTone(freq, 0.12, 'triangle', 0.08 + i * 0.003), i * 80);
+      this._scheduleSfx(() => this._playTone(freq, 0.12, 'triangle', 0.08 + i * 0.003), i * 80);
     });
-    setTimeout(() => {
+    this._scheduleSfx(() => {
       this._playTone(1047, 0.4, 'sine', 0.08);
       this._playTone(1319, 0.4, 'sine', 0.07);
       this._playTone(1568, 0.5, 'sine', 0.07);
@@ -466,9 +500,9 @@ export class AudioSystem {
    */
   playEndingTragic() {
     this._playTone(440, 0.25, 'triangle', 0.08);   // A4
-    setTimeout(() => this._playTone(392, 0.25, 'triangle', 0.07), 200); // G4
-    setTimeout(() => this._playTone(311, 0.3, 'sawtooth', 0.05), 400);  // Eb4 小调
-    setTimeout(() => this._playTone(262, 0.5, 'sawtooth', 0.04), 600);  // C4 低沉收尾
+    this._scheduleSfx(() => this._playTone(392, 0.25, 'triangle', 0.07), 200); // G4
+    this._scheduleSfx(() => this._playTone(311, 0.3, 'sawtooth', 0.05), 400);  // Eb4 小调
+    this._scheduleSfx(() => this._playTone(262, 0.5, 'sawtooth', 0.04), 600);  // C4 低沉收尾
   }
 
   /**
@@ -476,9 +510,9 @@ export class AudioSystem {
    */
   playEndingPeaceful() {
     this._playTone(262, 0.3, 'sine', 0.06);  // C4
-    setTimeout(() => this._playTone(330, 0.3, 'sine', 0.06), 150); // E4
-    setTimeout(() => this._playTone(392, 0.4, 'sine', 0.06), 300); // G4
-    setTimeout(() => {
+    this._scheduleSfx(() => this._playTone(330, 0.3, 'sine', 0.06), 150); // E4
+    this._scheduleSfx(() => this._playTone(392, 0.4, 'sine', 0.06), 300); // G4
+    this._scheduleSfx(() => {
       this._playTone(523, 0.5, 'sine', 0.05);  // C5
       this._playTone(659, 0.5, 'sine', 0.04);  // E5
     }, 500);
@@ -489,7 +523,7 @@ export class AudioSystem {
    */
   playTransition() {
     this._playTone(300, 0.12, 'sine', 0.07);
-    setTimeout(() => this._playTone(220, 0.15, 'sine', 0.06), 100);
+    this._scheduleSfx(() => this._playTone(220, 0.15, 'sine', 0.06), 100);
   }
 
   // ============================================================
@@ -502,7 +536,7 @@ export class AudioSystem {
   playStatDown(amount = 5) {
     const base = 440 - Math.min(amount, 20) * 8;
     this._playTone(base, 0.1, 'sawtooth', 0.07);
-    setTimeout(() => this._playTone(base * 0.75, 0.14, 'sawtooth', 0.06), 70);
+    this._scheduleSfx(() => this._playTone(base * 0.75, 0.14, 'sawtooth', 0.06), 70);
   }
 
   /**
@@ -510,8 +544,8 @@ export class AudioSystem {
    */
   playCrash() {
     this._playNoise(0.3, 0.12);
-    setTimeout(() => this._playTone(180, 0.25, 'sawtooth', 0.08), 120);
-    setTimeout(() => this._playTone(90, 0.35, 'sawtooth', 0.06), 260);
+    this._scheduleSfx(() => this._playTone(180, 0.25, 'sawtooth', 0.08), 120);
+    this._scheduleSfx(() => this._playTone(90, 0.35, 'sawtooth', 0.06), 260);
   }
 
   /**
@@ -519,9 +553,9 @@ export class AudioSystem {
    */
   playPressureWarning() {
     for (let i = 0; i < 3; i++) {
-      setTimeout(() => {
+      this._scheduleSfx(() => {
         this._playTone(110, 0.08, 'sawtooth', 0.06);
-        setTimeout(() => this._playTone(120, 0.06, 'sawtooth', 0.05), 50);
+        this._scheduleSfx(() => this._playTone(120, 0.06, 'sawtooth', 0.05), 50);
       }, i * 180);
     }
   }
@@ -539,7 +573,7 @@ export class AudioSystem {
 
   /**
    * 开始背景音乐循环。
-   * @param {string} type 'menu' | 'gameplay' | 'ending_legendary' | 'ending_tragic' | 'ending_peaceful' | 'ending_default'
+   * @param {string} type 菜单、六个人生阶段或结局情绪对应的 BGM 类型
    */
   startBGM(type = 'menu') {
     if (!this.enabled) return;
@@ -602,6 +636,48 @@ export class AudioSystem {
           {freq:131,dur:0.35,type:'triangle',vol:0.04},
           {freq:0,dur:0.4},
         ];
+      case 'gameplay_youth':
+        // 青年：明亮、留白较多的五声音阶，保留尚未定型的轻盈感
+        return [
+          [{freq:262,dur:0.22,type:'square',vol:0.055},{freq:131,dur:0.22,type:'triangle',vol:0.025}],
+          {freq:0,dur:0.10},
+          {freq:294,dur:0.18,type:'square',vol:0.05},
+          {freq:330,dur:0.22,type:'triangle',vol:0.05},
+          {freq:0,dur:0.12},
+          {freq:392,dur:0.28,type:'square',vol:0.05},
+          {freq:330,dur:0.18,type:'triangle',vol:0.045},
+          {freq:294,dur:0.18,type:'triangle',vol:0.04},
+          {freq:262,dur:0.30,type:'sine',vol:0.04},
+          {freq:0,dur:0.38}
+        ];
+      case 'gameplay_teacher':
+        // 教师：钟声般的正弦波与规整低音，克制、稳定，像一节课的节拍
+        return [
+          [{freq:196,dur:0.42,type:'sine',vol:0.045},{freq:98,dur:0.42,type:'triangle',vol:0.025}],
+          {freq:0,dur:0.18},
+          {freq:247,dur:0.36,type:'sine',vol:0.045},
+          {freq:0,dur:0.18},
+          [{freq:220,dur:0.42,type:'sine',vol:0.045},{freq:110,dur:0.42,type:'triangle',vol:0.025}],
+          {freq:0,dur:0.18},
+          {freq:262,dur:0.46,type:'sine',vol:0.04},
+          {freq:0,dur:0.46}
+        ];
+      case 'gameplay_startup':
+        // 创业：短促脉冲与上行点音，节奏更密，表现发布会和现金流的推进感
+        return [
+          [{freq:131,dur:0.16,type:'square',vol:0.045},{freq:262,dur:0.11,type:'triangle',vol:0.035}],
+          {freq:0,dur:0.08},
+          {freq:165,dur:0.16,type:'square',vol:0.045},
+          {freq:196,dur:0.16,type:'square',vol:0.05},
+          {freq:0,dur:0.08},
+          [{freq:147,dur:0.16,type:'square',vol:0.045},{freq:330,dur:0.11,type:'triangle',vol:0.035}],
+          {freq:175,dur:0.16,type:'square',vol:0.045},
+          {freq:220,dur:0.20,type:'square',vol:0.05},
+          {freq:0,dur:0.22},
+          {freq:196,dur:0.16,type:'triangle',vol:0.04},
+          {freq:165,dur:0.24,type:'triangle',vol:0.04},
+          {freq:0,dur:0.28}
+        ];
       case 'ending_legendary':
         // 传奇结局：辉煌的三角波+八度低音和弦
         return [
@@ -650,19 +726,32 @@ export class AudioSystem {
           [{freq:98,dur:0.5,type:'sawtooth',vol:0.04},{freq:49,dur:0.5,type:'triangle',vol:0.03}],
           {freq:0,dur:0.4},
         ];
-      case 'gameplay_hopeful':
-        // 还债/新生：温暖上扬的正弦波，带节奏感
+      case 'gameplay_repay':
+        // 还债：低音持续向前，高音只小幅上扬，坚定但仍背着重量
         return [
-          [{freq:262,dur:0.3,type:'sine',vol:0.06},{freq:131,dur:0.3,type:'triangle',vol:0.03}],
-          {freq:0,dur:0.15},
-          [{freq:330,dur:0.3,type:'sine',vol:0.06},{freq:165,dur:0.3,type:'triangle',vol:0.03}],
-          {freq:0,dur:0.15},
-          [{freq:392,dur:0.35,type:'sine',vol:0.07},{freq:196,dur:0.35,type:'triangle',vol:0.03}],
-          {freq:0,dur:0.2},
-          [{freq:330,dur:0.3,type:'sine',vol:0.05},{freq:165,dur:0.3,type:'triangle',vol:0.03}],
-          {freq:0,dur:0.15},
-          [{freq:262,dur:0.4,type:'sine',vol:0.05},{freq:131,dur:0.4,type:'triangle',vol:0.03}],
-          {freq:0,dur:0.3},
+          [{freq:110,dur:0.30,type:'triangle',vol:0.045},{freq:220,dur:0.22,type:'sine',vol:0.035}],
+          {freq:0,dur:0.12},
+          [{freq:123,dur:0.30,type:'triangle',vol:0.045},{freq:247,dur:0.22,type:'sine',vol:0.035}],
+          {freq:0,dur:0.12},
+          [{freq:131,dur:0.34,type:'triangle',vol:0.05},{freq:262,dur:0.24,type:'sine',vol:0.04}],
+          {freq:0,dur:0.16},
+          {freq:147,dur:0.30,type:'triangle',vol:0.045},
+          {freq:165,dur:0.34,type:'triangle',vol:0.045},
+          {freq:147,dur:0.28,type:'sine',vol:0.04},
+          {freq:0,dur:0.32}
+        ];
+      case 'gameplay_reborn':
+        // 重生：宽音程、明亮三和弦和更长尾音，形成终于抬头的舒展感
+        return [
+          [{freq:262,dur:0.36,type:'sine',vol:0.055},{freq:131,dur:0.36,type:'triangle',vol:0.025}],
+          {freq:330,dur:0.30,type:'sine',vol:0.055},
+          [{freq:392,dur:0.40,type:'sine',vol:0.06},{freq:196,dur:0.40,type:'triangle',vol:0.025}],
+          {freq:0,dur:0.18},
+          [{freq:523,dur:0.46,type:'triangle',vol:0.055},{freq:262,dur:0.46,type:'sine',vol:0.03}],
+          {freq:392,dur:0.30,type:'sine',vol:0.05},
+          {freq:330,dur:0.30,type:'sine',vol:0.05},
+          [{freq:262,dur:0.50,type:'sine',vol:0.05},{freq:165,dur:0.50,type:'triangle',vol:0.025}],
+          {freq:0,dur:0.42}
         ];
       case 'ending_default':
         // 默认结局：中性偏庄重，三角波+低八度
@@ -1163,6 +1252,7 @@ export class AudioSystem {
     if (this._customAudioEl) {
       try { this._customAudioEl.pause(); this._customAudioEl.currentTime = 0; } catch(e) {}
     }
+    this._detachCustomAudioEndedHandler();
   }
 
   /**
@@ -1194,14 +1284,9 @@ export class AudioSystem {
    * 从 localStorage 恢复自定义音频
    */
   _loadCustomAudio(base64, type) {
+    this._releaseCustomAudioResources();
     if (!base64) {
-      this._customAudioUrl = null;
-      this._customAudioEl = null;
       return;
-    }
-    // 释放旧的 URL
-    if (this._customAudioUrl) {
-      try { URL.revokeObjectURL(this._customAudioUrl); } catch(e) {}
     }
     // base64 → Blob → Object URL
     try {
@@ -1227,16 +1312,23 @@ export class AudioSystem {
   _playCustomAudio() {
     if (!this._customAudioEl) return;
     try {
+      this._detachCustomAudioEndedHandler();
       this._customAudioEl.pause();
       this._customAudioEl.currentTime = 0;
       this._customAudioEl.volume = this.masterVolume * 0.9;
       // 监听 ended 事件触发待处理回调（与 TTS utter.onend 行为一致）
+      const audioEl = this._customAudioEl;
       const onEnded = () => {
-        this._customAudioEl.removeEventListener('ended', onEnded);
+        audioEl.removeEventListener('ended', onEnded);
+        if (this._customAudioEndedHandler === onEnded) {
+          this._customAudioEndedHandler = null;
+        }
         this._flushSpeechEndCallbacks();
       };
-      this._customAudioEl.addEventListener('ended', onEnded);
-      this._customAudioEl.play().catch(e => {
+      this._customAudioEndedHandler = onEnded;
+      audioEl.addEventListener('ended', onEnded);
+      audioEl.play().catch(e => {
+        this._detachCustomAudioEndedHandler();
         console.warn('[AudioSystem] 自定义音频播放失败:', e);
         // 播放失败也触发回调，避免剧情卡死
         this._flushSpeechEndCallbacks();
@@ -1245,6 +1337,34 @@ export class AudioSystem {
       console.warn('[AudioSystem] playCustomAudio error:', e);
       this._flushSpeechEndCallbacks();
     }
+  }
+
+  _detachCustomAudioEndedHandler() {
+    if (!this._customAudioEl || !this._customAudioEndedHandler) return;
+    try {
+      this._customAudioEl.removeEventListener('ended', this._customAudioEndedHandler);
+    } catch(e) {}
+    this._customAudioEndedHandler = null;
+  }
+
+  /**
+   * 释放当前场景创建的 Blob URL 与 <audio> 监听器，但保留 localStorage 原始数据，
+   * 下一场景需要时会重新构建自己的播放实例。
+   */
+  _releaseCustomAudioResources() {
+    this._detachCustomAudioEndedHandler();
+    if (this._customAudioEl) {
+      try {
+        this._customAudioEl.pause();
+        this._customAudioEl.currentTime = 0;
+        this._customAudioEl.src = '';
+      } catch(e) {}
+    }
+    if (this._customAudioUrl) {
+      try { URL.revokeObjectURL(this._customAudioUrl); } catch(e) {}
+    }
+    this._customAudioUrl = null;
+    this._customAudioEl = null;
   }
 
   /**
@@ -1258,11 +1378,7 @@ export class AudioSystem {
    * 清除自定义音频
    */
   clearCustomVoice() {
-    if (this._customAudioUrl) {
-      try { URL.revokeObjectURL(this._customAudioUrl); } catch(e) {}
-    }
-    this._customAudioUrl = null;
-    this._customAudioEl = null;
+    this._releaseCustomAudioResources();
     try {
       localStorage.removeItem('luohammer_custom_voice');
       localStorage.removeItem('luohammer_custom_voice_type');
@@ -1316,14 +1432,17 @@ export class AudioSystem {
   getBGMTypeForStage(stageId) {
     switch (stageId) {
       case 'youth':
+        return 'gameplay_youth';
       case 'teacher':
+        return 'gameplay_teacher';
       case 'startup':
-        return 'gameplay';
+        return 'gameplay_startup';
       case 'dark':
         return 'gameplay_dark';
       case 'repay':
+        return 'gameplay_repay';
       case 'reborn':
-        return 'gameplay_hopeful';
+        return 'gameplay_reborn';
       default:
         return 'gameplay';
     }
@@ -1333,14 +1452,40 @@ export class AudioSystem {
    * 清理资源（场景销毁时调用）
    */
   destroy() {
-    // 标记已销毁，阻止定时器回调继续触发
+    if (this._destroyed) return;
+    this._destroyed = true;
+
+    if (this._sceneShutdownHandler && this.scene?.events?.off) {
+      this.scene.events.off('shutdown', this._sceneShutdownHandler);
+    }
+    this._sceneShutdownHandler = null;
+
+    for (const timer of this._sfxTimers) {
+      clearTimeout(timer);
+    }
+    this._sfxTimers.clear();
+
+    if (window.speechSynthesis && this._voiceChangeHandler) {
+      if (typeof window.speechSynthesis.removeEventListener === 'function') {
+        window.speechSynthesis.removeEventListener('voiceschanged', this._voiceChangeHandler);
+      } else if (window.speechSynthesis.onvoiceschanged === this._voiceChangeHandler) {
+        window.speechSynthesis.onvoiceschanged = this._previousVoiceChangeHandler;
+      }
+    }
+    this._voiceChangeHandler = null;
+    this._previousVoiceChangeHandler = null;
+
+    // 标记禁用，阻止正在竞争的音频回调继续触发
     this.enabled = false;
     this._narrationEnabled = false;
     this.stopBGM();
     this.stopSpeaking();
+    this._pendingSpeechEndCallbacks = [];
+    this._releaseCustomAudioResources();
     // 注意：不 close 共享 AudioContext（避免场景切换时反复创建/关闭触发 Chrome 限制）
     // 仅清理本实例引用；共享 ctx 由模块级 _sharedCtx 保留，页面卸载时自动释放
     this.ctx = null;
     this._masterGain = null;
+    this.scene = null;
   }
 }
