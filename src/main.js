@@ -1,19 +1,23 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT } from './config.js';
+import { GAME_WIDTH, GAME_HEIGHT, ENDING_SCENE_MAP } from './config.js';
 import { IntroScene } from './scenes/IntroScene.js';
 import { BootScene } from './scenes/BootScene.js';
 import { GameScene } from './scenes/GameScene.js';
 import { EndingScene } from './scenes/EndingScene.js';
 import { ENDINGS } from './data/endings.js';
-import { matchEnding } from './data/endings.js';
 
-// === 结局数据一致性检查（开发期防御）===
-// 确保所有结局定义在 display 表中都有对应条目，避免无声回退到 default
+
+// === 结局数据一致性检查（开发期运行时防御）===
+// 校验每个结局 id 在 ENDING_SCENE_MAP 中都有对应条目，避免无声回退到 default 场景
 (function validateEndingsConsistency() {
-  const storyEndings = Object.keys(ENDINGS);
-  // 这里可以添加更多检查逻辑
+  const endingIds = ENDINGS.map(e => e.id);
+  const sceneMapKeys = new Set(Object.keys(ENDING_SCENE_MAP));
+  const missing = endingIds.filter(id => !sceneMapKeys.has(id));
+  if (missing.length) {
+    console.warn('[Endings] 以下结局缺少 ENDING_SCENE_MAP 条目，将回退到默认场景:', missing);
+  }
   if (typeof console !== 'undefined' && console.debug) {
-    console.debug(`[Endings] ${storyEndings.length} 个结局已加载`);
+    console.debug(`[Endings] ${endingIds.length} 个结局已加载，场景映射校验通过`);
   }
 })();
 

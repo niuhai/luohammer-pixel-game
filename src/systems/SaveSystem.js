@@ -1,4 +1,5 @@
 import { STAGES, getStageByNodeId } from '../data/stages.js';
+import { STORY } from '../data/story.js';
 
 const SAVE_KEY = 'luohammer_save';
 const BACKUP_KEY = 'luohammer_save_backup';
@@ -49,6 +50,8 @@ function _isValidState(parsed) {
   }
   // currentNode 必须是非空字符串（空字符串会导致 getStageByNodeId 返回 null 后续崩溃）
   if (typeof parsed.currentNode !== 'string' || parsed.currentNode.length === 0) return false;
+  // currentNode 必须在 STORY 中实际存在（旧版存档节点改名后不致白屏崩溃）
+  if (!STORY[parsed.currentNode]) return false;
   return true;
 }
 

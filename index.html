@@ -110,6 +110,16 @@
       --radius-round: 50%;    /* 仅纯装饰圆点 */
     }
 
+    /* === 键盘焦点可见性（无障碍）=== */
+    /* 恢复被 outline:none 移除的键盘焦点指示，仅对键盘导航生效，不影响鼠标点击 */
+    button:focus-visible,
+    .ui-boot-btn:focus-visible,
+    .ui-choice-btn:focus-visible,
+    [role="button"]:focus-visible {
+      outline: 2px solid var(--color-gold);
+      outline-offset: 2px;
+    }
+
     /* === 全局滚动条 === */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: rgba(10, 10, 20, 0.3); }
@@ -4759,7 +4769,7 @@
 
             <div class="ui-boot-guide-tips">
               <span>* 点击对话推进剧情</span>
-              <span class="ui-boot-guide-kbd-tip">[KEY] 桌面端可按 A/B/C/D 快速选择</span>
+              <span class="ui-boot-guide-kbd-tip">[键盘] A 自动播放 · S 打字速度 · 空格继续 · ESC 菜单 · B/C/D 快速选择</span>
             </div>
           </div>
         </div>

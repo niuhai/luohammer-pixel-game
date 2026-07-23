@@ -70,26 +70,6 @@ export const VOICE_PRESETS = {
 
 const VOICE_PRESET_KEY = 'luohammer_voice_preset';
 
-/**
- * Edge TTS 神经语音映射（微软免费在线 TTS，效果更好、男女分明）
- * 格式: zh-CN-{Name}Neural
- * 可在 https://tts.travisvn.com/ 试听所有语音
- */
-const EDGE_TTS_VOICES = {
-  luo_style: 'zh-CN-YunxiNeural',       // 云希 - 男声，自然流畅，适合演讲风格
-  broadcast: 'zh-CN-YunjianNeural',     // 云健 - 男声，沉稳有力，适合播报
-  warm_female: 'zh-CN-XiaoxiaoNeural',   // 晓晓 - 女声，温暖亲切
-  young_female: 'zh-CN-XiaoyiNeural'     // 晓伊 - 女声，年轻明快
-};
-
-/** Edge TTS 速率映射（转换为百分比字符串） */
-const EDGE_TTS_RATE_MAP = {
-  luo_style: '-15%',
-  broadcast: '-25%',
-  warm_female: '-10%',
-  young_female: 'default'
-};
-
 /** Edge TTS 库实例（懒加载） */
 const _edgeTTSInstance = null;
 
@@ -100,7 +80,7 @@ export class AudioSystem {
     this.enabled = true;
     this.masterVolume = 0.6;       // 主音量 0~1
     this.sfxVolume = 0.7;          // 音效音量比例
-    this.bgmVolume = 0.25;         // 背景音乐音量比例（低于音效）
+    this.bgmVolume = 0.35;         // 背景音乐音量比例（略低于音效，避免被盖过）
     this.lastTypewriterTime = 0;
     this.typewriterPhase = 0;
     this._bgmGain = null;          // BGM增益节点

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, COLORS, FONTS, SCENE_ASSETS, CHARACTER_ASSETS, ENDING_SCENE_MAP } from '../config.js';
+import { GAME_WIDTH, GAME_HEIGHT, SCENE_ASSETS, CHARACTER_ASSETS, ENDING_SCENE_MAP } from '../config.js';
 import { STORY, CHAR_INFO } from '../data/story.js';
 import { PixelRenderer } from '../systems/PixelRenderer.js';
 import { DialogSystem } from '../systems/DialogSystem.js';
@@ -10,16 +10,15 @@ import { AudioSystem, VOICE_PRESETS } from '../systems/AudioSystem.js';
 import { SaveSystem } from '../systems/SaveSystem.js';
 import { HistoryCard } from '../ui/HistoryCard.js';
 import { showSaveLoadPanel } from '../ui/SaveLoadPanel.js';
-import { AchievementPopup, isHiddenAchievement, addAchievementToStorage, HIDDEN_ACHIEVEMENTS, ALL_ACHIEVEMENTS, loadUnlockedHiddenEndings, addHiddenEndingToStorage, addEndingToStorage, findAchievementDef, getAchievementScore, checkComboAchievements, loadComboAchievements, addComboAchievementToStorage, COMBO_ACHIEVEMENTS, loadUnlockedAchievements } from '../ui/AchievementPopup.js';
+import { AchievementPopup, isHiddenAchievement, addAchievementToStorage, HIDDEN_ACHIEVEMENTS, ALL_ACHIEVEMENTS, loadUnlockedHiddenEndings, addHiddenEndingToStorage, addEndingToStorage, findAchievementDef, getAchievementScore, checkComboAchievements, loadUnlockedAchievements } from '../ui/AchievementPopup.js';
 import { TalentSystem } from '../systems/TalentSystem.js';
 import { RandomEventSystem } from '../systems/RandomEventSystem.js';
 import { drawTalents, applyTalentEffects } from '../data/talents.js';
 import { matchEnding } from '../data/endings.js';
-import { getStageByNodeId, getCurrentStage, STAGES } from '../data/stages.js';
+import { getStageByNodeId, STAGES } from '../data/stages.js';
 import { applyEffects, checkPressureCrash, checkThresholdTriggers, checkComboTriggers, checkFlagConsequences, createInitialState, ATTRIBUTES } from '../data/effects.js';
-import { MetaProgression, MILESTONE_REWARDS } from '../systems/MetaProgression.js';
+import { MetaProgression } from '../systems/MetaProgression.js';
 import { toast } from '../systems/ToastSystem.js';
-import { SKILL_TREES, calculateExpGain } from '../data/skillTree.js';
 import { DebugLogger } from '../systems/DebugLogger.js';
 
 // 关键冲击场景集合：进入这些场景时触发白闪，增强转场冲击感
@@ -641,6 +640,14 @@ export class GameScene extends Phaser.Scene {
       console.log('[Debug] 调试模式已启用。可用命令：\n  __luohammerDebug.printSummary()\n  __luohammerDebug.exportLogs()\n  __luohammerDebug.state()');
     }
 
+    // 首次进入游戏时提示键盘快捷键（桌面端，仅一次）
+    if (!('ontouchstart' in window) && !localStorage.getItem('luohammer_kbd_hint_shown')) {
+      localStorage.setItem('luohammer_kbd_hint_shown', '1');
+      this._trackedTimeout(() => {
+        try { toast('键盘提示：A 自动播放 · S 打字速度 · 空格继续', 3500); } catch (e) {}
+      }, 2500);
+    }
+
     // 新游戏：先显示天赋选择
     if (this.isNewGame) {
       // 先绘制一个默认背景，避免天赋选择阶段黑屏
@@ -961,6 +968,37 @@ export class GameScene extends Phaser.Scene {
     if (this.transition) {
       this.transition.shake(10, 400);
     }
+
+    // === 6亿数字砸出（仅 act6_night · 评委记忆锚点）===
+    // 白闪后 100ms，红色巨号数字从屏幕顶部砸下，落地保持 1.5s 后淡出
+    if (nodeId === 'act6_night') {
+      this.time.delayedCall(100, () => {
+        const numEl = document.createElement('div');
+        numEl.textContent = '¥600,000,000';
+        numEl.style.cssText = [
+          'position:fixed', 'top:-120px', 'left:50%',
+          'transform:translateX(-50%)',
+          'font-size:clamp(36px,7vw,72px)',
+          'font-weight:900', 'letter-spacing:2px',
+          'color:var(--color-danger)',
+          'text-shadow:0 0 20px rgba(224,64,64,0.8),0 0 40px rgba(224,64,64,0.4)',
+          'z-index:10000', 'pointer-events:none',
+          'font-family:var(--font-pixel)',
+          'transition:top 0.4s cubic-bezier(0.7,0,1,0.5)'
+        ].join(';');
+        document.body.appendChild(numEl);
+        // 触发砸下动画
+        requestAnimationFrame(() => { numEl.style.top = '38%'; });
+        // 落地后 1.5s 淡出移除
+        this.time.delayedCall(1900, () => {
+          numEl.style.transition = 'opacity 0.3s';
+          numEl.style.opacity = '0';
+          this.time.delayedCall(300, () => {
+            if (numEl.parentNode) numEl.parentNode.removeChild(numEl);
+          });
+        });
+      });
+    }
     // 3. 压力暗角全开（临时模拟压力爆表；基准值与主流程一致为 10）
     if (this.pixelRenderer) {
       this.pixelRenderer.updatePressureEffect(10, 10);
@@ -974,7 +1012,7 @@ export class GameScene extends Phaser.Scene {
       // 2. 心跳声：3 次低频脉冲，模拟紧张心跳加速
       //    复用 _playTone，低频 sawtooth 模拟心脏跳动
       const heartbeats = [0, 300, 600];
-      heartbeats.forEach((delay, i) => {
+      heartbeats.forEach((delay, _i) => {
         this.time.delayedCall(delay, () => {
           if (!this.audio || !this.audio.enabled) return;
           // 心跳双拍：lub-dub
@@ -1177,7 +1215,7 @@ export class GameScene extends Phaser.Scene {
    * 根据目标纹理与姿态计算并应用角色缩放、位置与视觉特效。
    * 新立绘已为半身像，显示在右下角 1/4 区域，并附加金色轮廓光与底部投影。
    */
-  _applyCharacterLayout(sprite, pose) {
+  _applyCharacterLayout(sprite, _pose) {
     const texture = sprite.texture;
     const src = texture.getSourceImage();
     const srcW = src.width || 1;
@@ -1277,7 +1315,7 @@ export class GameScene extends Phaser.Scene {
    * 为说话/直播姿势添加轻微的呼吸动画。
    * 使用存储的 baseScale，避免旧 tween 残留导致缩放异常。
    */
-  _startCharacterTalkTween(sprite, pose) {
+  _startCharacterTalkTween(_sprite, _pose) {
     if (this._charTalkTween) {
       this._charTalkTween.stop();
       this._charTalkTween = null;
@@ -3080,7 +3118,7 @@ export class GameScene extends Phaser.Scene {
    * 序列化状态（Set→Array for JSON）
    */
   _serializeState() {
-    const { choicesMade, flags, triggeredEvents, ...rest } = this.state;
+    const { choicesMade: _choicesMade, flags, triggeredEvents, ...rest } = this.state;
     return {
       ...rest,
       flags: Array.from(flags || []),

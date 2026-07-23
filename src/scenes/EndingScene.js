@@ -1,14 +1,15 @@
 import Phaser from 'phaser';
 import { ENDINGS, STORY } from '../data/story.js';
-import { COLORS, GAME_WIDTH, GAME_HEIGHT, FONTS, ENDING_SCENE_MAP, SCENE_ASSETS } from '../config.js';
+import { GAME_WIDTH, GAME_HEIGHT, ENDING_SCENE_MAP, SCENE_ASSETS } from '../config.js';
 import { PixelRenderer } from '../systems/PixelRenderer.js';
 import { AudioSystem } from '../systems/AudioSystem.js';
 import { SaveSystem } from '../systems/SaveSystem.js';
-import { ALL_ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, isHiddenAchievement, loadUnlockedAchievements, getAchievementScore, calculateAchievementScore, checkComboAchievements, loadComboAchievements, COMBO_ACHIEVEMENTS } from '../ui/AchievementPopup.js';
+import { ALL_ACHIEVEMENTS, isHiddenAchievement, loadUnlockedAchievements, calculateAchievementScore, checkComboAchievements, loadComboAchievements } from '../ui/AchievementPopup.js';
 import { showAchievementGallery, getUnlockedAchievementNames } from '../ui/AchievementGallery.js';
 import { showEndingGallery, getEndingProgress } from '../ui/EndingGallery.js';
 import { MetaProgression, MILESTONE_REWARDS } from '../systems/MetaProgression.js';
-import { SKILL_TREES, ALL_SKILLS, getUnlockableSkills, calculateExpGain } from '../data/skillTree.js';
+import { AIReviewSystem, showAIReviewOverlay } from '../systems/AIReviewSystem.js';
+import { SKILL_TREES, calculateExpGain } from '../data/skillTree.js';
 import { RANDOM_EVENTS } from '../data/events-random.js';
 import { toast } from '../systems/ToastSystem.js';
 
@@ -117,9 +118,9 @@ export class EndingScene extends Phaser.Scene {
    * 根据结局类型生成不同颜色和行为的粒子，营造氛围
    */
   createEndingParticles(endingKey) {
-    const legendaryEndings = ['legend', 'ideal_king', 'tech_giant', 'cultural_icon'];
-    const tragicEndings = ['debt_prison', 'forgotten', 'exile'];
-    const peacefulEndings = ['survivor', 'compromise', 'quiet_life', 'balance'];
+    const legendaryEndings = ['legend', 'warrior', 'phoenix', 'idealist', 'comeback', 'rights_fighter'];
+    const tragicEndings = ['scapegoat', 'bankrupt_early', 'escape'];
+    const peacefulEndings = ['balance', 'hermit', 'peace', 'survivor', 'ordinary', 'monk', 'comfort', 'retreat'];
 
     let color = 0xf0c040; // 默认金色
     let count = 30;
@@ -645,6 +646,21 @@ export class EndingScene extends Phaser.Scene {
       this._showSkillTree();
     });
 
+    // === AI 人生复盘按钮（主按钮：运行时 AI 能力展示） ===
+    const aiReviewBtn = document.createElement('button');
+    aiReviewBtn.className = 'ui-ending-btn';
+    aiReviewBtn.style.borderColor = '#40c8c8';
+    aiReviewBtn.style.color = '#40c8c8';
+    aiReviewBtn.textContent = '◈ AI 人生复盘';
+    aiReviewBtn.addEventListener('click', () => {
+      const review = new AIReviewSystem({
+        state: this.state,
+        ending: this.ending,
+        endingKey: this.endingKey
+      });
+      showAIReviewOverlay(review);
+    });
+
     // === "更多" 折叠按钮（次级操作） ===
     const moreBtn = document.createElement('button');
     moreBtn.className = 'ui-ending-btn ui-ending-btn-more';
@@ -705,6 +721,7 @@ export class EndingScene extends Phaser.Scene {
 
     buttonsEl.appendChild(retryBtn);
     buttonsEl.appendChild(skillTreeBtn);
+    buttonsEl.appendChild(aiReviewBtn);
     buttonsEl.appendChild(moreBtn);
     buttonsEl.appendChild(moreMenu);
 
@@ -1094,7 +1111,7 @@ export class EndingScene extends Phaser.Scene {
       empty.textContent = '本局未解锁任何历史真相';
       panelContent.appendChild(empty);
     } else {
-      unlockedNotes.forEach((item, idx) => {
+      unlockedNotes.forEach((item, _idx) => {
         const isRead = readNotes.includes(item.nodeId);
         const row = document.createElement('div');
         row.style.cssText = `
@@ -1313,7 +1330,7 @@ export class EndingScene extends Phaser.Scene {
   /**
    * 为地图节点计算二维坐标
    */
-  _layoutLifeMap(nodes, edges, nodeMap) {
+  _layoutLifeMap(nodes, edges, _nodeMap) {
     const mapWidth = 2200;
     const mapHeight = 900;
     const paddingX = 120;
