@@ -209,18 +209,101 @@ export const CHARACTER_ASSETS = [
   { key: 'char-middle',     url: 'assets/characters/luo-middle-v2-nobg.webp',     pose: 'middle' }
 ];
 
+const ENDING_PRESENTATION_PROFILES = Object.freeze({
+  triumph: Object.freeze({
+    sceneType: 'ending-legend',
+    bgmType: 'ending_legendary',
+    particleStyle: 'legendary'
+  }),
+  rebirth: Object.freeze({
+    sceneType: 'ending-phoenix',
+    bgmType: 'ending_legendary',
+    particleStyle: 'legendary'
+  }),
+  spotlight: Object.freeze({
+    sceneType: 'ending-returns',
+    bgmType: 'ending_legendary',
+    particleStyle: 'legendary'
+  }),
+  peaceful: Object.freeze({
+    sceneType: 'ending-peace',
+    bgmType: 'ending_peaceful',
+    particleStyle: 'peaceful'
+  }),
+  withdrawn: Object.freeze({
+    sceneType: 'ending-monk',
+    bgmType: 'ending_peaceful',
+    particleStyle: 'peaceful'
+  }),
+  unresolved: Object.freeze({
+    sceneType: 'ending',
+    bgmType: 'ending_tragic',
+    particleStyle: 'tragic'
+  })
+});
+
 /**
- * 结局专属背景映射表
- * key = ending id, value = 场景资产 type
- * 未映射的结局仍使用通用 ending 场景
+ * 35 个可触发结局的统一呈现分类。
+ * 背景、BGM 与粒子情绪必须来自同一配置，避免三套硬编码列表彼此漂移。
  */
-export const ENDING_SCENE_MAP = {
-  legend: 'ending-legend',
-  phoenix: 'ending-phoenix',
-  returns: 'ending-returns',
-  peace: 'ending-peace',
-  monk: 'ending-monk',
-  idealist: 'ending-legend',
-  warrior: 'ending-phoenix',
-  comeback: 'ending-returns'
-};
+const ENDING_PROFILE_BY_ID = Object.freeze({
+  legend: 'triumph',
+  tycoon: 'triumph',
+  warrior: 'rebirth',
+  scapegoat: 'unresolved',
+  balance: 'peaceful',
+  rational: 'unresolved',
+  supply_chain: 'unresolved',
+  talkshow_star: 'spotlight',
+  ai_visionary: 'spotlight',
+  phoenix: 'rebirth',
+  hermit: 'withdrawn',
+  peace: 'peaceful',
+  survivor: 'rebirth',
+  craftsman: 'triumph',
+  scholar: 'peaceful',
+  ordinary: 'peaceful',
+  comfort: 'peaceful',
+  xiaomi: 'spotlight',
+  retreat: 'peaceful',
+  bankrupt_early: 'unresolved',
+  escape: 'unresolved',
+  moderate_success: 'peaceful',
+  anchor: 'spotlight',
+  comeback: 'spotlight',
+  educator: 'triumph',
+  writer: 'spotlight',
+  influencer: 'spotlight',
+  mentor: 'triumph',
+  idealist: 'triumph',
+  venture_capitalist: 'triumph',
+  tech_blogger: 'spotlight',
+  rights_fighter: 'rebirth',
+  monk: 'withdrawn',
+  returns: 'spotlight',
+  philanthropist: 'triumph'
+});
+
+export const ENDING_PRESENTATION_MAP = Object.freeze(Object.fromEntries(
+  Object.entries(ENDING_PROFILE_BY_ID).map(([endingId, profileId]) => [
+    endingId,
+    ENDING_PRESENTATION_PROFILES[profileId]
+  ])
+));
+
+export const ENDING_SCENE_MAP = Object.freeze(Object.fromEntries(
+  Object.entries(ENDING_PRESENTATION_MAP).map(([endingId, presentation]) => [
+    endingId,
+    presentation.sceneType
+  ])
+));
+
+const DEFAULT_ENDING_PRESENTATION = Object.freeze({
+  sceneType: 'ending',
+  bgmType: 'ending_peaceful',
+  particleStyle: 'neutral'
+});
+
+export function getEndingPresentation(endingId) {
+  return ENDING_PRESENTATION_MAP[endingId] || DEFAULT_ENDING_PRESENTATION;
+}

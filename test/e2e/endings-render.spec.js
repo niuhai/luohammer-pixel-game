@@ -94,4 +94,118 @@ test.describe('结局场景渲染', () => {
     const statsVisible = await statsEl.isVisible().catch(() => false);
     expect(descVisible || statsVisible).toBeTruthy();
   });
+
+  test('六类结局使用匹配的背景、音乐与粒子情绪', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+    page.on('console', message => {
+      if (message.type() === 'error') pageErrors.push(message.text());
+    });
+
+    await expect(page.locator('#ui-boot-overlay')).toBeVisible({ timeout: 15_000 });
+
+    const cases = [
+      {
+        ending: 'tycoon',
+        sceneType: 'ending-legend',
+        bgmType: 'ending_legendary',
+        particleColor: 0xffd866,
+        particleCount: 50
+      },
+      {
+        ending: 'warrior',
+        sceneType: 'ending-phoenix',
+        bgmType: 'ending_legendary',
+        particleColor: 0xffd866,
+        particleCount: 50
+      },
+      {
+        ending: 'talkshow_star',
+        sceneType: 'ending-returns',
+        bgmType: 'ending_legendary',
+        particleColor: 0xffd866,
+        particleCount: 50
+      },
+      {
+        ending: 'peace',
+        sceneType: 'ending-peace',
+        bgmType: 'ending_peaceful',
+        particleColor: 0xa0d8a0,
+        particleCount: 25
+      },
+      {
+        ending: 'monk',
+        sceneType: 'ending-monk',
+        bgmType: 'ending_peaceful',
+        particleColor: 0xa0d8a0,
+        particleCount: 25
+      },
+      {
+        ending: 'scapegoat',
+        sceneType: 'ending',
+        bgmType: 'ending_tragic',
+        particleColor: 0x666666,
+        particleCount: 20
+      }
+    ];
+
+    const state = {
+      pride: 6, wealth: 5, reputation: 5, failures: 2, pressure: 4, trust: 5,
+      pressureMax: 10, failurePenalty: 1, successBonus: 1,
+      talentSpecials: [], currentStageId: 'reborn', currentNode: 'act9_final',
+      flags: [], triggeredEvents: [], history: [], achievements: [],
+      gameStartTime: Date.now() - 60000
+    };
+
+    for (const [index, expected] of cases.entries()) {
+      if (index > 0) {
+        await page.reload();
+        await expect(page.locator('#ui-boot-overlay')).toBeVisible({ timeout: 15_000 });
+      }
+
+      await page.evaluate(({ ending, state: endingState }) => {
+        window.game.scene.start('EndingScene', {
+          state: { ...endingState },
+          ending
+        });
+      }, { ending: expected.ending, state });
+
+      await page.waitForFunction(ending => {
+        const scene = window.game.scene.getScene('EndingScene');
+        return scene?.scene.isActive() && scene.endingKey === ending &&
+          scene.audio && scene._endingParticles;
+      }, expected.ending);
+
+      const actual = await page.evaluate(() => {
+        const scene = window.game.scene.getScene('EndingScene');
+        const sceneType = scene.endingPresentation.sceneType;
+        const background = scene.children.list.find(
+          child => child.texture?.key === `bg-${sceneType}` && child.visible
+        );
+        return {
+          sceneType,
+          bgmType: scene.audio._bgmType,
+          particleColor: scene._endingParticles.color,
+          particleCount: scene._endingParticles.particles.length,
+          textureLoaded: scene.textures.exists(`bg-${sceneType}`),
+          backgroundVisible: Boolean(background),
+          safeCropBottom: background?.isCropped
+            ? background.height - background._crop.height
+            : 0
+        };
+      });
+
+      expect(actual).toEqual({
+        sceneType: expected.sceneType,
+        bgmType: expected.bgmType,
+        particleColor: expected.particleColor,
+        particleCount: expected.particleCount,
+        textureLoaded: true,
+        backgroundVisible: true,
+        safeCropBottom: 24
+      });
+    }
+
+    expect(pageErrors).toEqual([]);
+  });
 });

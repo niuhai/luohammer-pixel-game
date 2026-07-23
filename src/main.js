@@ -1,5 +1,10 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, ENDING_SCENE_MAP } from './config.js';
+import {
+  GAME_WIDTH,
+  GAME_HEIGHT,
+  ENDING_PRESENTATION_MAP,
+  SCENE_ASSETS
+} from './config.js';
 import { IntroScene } from './scenes/IntroScene.js';
 import { BootScene } from './scenes/BootScene.js';
 import { GameScene } from './scenes/GameScene.js';
@@ -8,16 +13,28 @@ import { ENDINGS } from './data/endings.js';
 
 
 // === 结局数据一致性检查（开发期运行时防御）===
-// 校验每个结局 id 在 ENDING_SCENE_MAP 中都有对应条目，避免无声回退到 default 场景
 (function validateEndingsConsistency() {
   const endingIds = ENDINGS.map(e => e.id);
-  const sceneMapKeys = new Set(Object.keys(ENDING_SCENE_MAP));
-  const missing = endingIds.filter(id => !sceneMapKeys.has(id));
+  const validSceneTypes = new Set(SCENE_ASSETS.map(asset => asset.type));
+  const validBgmTypes = new Set(['ending_legendary', 'ending_tragic', 'ending_peaceful']);
+  const validParticleStyles = new Set(['legendary', 'tragic', 'peaceful', 'neutral']);
+  const missing = endingIds.filter(id => !ENDING_PRESENTATION_MAP[id]);
+  const invalid = endingIds.filter(id => {
+    const presentation = ENDING_PRESENTATION_MAP[id];
+    return presentation && (
+      !validSceneTypes.has(presentation.sceneType) ||
+      !validBgmTypes.has(presentation.bgmType) ||
+      !validParticleStyles.has(presentation.particleStyle)
+    );
+  });
   if (missing.length) {
-    console.warn('[Endings] 以下结局缺少 ENDING_SCENE_MAP 条目，将回退到默认场景:', missing);
+    console.error('[Endings] 以下结局缺少完整呈现配置:', missing);
   }
-  if (typeof console !== 'undefined' && console.debug) {
-    console.debug(`[Endings] ${endingIds.length} 个结局已加载，场景映射校验通过`);
+  if (invalid.length) {
+    console.error('[Endings] 以下结局的呈现配置无效:', invalid);
+  }
+  if (!missing.length && !invalid.length && typeof console !== 'undefined' && console.debug) {
+    console.debug(`[Endings] ${endingIds.length} 个结局呈现配置校验通过`);
   }
 })();
 

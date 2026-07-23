@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { ENDINGS, STORY } from '../data/story.js';
-import { GAME_WIDTH, GAME_HEIGHT, ENDING_SCENE_MAP, SCENE_ASSETS } from '../config.js';
+import { GAME_WIDTH, GAME_HEIGHT, SCENE_ASSETS, getEndingPresentation } from '../config.js';
 import { PixelRenderer } from '../systems/PixelRenderer.js';
 import { AudioSystem } from '../systems/AudioSystem.js';
 import { SaveSystem } from '../systems/SaveSystem.js';
@@ -13,12 +13,15 @@ import { SKILL_TREES, calculateExpGain } from '../data/skillTree.js';
 import { RANDOM_EVENTS } from '../data/events-random.js';
 import { toast } from '../systems/ToastSystem.js';
 
+const ENDING_BACKGROUND_SAFE_CROP_BOTTOM = 24;
+
 export class EndingScene extends Phaser.Scene {
   constructor() { super('EndingScene'); }
 
   init(data) {
     this.state = data.state;
     this.endingKey = data.ending || 'default';
+    this.endingPresentation = getEndingPresentation(this.endingKey);
     this.reviewVisible = false;
     this.shareCardVisible = false;
     this._lifeMapCloseBound = false;
@@ -26,13 +29,10 @@ export class EndingScene extends Phaser.Scene {
   }
 
   /**
-   * 懒加载结局专属背景图：只加载当前结局需要的那一张。
-   * 之前 GameScene.preload 会一次性加载全部 5 张结局图（约 1MB），
-   * 现在按需加载，单次结局只需 1 张图。
+   * 懒加载当前结局所属呈现分类的背景图，单次只加载一张资源。
    */
   preload() {
-    // 未映射专属图的结局回退到通用 ending 背景（结局公路），避免纯黑
-    const sceneType = ENDING_SCENE_MAP[this.endingKey] || 'ending';
+    const { sceneType } = this.endingPresentation;
     const assetKey = `bg-${sceneType}`;
     if (this.textures.exists(assetKey)) return; // 已加载（玩家游戏中预读过）
     const asset = SCENE_ASSETS.find(a => a.type === sceneType);
@@ -62,7 +62,7 @@ export class EndingScene extends Phaser.Scene {
     this._loadEndingBackground();
 
     // === B. 结局专属背景动画（Canvas 保留） ===
-    this.createEndingParticles(this.endingKey);
+    this.createEndingParticles();
 
     // === 跨周目经验结算（需在渲染前完成，以便图鉴显示当前结局） ===
     this.meta = new MetaProgression();
@@ -94,20 +94,27 @@ export class EndingScene extends Phaser.Scene {
   }
 
   /**
-   * 加载结局专属背景图（如果有的话）。
-   * 有专属背景的结局会显示一张全屏背景图，再叠加粒子特效。
-   * 未映射专属图的结局回退到通用 ending 背景（结局公路）。
+   * 加载当前结局呈现分类的背景图，再叠加对应粒子特效。
    */
   _loadEndingBackground() {
-    const sceneType = ENDING_SCENE_MAP[this.endingKey] || 'ending';
+    const { sceneType } = this.endingPresentation;
 
     const assetKey = `bg-${sceneType}`;
     // 图片已通过 GameScene.preload 加载，直接用 textures 获取
     if (!this.textures.exists(assetKey)) return;
 
     const img = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, assetKey);
-    // 结局插画（AI 高清图）使用线性过滤，避免缩放锯齿
+    // 高清结局插画使用线性过滤，避免缩放锯齿
     img.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    // 统一裁掉素材底部安全边，避免角落标记随全屏缩放进入最终画面。
+    if (img.height > ENDING_BACKGROUND_SAFE_CROP_BOTTOM) {
+      img.setCrop(
+        0,
+        0,
+        img.width,
+        img.height - ENDING_BACKGROUND_SAFE_CROP_BOTTOM
+      );
+    }
     img.setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
     img.setAlpha(0.35); // 半透明叠加，保留粒子效果
     img.setDepth(-1);
@@ -117,18 +124,15 @@ export class EndingScene extends Phaser.Scene {
    * 结局专属背景粒子动画
    * 根据结局类型生成不同颜色和行为的粒子，营造氛围
    */
-  createEndingParticles(endingKey) {
-    const legendaryEndings = ['legend', 'warrior', 'phoenix', 'idealist', 'comeback', 'rights_fighter'];
-    const tragicEndings = ['scapegoat', 'bankrupt_early', 'escape'];
-    const peacefulEndings = ['balance', 'hermit', 'peace', 'survivor', 'ordinary', 'monk', 'comfort', 'retreat'];
-
+  createEndingParticles() {
+    const particleStyle = this.endingPresentation.particleStyle;
     let color = 0xf0c040; // 默认金色
     let count = 30;
-    if (legendaryEndings.includes(endingKey)) {
+    if (particleStyle === 'legendary') {
       color = 0xffd866; count = 50;
-    } else if (tragicEndings.includes(endingKey)) {
+    } else if (particleStyle === 'tragic') {
       color = 0x666666; count = 20;
-    } else if (peacefulEndings.includes(endingKey)) {
+    } else if (particleStyle === 'peaceful') {
       color = 0xa0d8a0; count = 25;
     }
 
@@ -944,13 +948,7 @@ export class EndingScene extends Phaser.Scene {
    * 根据结局类型返回BGM类型
    */
   _getEndingBGMType(endingKey) {
-    const legendary = ['ideal_king', 'tech_giant', 'cultural_icon', 'legend', 'warrior', 'comeback'];
-    const tragic = ['debt_prison', 'forgotten', 'exile', 'scapegoat', 'supply_chain'];
-    const peaceful = ['survivor', 'compromise', 'quiet_life', 'balance', 'peace', 'default'];
-    if (legendary.includes(endingKey)) return 'ending_legendary';
-    if (tragic.includes(endingKey)) return 'ending_tragic';
-    if (peaceful.includes(endingKey)) return 'ending_peaceful';
-    return 'ending_peaceful';
+    return getEndingPresentation(endingKey).bgmType;
   }
 
   /**

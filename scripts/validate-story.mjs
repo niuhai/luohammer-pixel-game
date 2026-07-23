@@ -298,6 +298,7 @@ let SKILL_TREES = {};
 let ALL_SKILLS = [];
 let RANDOM_EVENTS = [];
 let ENDING_SCENE_MAP = {};
+let ENDING_PRESENTATION_MAP = {};
 let SCENE_ASSET_TYPES = new Set();
 
 try {
@@ -325,6 +326,7 @@ try {
 try {
   const configMod = await import('../src/config.js');
   ENDING_SCENE_MAP = configMod.ENDING_SCENE_MAP || {};
+  ENDING_PRESENTATION_MAP = configMod.ENDING_PRESENTATION_MAP || {};
   SCENE_ASSET_TYPES = new Set((configMod.SCENE_ASSETS || []).map(a => a.type));
 } catch (e) {
   console.warn(`⚠️  动态导入 config.js 失败: ${e.message}`);
@@ -1224,10 +1226,23 @@ for (const e of endingMetaList) {
   }
 }
 
-// 14d. ENDING_SCENE_MAP 中的 key 必须是有效的结局 id，value 必须是合法场景类型
+// 14d. 所有结局必须有完整呈现配置，且背景、BGM、粒子风格均合法
+let missingMapEntryCount = 0;
 let invalidMapKeyCount = 0;
 let invalidMapValueCount = 0;
+let invalidPresentationCount = 0;
 const endingIdSet = new Set(endingMetaList.map(e => e.id));
+const validEndingBgmTypes = new Set(['ending_legendary', 'ending_tragic', 'ending_peaceful']);
+const validParticleStyles = new Set(['legendary', 'tragic', 'peaceful', 'neutral']);
+
+for (const endingId of endingIdSet) {
+  if (!Object.prototype.hasOwnProperty.call(ENDING_PRESENTATION_MAP, endingId)) {
+    missingMapEntryCount++;
+    err(`结局 [${endingId}] 缺少完整呈现配置`);
+    sectionItem('error', `结局 [${endingId}] 缺少完整呈现配置`);
+  }
+}
+
 for (const [endingId, sceneType] of Object.entries(ENDING_SCENE_MAP)) {
   if (!endingIdSet.has(endingId)) {
     invalidMapKeyCount++;
@@ -1241,26 +1256,43 @@ for (const [endingId, sceneType] of Object.entries(ENDING_SCENE_MAP)) {
   }
 }
 
+for (const [endingId, presentation] of Object.entries(ENDING_PRESENTATION_MAP)) {
+  if (!endingIdSet.has(endingId)) continue;
+  if (!presentation ||
+      !SCENE_ASSET_TYPES.has(presentation.sceneType) ||
+      !validEndingBgmTypes.has(presentation.bgmType) ||
+      !validParticleStyles.has(presentation.particleStyle)) {
+    invalidPresentationCount++;
+    err(`结局 [${endingId}] 的背景/BGM/粒子呈现配置无效`);
+    sectionItem('error', `结局 [${endingId}] 呈现配置无效`);
+  }
+}
+
 console.log(`  结局总数: ${endingMetaList.length}`);
 console.log(`  ENDING_SCENE_MAP 条目数: ${Object.keys(ENDING_SCENE_MAP).length}`);
 console.log(`  priority 重复组数: ${priorityDupCount} 组`);
 console.log(`  缺失 priority: ${missingPriorityCount} 处`);
 console.log(`  非法 sceneType: ${invalidSceneTypeCount} 处`);
+console.log(`  缺失呈现配置: ${missingMapEntryCount} 处`);
 console.log(`  ENDING_SCENE_MAP 非法 key: ${invalidMapKeyCount} 处`);
 console.log(`  ENDING_SCENE_MAP 非法 value: ${invalidMapValueCount} 处`);
+console.log(`  无效呈现配置: ${invalidPresentationCount} 处`);
 
 // priority 重复为设计预期（info 级别），不纳入"全部一致"判定条件
 if (missingPriorityCount === 0 &&
-    invalidSceneTypeCount === 0 && invalidMapKeyCount === 0 &&
-    invalidMapValueCount === 0) {
+    invalidSceneTypeCount === 0 && missingMapEntryCount === 0 &&
+    invalidMapKeyCount === 0 && invalidMapValueCount === 0 &&
+    invalidPresentationCount === 0) {
   info('结局 priority/sceneType 全部一致 ✓');
   sectionItem('pass', '结局 priority/sceneType 全部一致');
 } else {
   if (priorityDupCount > 0) info(`  priority 重复: ${priorityDupCount} 组`);
   if (missingPriorityCount > 0) info(`  缺失 priority: ${missingPriorityCount} 处`);
   if (invalidSceneTypeCount > 0) info(`  非法 sceneType: ${invalidSceneTypeCount} 处`);
+  if (missingMapEntryCount > 0) info(`  缺失呈现配置: ${missingMapEntryCount} 处`);
   if (invalidMapKeyCount > 0) info(`  ENDING_SCENE_MAP 非法 key: ${invalidMapKeyCount} 处`);
   if (invalidMapValueCount > 0) info(`  ENDING_SCENE_MAP 非法 value: ${invalidMapValueCount} 处`);
+  if (invalidPresentationCount > 0) info(`  无效呈现配置: ${invalidPresentationCount} 处`);
 }
 
 // ============================================

@@ -4,6 +4,12 @@ import { TALENTS } from '../../src/data/talents.js';
 import { SKILL_TREES, ALL_SKILLS, getSkill } from '../../src/data/skillTree.js';
 import { ENDINGS } from '../../src/data/endings.js';
 import { ATTRIBUTES } from '../../src/data/effects.js';
+import {
+  ENDING_PRESENTATION_MAP,
+  ENDING_SCENE_MAP,
+  SCENE_ASSETS,
+  getEndingPresentation
+} from '../../src/config.js';
 
 // effects.js 中实际处理的 special 字符串
 const HANDLED_SPECIALS = new Set([
@@ -239,5 +245,45 @@ describe('endings.js 数据完整性', () => {
     for (let i = 1; i < sorted.length; i++) {
       expect(sorted[i - 1].priority).toBeGreaterThanOrEqual(sorted[i].priority);
     }
+  });
+
+  it('35 个结局都有完整且有效的视觉、音乐和粒子呈现配置', () => {
+    const endingIds = ENDINGS.map(ending => ending.id).sort();
+    const configuredIds = Object.keys(ENDING_PRESENTATION_MAP).sort();
+    const validSceneTypes = new Set(SCENE_ASSETS.map(asset => asset.type));
+    const validBgmTypes = new Set(['ending_legendary', 'ending_tragic', 'ending_peaceful']);
+    const validParticleStyles = new Set(['legendary', 'tragic', 'peaceful', 'neutral']);
+
+    expect(configuredIds).toEqual(endingIds);
+    for (const endingId of endingIds) {
+      const presentation = ENDING_PRESENTATION_MAP[endingId];
+      expect(validSceneTypes.has(presentation.sceneType), `${endingId} 背景类型无效`).toBe(true);
+      expect(validBgmTypes.has(presentation.bgmType), `${endingId} BGM 类型无效`).toBe(true);
+      expect(
+        validParticleStyles.has(presentation.particleStyle),
+        `${endingId} 粒子风格无效`
+      ).toBe(true);
+      expect(ENDING_SCENE_MAP[endingId]).toBe(presentation.sceneType);
+    }
+  });
+
+  it('结局呈现覆盖六种情绪分类，并为未知结局提供安全兜底', () => {
+    const sceneTypes = new Set(
+      Object.values(ENDING_PRESENTATION_MAP).map(presentation => presentation.sceneType)
+    );
+
+    expect(sceneTypes).toEqual(new Set([
+      'ending',
+      'ending-legend',
+      'ending-phoenix',
+      'ending-returns',
+      'ending-peace',
+      'ending-monk'
+    ]));
+    expect(getEndingPresentation('unknown-ending')).toEqual({
+      sceneType: 'ending',
+      bgmType: 'ending_peaceful',
+      particleStyle: 'neutral'
+    });
   });
 });
