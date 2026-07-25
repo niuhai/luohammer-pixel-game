@@ -3905,6 +3905,16 @@
 
     .ui-intro-overlay.visible { display: flex; }
 
+    /* 四角压暗 vignette：视线收束到星图中心（z-index 2：压在星图上、文案下） */
+    .ui-intro-overlay::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(ellipse at 50% 42%, transparent 52%, rgba(0, 0, 0, 0.44) 100%);
+      z-index: 2;
+    }
+
     /* 背景流动光晕 */
     .ui-intro-overlay::before {
       content: '';
@@ -3956,6 +3966,13 @@
 
     .ui-intro-line.visible { opacity: 1; }
 
+    /* 终局聚焦：L3 出现时 L1/L2 退到 45%，视线收束到"他" */
+    .ui-intro-text-layer.finale .ui-intro-line.visible {
+      opacity: 0.45;
+      transition: opacity 1.2s ease;
+    }
+    .ui-intro-text-layer.finale .ui-intro-line.visible:last-child { opacity: 1; }
+
     .ui-intro-char {
       display: inline-block;
       opacity: 0;
@@ -3991,15 +4008,24 @@
 
     .ui-intro-skip-hint {
       position: absolute;
-      bottom: 6vh;
+      bottom: calc(6vh + env(safe-area-inset-bottom, 0px));
       left: 50%;
       transform: translateX(-50%);
       font-size: clamp(12px, 1.2vw, 16px);
       color: rgba(240, 224, 180, 0.5);
       letter-spacing: 0.2em;
+      white-space: nowrap;
+      max-width: 92vw;
       opacity: 0;
       transition: opacity 0.6s ease;
       z-index: 3;
+    }
+
+    @media (max-width: 480px) {
+      .ui-intro-skip-hint {
+        font-size: 11px;
+        letter-spacing: 0.1em;
+      }
     }
 
     .ui-intro-skip-hint.visible {

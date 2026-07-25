@@ -2628,7 +2628,14 @@ export class GameScene extends Phaser.Scene {
       let endingCount = 0;
       try {
         const raw = localStorage.getItem('luohammer_all_endings');
-        endingCount = raw ? JSON.parse(raw).length : 0;
+        // P2 崩溃防护：损坏数据可能解析为非数组（对象/数字），.length 为 undefined
+        // 导致 endingCount 语义错误，必须显式校验数组类型
+        const parsed = raw ? JSON.parse(raw) : null;
+        if (Array.isArray(parsed)) {
+          endingCount = parsed.length;
+        } else if (this.meta && typeof this.meta.getSeenEndings === 'function') {
+          endingCount = this.meta.getSeenEndings().length;
+        }
       } catch(e) {
         if (this.meta && typeof this.meta.getSeenEndings === 'function') {
           endingCount = this.meta.getSeenEndings().length;

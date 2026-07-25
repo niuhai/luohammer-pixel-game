@@ -1759,14 +1759,26 @@ export class EndingScene extends Phaser.Scene {
     }
 
     // 使用 PixelRenderer 渲染分享卡
-    const endingKeys = Object.keys(ENDINGS);
-    const endingIndex = endingKeys.indexOf(this.endingKey) + 1;
-    const canvas = PixelRenderer.renderShareCard(this.state, this.ending, {
-      endingKey: this.endingKey,
-      endingIndex,
-      totalEndings: endingKeys.length
-    });
-    const dataURL = canvas.toDataURL('image/png');
+    // P1 崩溃防护：canvas 2d context 获取失败 / toDataURL 安全错误（受污染 canvas）时
+    // 不崩溃，提示用户并保持结局页可用
+    let dataURL;
+    try {
+      const endingKeys = Object.keys(ENDINGS);
+      const endingIndex = Math.max(0, endingKeys.indexOf(this.endingKey)) + 1;
+      const canvas = PixelRenderer.renderShareCard(this.state, this.ending, {
+        endingKey: this.endingKey,
+        endingIndex,
+        totalEndings: endingKeys.length
+      });
+      if (!canvas || typeof canvas.toDataURL !== 'function') {
+        throw new Error('share card canvas unavailable');
+      }
+      dataURL = canvas.toDataURL('image/png');
+    } catch (err) {
+      console.warn('[EndingScene] 分享卡生成失败:', err);
+      toast.error('分享卡生成失败，请重试');
+      return;
+    }
 
     // 隐藏结局页 DOM 层，避免与分享卡重影
     this._toggleEndingDOM(false);

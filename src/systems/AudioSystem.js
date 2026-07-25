@@ -1,6 +1,8 @@
 // 模块级共享 AudioContext，避免场景切换时反复创建/关闭 ctx 触发 Chrome 限制（~6 个）
 let _sharedCtx = null;
 let _sharedMasterGain = null;
+// P0 崩溃防护：Web Audio 构造失败标记（旧 WebView/受限环境），避免反复尝试构造
+let _ctxConstructFailed = false;
 
 /**
  * 配音预设：通过 rate/pitch/voiceFilter 组合模拟不同朗读风格。
@@ -139,13 +141,32 @@ export class AudioSystem {
     return timer;
   }
 
+  /**
+   * 获取共享 AudioContext。
+   * P0 崩溃防护：在不支持 Web Audio 的环境（旧 WebView/受限浏览器）构造会抛 TypeError，
+   * 此处捕获并返回 null — 调用方需判空（有 try-catch 的调用方会自然捕获 null 引用错误）。
+   * @returns {AudioContext|null}
+   */
   _getCtx() {
     if (!_sharedCtx) {
-      _sharedCtx = new (window.AudioContext || window.webkitAudioContext)();
-      // 创建共享主增益节点，所有音效统一经过此节点控制
-      _sharedMasterGain = _sharedCtx.createGain();
-      _sharedMasterGain.gain.setValueAtTime(this.masterVolume, _sharedCtx.currentTime);
-      _sharedMasterGain.connect(_sharedCtx.destination);
+      if (_ctxConstructFailed) return null;
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) throw new Error('Web Audio API unavailable');
+        _sharedCtx = new AC();
+        // 创建共享主增益节点，所有音效统一经过此节点控制
+        _sharedMasterGain = _sharedCtx.createGain();
+        _sharedMasterGain.gain.setValueAtTime(this.masterVolume, _sharedCtx.currentTime);
+        _sharedMasterGain.connect(_sharedCtx.destination);
+      } catch (e) {
+        _ctxConstructFailed = true;
+        _sharedCtx = null;
+        _sharedMasterGain = null;
+        this.ctx = null;
+        this._masterGain = null;
+        console.warn('[AudioSystem] AudioContext 不可用，音频功能已降级为静默:', e);
+        return null;
+      }
     }
     // 当前实例引用共享 ctx（便于实例方法访问）
     this.ctx = _sharedCtx;
@@ -345,6 +366,26 @@ export class AudioSystem {
   }
 
   /**
+   * 开场动画：流星划过 —— 高频向低频的柔和 slide，像光掠过耳边。
+   */
+  playIntroMeteor() {
+    if (!this.enabled) return;
+    this._playSlide(1600, 500, 0.5, 'sine', 0.022);
+  }
+
+  /**
+   * 开场动画终局：金色波前从中心涌出 —— 上行琶音星光齐明 + 低音暖垫托底。
+   */
+  playIntroFinale() {
+    if (!this.enabled) return;
+    const notes = [523, 659, 784, 1047]; // C5 E5 G5 C6 上行琶音
+    notes.forEach((f, i) => {
+      this._scheduleSfx(() => this._playTone(f, 0.4, 'triangle', 0.05), i * 90);
+    });
+    this._playTone(131, 1.4, 'sine', 0.045); // C2 暖垫
+  }
+
+  /**
    * 音频上下文是否已解锁。
    */
   isUnlocked() {
@@ -359,15 +400,20 @@ export class AudioSystem {
 
   /**
    * 解锁音频上下文（浏览器自动暂停策略）。
+   * @returns {Promise<boolean>} 解锁后 ctx 是否处于 running 状态
    */
   async unlock() {
-    if (!this.enabled) return;
+    if (!this.enabled) return false;
     try {
       const ctx = this._getCtx();
+      if (!ctx) return false;
       if (ctx.state === 'suspended') {
         await ctx.resume();
       }
-    } catch (e) {}
+      return ctx.state === 'running';
+    } catch (e) {
+      return false;
+    }
   }
 
   // ============================================================
@@ -820,7 +866,10 @@ export class AudioSystem {
   _playBGMLoop(patterns) {
     if (!this._bgmPlaying || !this._bgmGain) return;
 
+    // P0 崩溃防护：本方法由 setTimeout 递归调度，回调中异常无法被外层捕获，
+    // _getCtx() 可能返回 null（Web Audio 不可用），必须显式判空并停止 BGM
     const ctx = this._getCtx();
+    if (!ctx) { this._bgmPlaying = false; return; }
     // 从当前时间稍微前一点开始，但因为Web Audio会自动处理过去的时间，直接从+0.05s开始
     let t = ctx.currentTime + 0.05;
     let totalDur = 0;

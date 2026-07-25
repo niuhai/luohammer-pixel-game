@@ -79,6 +79,8 @@ REVIEW_REPORT.md
 # Python临时脚本
 *.py
 !generate_poster.py
+scripts/__pycache__/
+scripts/_*.png
 
 # Git worktree for deployment
 .worktrees/

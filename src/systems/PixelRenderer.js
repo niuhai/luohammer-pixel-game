@@ -227,6 +227,9 @@ export class PixelRenderer {
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext('2d');
+    // P1 崩溃防护：2d context 获取失败（内存受限/GPU 进程异常）时显式抛错，
+    // 由调用方（EndingScene.generateShareCard）捕获并降级为 toast 提示
+    if (!ctx) throw new Error('canvas 2d context unavailable');
 
     // === 氛围色系统：根据结局类型选择主色调 ===
     const endingKey = meta.endingKey || 'default';

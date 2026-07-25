@@ -43,6 +43,7 @@ export class TalentSystem {
     this.maxSelection = 2;
     this._clickHandler = null;
     this._rerollBtn = null;
+    this._confirmTimer = null;  // 确认淡出定时器（destroy 时清理）
     this._rerollClickHandler = () => this._performReroll();
 
     // 切换周目会重建 TalentSystem；动态按钮不能复用旧实例遗留的闭包监听。
@@ -248,7 +249,13 @@ export class TalentSystem {
     this.overlay.style.transition = 'opacity 0.5s';
     this.overlay.style.opacity = '0';
 
-    setTimeout(() => {
+    // P1 崩溃防护：timer 存为实例属性，destroy 时清理，
+    // 防止场景在 500ms 淡出期间切换后回调操作已销毁对象
+    if (this._confirmTimer) clearTimeout(this._confirmTimer);
+    this._confirmTimer = setTimeout(() => {
+      this._confirmTimer = null;
+      // destroy 后 overlay/scene 引用已释放，不再继续
+      if (!this.overlay || !this.scene) return;
       this.overlay.classList.remove('visible');
       this.overlay.style.opacity = '';
       this.overlay.style.transition = '';
@@ -274,6 +281,8 @@ export class TalentSystem {
    * 销毁资源，防止内存泄漏
    */
   destroy() {
+    // 清理确认淡出定时器（P1：防止场景切换后回调操作已销毁对象）
+    if (this._confirmTimer) { clearTimeout(this._confirmTimer); this._confirmTimer = null; }
     if (this._confirmClickHandler) {
       this.confirmBtn.removeEventListener('click', this._confirmClickHandler);
       this._confirmClickHandler = null;
