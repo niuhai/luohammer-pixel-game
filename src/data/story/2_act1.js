@@ -4,7 +4,7 @@ export const NODES = {
   act1_preputation: {
     act: '第二章',
     actSub: '准备试讲 · 写讲稿练段子 2000',
-    sceneType: SCENE_TYPES.CLASSROOM,
+    sceneType: SCENE_TYPES.CLASSROOM_NIGHT,
     character: '小罗',
     text: `俞敏洪回了信——来试讲吧。你攥着那封邮件，手心全是汗，像攥着一张通往另一个世界的门票。你一夜没睡，第二天就开始写讲稿。GRE填空的每一道题都被你拆开揉碎，笔记写了厚厚一摞。
 
@@ -76,7 +76,7 @@ export const NODES = {
   act1_yu: {
     act: '第二章',
     actSub: '俞敏洪办公室 · 最后的机会 2000',
-    sceneType: SCENE_TYPES.OFFICE,
+    sceneType: SCENE_TYPES.OFFICE_DAY,
     character: '小罗',
     text: `你坐在俞敏洪对面，低着头。办公室里很安静，只有空调在嗡嗡响，像是在替你数心跳。俞敏洪看着你，叹了口气："老罗，你两次都没过。"你抬起头，眼眶有点红，但声音没抖："俞老师，我知道我表现不好，但我真的能行。再给我一次机会，第三次，我保证不会让您失望。"
 
@@ -206,7 +206,7 @@ export const NODES = {
   act1_conflict: {
     act: '第三章',
     actSub: '与新东方教育理念的冲突 2005-2006',
-    sceneType: SCENE_TYPES.OFFICE,
+    sceneType: SCENE_TYPES.OFFICE_DAY,
     character: '小罗',
     text: `你和新东方的矛盾越来越深，像一道裂缝，每天都在变宽。新东方推崇"成功学鸡汤"——你要给学生打鸡血，让他们相信"只要努力就能成功"。但你觉得这是扯淡。你在课堂上说"努力不一定成功，但不努力一定很舒服"，学生笑了，但领导不笑了。
 
@@ -224,7 +224,7 @@ export const NODES = {
   act1_dilemma: {
     act: '第三章',
     actSub: '辞职前的内心挣扎 2006',
-    sceneType: SCENE_TYPES.OFFICE,
+    sceneType: SCENE_TYPES.OFFICE_DAY,
     character: '小罗',
     text: `你坐在办公室里，面前摆着辞职信。年薪五六十万，北京买了房，学生爱戴，网络红人——这些你全要放弃了。你妈打电话来："永浩啊，听说你要辞职？你疯了吧？"
 

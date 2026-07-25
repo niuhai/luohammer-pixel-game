@@ -58,7 +58,7 @@ export const NODES = {
   act2_censor1: {
     act: '第四章',
     actSub: '第一次被约谈 2007',
-    sceneType: SCENE_TYPES.OFFICE,
+    sceneType: SCENE_TYPES.OFFICE_DAY,
     character: '小罗',
     text: `电话响了。来电显示是一个你不想接的号码。你深吸一口气，按下接听键——手指冰凉，像按下一颗地雷的引信。那头的声音很平静：“罗先生，您网站上有一篇文章，内容不太合适，请您删除。”
 
@@ -76,7 +76,7 @@ export const NODES = {
   act2_censor2: {
     act: '第四章',
     actSub: '服务器被拔线 2008',
-    sceneType: SCENE_TYPES.OFFICE,
+    sceneType: SCENE_TYPES.OFFICE_DAY,
     character: '小罗',
     text: `你拒绝了删帖要求后，牛博网的服务器越来越不稳定。有一天早上你打开电脑——“无法连接”。不是宕机，是服务器被物理拔线了，像拔掉一个病人的氧气管。你打电话给托管商，对方支支吾吾：“上面的人来过了，把线拔了……我们也没办法。”
 
@@ -130,7 +130,7 @@ export const NODES = {
   act2_gone: {
     act: '第四章',
     actSub: '牛博网关闭那天 2009.1.9',
-    sceneType: SCENE_TYPES.OFFICE,
+    sceneType: SCENE_TYPES.OFFICE_EMPTY,
     character: '小罗',
     text: `2009年1月9日，牛博网被彻底关停。你一个人坐在办公室里，屏幕上一个字节都没有了，白得像一张没有写完的信。办公室里安静得不像话——没有了服务器风扇的嗡嗡声，没有了同事讨论文章的争论声，仿佛整间屋子都在为牛博网守灵。
 

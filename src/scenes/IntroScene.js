@@ -8,14 +8,18 @@ import { GAME_WIDTH, GAME_HEIGHT, GRID, FONTS } from '../config.js';
  * 开场动画「星图 · 人生路口」
  *
  * 核心意象：每一个选择都是一颗星，连成线就是一个人的人生。
- * - 深空星场淡入（烘焙星云纹理铺底：径向渐变 + 像素噪声斑块）
- * - 流星划向金色路径拐点：星星坠落处，选择开始生长
- * - 5 条像素光轨逐格延伸（像星座连线），远端节点依次点亮
+ * - 黑暗中心星火点燃（白色闪核 + 冲击环 + 低频轰鸣），星场才渐次亮起
+ * - 深空星场淡入（烘焙星云纹理铺底：径向渐变 + 像素噪声斑块 + 银河带）
+ * - 双层星场反向漂移（视差纵深），亮星带十字星芒
+ * - 流星划向金色路径拐点：星星坠落处火花四溅，选择开始生长
+ * - 5 条像素光轨逐格延伸（头部星芒 + 沿途火花），远端节点爆发点亮
  * - 节点点亮浮现人生方向词（理想/担当/热爱/自由/平凡），暗合五大结局家族
- * - 节点点亮伴随五声音阶上行音效，情绪逐星抬升
+ * - 节点点亮伴随五声音阶上行音效，情绪逐星抬升；已点亮光轨有微光周期性流过
  * - 相机 7s 缓慢推近（电影感 slow push），L3 出现时 L1/L2 降透明度聚焦
- * - 终局高潮：L3 浮现同刻，金色波前从中心沿 5 条光轨冲向远端节点，星光齐明
- * - 全图高亮保持后淡入游戏
+ * - 终局高潮：L3 浮现同刻微白闪，金色波前从中心沿 5 条光轨冲向远端节点，
+ *   星光齐明后全图集体"呼吸"一次，相机脉冲推近
+ * - 收场（自然看完）：五轨星光向中心回流汇聚，中心爆发白金闪光，白场顶点切入游戏
+ *   （跳过则保持原黑场快速淡出）
  *
  * 文案与视觉互文：
  *   L1 每一个选择，都是一颗星。
@@ -30,21 +34,33 @@ const LINES = [
 
 // 情感时间线（ms）
 const TL = {
-  heartAt: 500,    // 中心节点亮起
+  igniteAt: 300,   // 中心星火点燃（黑暗中的第一颗星）
   line1At: 900,    // L1 文案
   path1At: 2100,   // 第一批光轨（2 条）开始延伸
   line2At: 2600,   // L2 文案
   path2At: 3300,   // 第二批光轨（3 条）
   line3At: 4900,   // L3 文案
-  fadeAt: 7000,    // 自然结束淡出
+  fadeAt: 7700,    // 自然结束：星光开始回流（终局齐明完成后保持 ~475ms）
   skipAt: 1000     // 可跳过时间
 };
 
 const STEP_MS = 55;      // 光轨每格点亮间隔
 const CENTER = { x: GAME_WIDTH / 2, y: 172 }; // 偏上，下半屏留给文案
 
-// 终局高潮：L3 浮现同刻，金色波前从中心沿 5 条光轨涌出（850ms 冲到头），节点白金闪光
-const FINALE = { at: TL.line3At + 150, waveMs: 850 };
+// 终局高潮：金色波前从中心沿 5 条光轨涌出（850ms 冲到头），节点白金闪光。
+// 同步锚点：L3 共 11 字、900ms 逐字浮现，"他"为 index 7 → line3At + 7×(900/11) ≈ +573ms。
+// 波前在"他"字现金的同刻从中心涌出——光从"他"流向所有可能（文案与视觉互文的设计落点）。
+const FINALE = { at: TL.line3At + 575, waveMs: 850 };
+
+// 收场：星光回流中心（480ms）→ 白金爆发切场（240ms）
+const CONVERGE_MS = 480;
+const BURST_MS = 240;
+
+// 带十字星芒的亮星（固定构图，避开光轨与节点标签区）
+const HERO_STARS = [
+  { x: 96, y: 56 }, { x: 704, y: 44 }, { x: 236, y: 326 },
+  { x: 616, y: 336 }, { x: 756, y: 236 }, { x: 48, y: 232 }
+];
 
 /**
  * 5 条人生路径：折点序列 + 终点节点气质色 + 人生方向词。
@@ -103,6 +119,24 @@ export class IntroScene extends Phaser.Scene {
     this._finished = false;
     this._startTime = 0;
     this._litNodes = 0;
+    this._now = 0;            // 场景相对时钟（ms），供粒子/回流使用
+    this._prevT = 0;
+    this._particles = [];     // 像素火花粒子池（流星撞击/光轨沿途）
+    this._impacts = [];       // 流星撞击冲击环
+    this._meteorImpacted = METEORS.map(() => false); // 流星撞击触发标记（实例级，可重放）
+    this._pathSparked = [0, 0, 0, 0, 0];             // 每条光轨已迸火花的格 index
+    this._convergeAt = -1;    // 星光回流开始时刻（-1 = 未进入收场）
+    this._burstAt = -1;       // 白金爆发时刻（-1 = 未爆发）
+    this._tlQueue = [];       // 单时钟时间线事件队列（update 帧驱动，杜绝双时钟分叉）
+    this._tlCursor = 0;       // 队列游标
+    this._revealing = [];     // 正在逐字浮现的文案行 {chars, startT, interval, cursor}
+    this._naturalEnd = false; // 自然看完收场（回流→爆发→白闪溶解），区别于跳过路径
+
+    // 重置闪白层与文案层（"回顾开场"重放时清除上次的收场状态）
+    const flashEl = document.getElementById('ui-scene-flash');
+    if (flashEl) { flashEl.style.transition = 'none'; flashEl.style.opacity = '0'; }
+    const textLayer = document.querySelector('.ui-intro-text-layer');
+    if (textLayer) { textLayer.style.transition = ''; textLayer.style.opacity = ''; }
 
     this._buildStarfield();
     this._buildPaths();
@@ -144,15 +178,35 @@ export class IntroScene extends Phaser.Scene {
     this._stars = [];
     for (let i = 0; i < 130; i++) {
       const roll = Math.random();
+      const layer = i % 5 < 3 ? 0 : 1;
       this._stars.push({
         x: Math.floor(Math.random() * GAME_WIDTH / GRID) * GRID,
         y: Math.floor(Math.random() * GAME_HEIGHT / GRID) * GRID,
         size: roll < 0.25 ? 1 : roll < 0.82 ? 2 : 3,
-        base: 0.15 + Math.random() * 0.45,
+        base: (0.15 + Math.random() * 0.45) * (layer === 1 ? 1.25 : 1),
         twinkle: Math.random() < 0.3,
         phase: Math.random() * Math.PI * 2,
         speed: 0.6 + Math.random() * 1.2,
-        warm: Math.random() < 0.35 // 淡金星 vs 白星
+        warm: Math.random() < 0.35, // 淡金星 vs 白星
+        layer
+      });
+    }
+    // 银河带：y = 0.16x + 24 附近高斯散布的 1px 微星群，增加深空质感
+    for (let i = 0; i < 36; i++) {
+      const bx = Math.random() * GAME_WIDTH;
+      const spread = (Math.random() + Math.random() - 1) * 34;
+      const by = 0.16 * bx + 24 + spread;
+      if (by < 0 || by > GAME_HEIGHT) continue;
+      this._stars.push({
+        x: Math.floor(bx / GRID) * GRID,
+        y: Math.floor(by / GRID) * GRID,
+        size: 1,
+        base: 0.18 + Math.random() * 0.28,
+        twinkle: Math.random() < 0.4,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.5 + Math.random() * 0.9,
+        warm: Math.random() < 0.5,
+        layer: 0
       });
     }
   }
@@ -176,9 +230,9 @@ export class IntroScene extends Phaser.Scene {
       ctx.fillRect(0, 0, W, H);
 
       const BLOBS = [
-        { x: 0.80, y: 0.18, r: 0.36, c: '138,106,48', a: 0.34 }, // 右上暖金
-        { x: 0.16, y: 0.78, r: 0.40, c: '42,74,94',   a: 0.38 }, // 左下青蓝
-        { x: 0.50, y: 0.98, r: 0.44, c: '58,42,78',   a: 0.30 }  // 底部微紫
+        { x: 0.80, y: 0.18, r: 0.36, c: '138,106,48', a: 0.40 }, // 右上暖金
+        { x: 0.16, y: 0.78, r: 0.40, c: '42,74,94',   a: 0.44 }, // 左下青蓝
+        { x: 0.50, y: 0.98, r: 0.44, c: '58,42,78',   a: 0.36 }  // 底部微紫
       ];
       for (const b of BLOBS) {
         const R = b.r * W;
@@ -236,13 +290,18 @@ export class IntroScene extends Phaser.Scene {
 
   /** 为每个终点节点创建人生方向词标签（初始隐藏，节点点亮时弹性浮现） */
   _buildNodeLabels() {
+    // 竖屏移动端：画布 FIT 缩放 ~0.47，15px 方向词显示仅 ~7px 不可读，
+    // 放大到 21px（显示 ~10px）+ 加粗描边保住"人生方向"信息载体
+    const portrait = this.registry.get('isPortraitMobile') === true;
+    const fontSize = portrait ? '21px' : '15px';
+    const strokeW = portrait ? 4 : 3;
     this._nodeLabels = this._paths.map(p => {
       const color = '#' + p.node.toString(16).padStart(6, '0');
       return this.add.text(p.endX + p.labelDx, p.endY + p.labelDy, p.label, {
         fontFamily: FONTS.chinese,
-        fontSize: '15px',
+        fontSize,
         color
-      }).setOrigin(0.5, 0).setAlpha(0).setScale(0.6).setStroke('#0a0a0a', 3);
+      }).setOrigin(0.5, 0).setAlpha(0).setScale(0.6).setStroke('#0a0a0a', strokeW);
     });
   }
 
@@ -250,6 +309,22 @@ export class IntroScene extends Phaser.Scene {
     if (this._finished) return;
     if (this._startTime === 0) this._startTime = time;
     const t = time - this._startTime;
+    this._now = t;
+
+    // 单时钟时间线：文案浮现/音效/跳过提示全部由场景相对时钟 t 驱动（与绘制同一时钟）。
+    // delayedCall 走 Phaser Clock，帧 delta 在低性能设备被钳制时会滞后于 RAF 时钟，
+    // 导致文案比画面慢（双时钟分叉）——整条时间线必须同钟，"他"字与波前的同步才在全设备成立。
+    while (this._tlCursor < this._tlQueue.length && t >= this._tlQueue[this._tlCursor].at) {
+      this._tlQueue[this._tlCursor++].fn();
+    }
+    // 逐字浮现推进（同钟驱动）
+    for (let r = this._revealing.length - 1; r >= 0; r--) {
+      const rev = this._revealing[r];
+      const target = Math.min(rev.chars.length, Math.floor((t - rev.startT) / rev.interval) + 1);
+      while (rev.cursor < target) rev.chars[rev.cursor++].classList.add('revealed');
+      if (rev.cursor >= rev.chars.length) this._revealing.splice(r, 1);
+    }
+
     this._draw(t);
 
     // 检测光轨全部走完 → 触发节点点亮 + 音阶音效 + 方向词浮现
@@ -270,6 +345,41 @@ export class IntroScene extends Phaser.Scene {
         this._litNodes++;
       }
     });
+
+    // 流星到达拐点：火花迸发 + 冲击环（星星坠落处，选择开始生长）
+    if (!this._reducedMotion && this._convergeAt < 0) {
+      METEORS.forEach((m, i) => {
+        const arriveAt = m.at + m.dur;
+        if (!this._meteorImpacted[i] && t >= arriveAt) {
+          this._meteorImpacted[i] = true;
+          this._spawnBurst(m.x1, m.y1, m.dim ? 8 : 16, m.dim, false, t);
+          this._impacts.push({ x: m.x1, y: m.y1, at: t, dim: m.dim });
+        }
+      });
+      // 光轨头部沿途火花：每前进 6 格迸 1 颗微火花
+      this._paths.forEach((p, i) => {
+        const startAt = this._pathStartAt(i);
+        if (t < startAt) return;
+        const litCount = Math.min(p.cells.length, Math.floor((t - startAt) / STEP_MS) + 1);
+        const nextSpark = this._pathSparked[i] + 6;
+        if (litCount >= nextSpark && nextSpark < p.cells.length) {
+          this._pathSparked[i] = nextSpark;
+          const cell = p.cells[nextSpark];
+          this._spawnBurst(cell.x, cell.y, 1, false, true, t);
+        }
+      });
+    }
+
+    // 收场序列由场景相对时钟 t 驱动（与视觉同一时钟，避免低性能设备上双时钟分叉导致收场过晚）
+    if (!this._reducedMotion) {
+      if (this._convergeAt < 0 && t >= TL.fadeAt) {
+        this._startConverge(t);
+      } else if (this._convergeAt >= 0 && this._burstAt < 0 && t >= this._convergeAt + CONVERGE_MS) {
+        this._burst(t);
+      } else if (this._burstAt >= 0 && t >= this._burstAt + BURST_MS + 90) {
+        this._convergeFinish();
+      }
+    }
   }
 
   /** 第 i 条光轨的开始延伸时刻：第一批 [0,1]，第二批 [2,3,4] 错落 */
@@ -285,10 +395,57 @@ export class IntroScene extends Phaser.Scene {
     // 深空底色与星云已烘焙进 _nebulaImg 纹理（垫底），这里只画动态元素
 
     this._drawStars(g, t);
+    this._drawHeroStars(g, t);
     this._drawMeteors(g, t);
     this._drawHeart(g, t);
     this._drawPaths(g, t);
+    this._drawParticles(g, t);
     this._drawNodes(g, t);
+  }
+
+  /** 在 (x,y) 迸发像素火花：径向飞散 + 微下坠 + 渐隐；micro=沿途单颗微火花 */
+  _spawnBurst(x, y, count, dim, micro, t) {
+    for (let i = 0; i < count; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const sp = micro ? 0.015 + Math.random() * 0.03 : 0.05 + Math.random() * 0.11;
+      this._particles.push({
+        x, y,
+        vx: Math.cos(ang) * sp,
+        vy: Math.sin(ang) * sp - (micro ? 0.01 : 0.015),
+        at: t,
+        life: micro ? 320 : 500 + Math.random() * 250,
+        size: micro ? 1 : (Math.random() < 0.4 ? 2 : 1),
+        color: dim ? 0xd8dce8 : (Math.random() < 0.6 ? 0xffe080 : 0xfff4d8)
+      });
+    }
+    // 池上限：极端帧率下也不失控
+    if (this._particles.length > 120) this._particles.splice(0, this._particles.length - 120);
+  }
+
+  /** 火花与冲击环：流星撞击处环扩散，火花 GRID 对齐跳格飞行（像素质感） */
+  _drawParticles(g, t) {
+    if (this._particles.length === 0 && this._impacts.length === 0) return;
+    // 冲击环：520ms 扩散衰减
+    this._impacts = this._impacts.filter(r => t - r.at < 520);
+    for (const r of this._impacts) {
+      const k = (t - r.at) / 520;
+      g.lineStyle(1.5, r.dim ? 0xd8dce8 : 0xffd860, (r.dim ? 0.3 : 0.5) * (1 - k));
+      g.strokeCircle(r.x, r.y, 6 + k * 42);
+    }
+    // 火花：径向飞散 + 轻微重力
+    this._particles = this._particles.filter(pt => t - pt.at < pt.life);
+    const dt = Math.min(50, Math.max(0, t - this._prevT));
+    for (const pt of this._particles) {
+      const k = (t - pt.at) / pt.life;
+      pt.x += pt.vx * dt;
+      pt.y += pt.vy * dt;
+      pt.vy += 0.0012 * dt;
+      const px = Math.round(pt.x / GRID) * GRID;
+      const py = Math.round(pt.y / GRID) * GRID;
+      g.fillStyle(pt.color, (1 - k) * 0.9);
+      g.fillRect(px, py, pt.size, pt.size);
+    }
+    this._prevT = t;
   }
 
   /** 流星：头部亮、尾部渐隐的像素 streak，ease-out 减速 */
@@ -322,19 +479,50 @@ export class IntroScene extends Phaser.Scene {
     if (!this._reducedMotion && t >= FINALE.at + FINALE.waveMs) {
       swell = 1 + Math.min(1, (t - FINALE.at - FINALE.waveMs) / 900) * 0.4;
     }
+    // 双层反向漂移（视差纵深）：远层慢、近层快且反向，GRID 取整保持像素跳格感
+    const drift = this._reducedMotion ? 0 : (t / TL.fadeAt) * 3;
     for (const s of this._stars) {
       let alpha = s.base * fadeIn * swell;
       if (s.twinkle && !this._reducedMotion) {
         alpha *= 0.5 + 0.5 * Math.sin(t / 1000 * s.speed * Math.PI + s.phase);
       }
+      const dx = Math.round((s.layer === 0 ? drift : -drift * 1.4) / GRID) * GRID;
       g.fillStyle(s.warm ? 0xf0e0b8 : 0xd8dce8, Math.min(1, alpha));
-      g.fillRect(s.x, s.y, s.size, s.size);
+      g.fillRect(s.x + dx, s.y, s.size, s.size);
+    }
+  }
+
+  /** 亮星带十字星芒：6 颗固定构图锚点（避开光轨与标签区），呼吸明暗，随终局齐明 */
+  _drawHeroStars(g, t) {
+    const fadeIn = this._reducedMotion ? 1 : Math.min(1, t / 1200);
+    if (fadeIn <= 0) return;
+    let swell = 1;
+    if (!this._reducedMotion && t >= FINALE.at + FINALE.waveMs) {
+      swell = 1 + Math.min(1, (t - FINALE.at - FINALE.waveMs) / 900) * 0.4;
+    }
+    for (const h of HERO_STARS) {
+      const breathe = this._reducedMotion ? 1 : 0.85 + 0.15 * Math.sin(t / 1800 * Math.PI * 2 + h.x);
+      const a = Math.min(1, fadeIn * swell * breathe);
+      // 3px 亮核
+      g.fillStyle(0xfff4d8, 0.9 * a);
+      g.fillRect(h.x - 1, h.y - 1, 3, 3);
+      // 十字星芒：上下左右两臂渐隐（内段实、外段虚）
+      g.fillStyle(0xf0e0b8, 0.5 * a);
+      g.fillRect(h.x, h.y - 5, 1, 4);
+      g.fillRect(h.x, h.y + 2, 1, 4);
+      g.fillRect(h.x - 5, h.y, 4, 1);
+      g.fillRect(h.x + 2, h.y, 4, 1);
+      g.fillStyle(0xf0e0b8, 0.22 * a);
+      g.fillRect(h.x, h.y - 8, 1, 2);
+      g.fillRect(h.x, h.y + 7, 1, 2);
+      g.fillRect(h.x - 8, h.y, 2, 1);
+      g.fillRect(h.x + 7, h.y, 2, 1);
     }
   }
 
   /** 中心节点："此刻的你" —— 像素核心 + 呼吸光晕 */
   _drawHeart(g, t) {
-    const appear = this._reducedMotion ? 0 : TL.heartAt;
+    const appear = this._reducedMotion ? 0 : TL.igniteAt;
     if (t < appear) return;
     const grow = this._reducedMotion ? 1 : Math.min(1, (t - appear) / 500);
     const breathe = this._reducedMotion ? 1 : 1 + Math.sin(t / 2400 * Math.PI * 2) * 0.12;
@@ -353,6 +541,23 @@ export class IntroScene extends Phaser.Scene {
     const core = Math.max(GRID, Math.round(10 * grow / GRID) * GRID);
     g.fillStyle(0xffe080, 0.95 * grow);
     g.fillRect(CENTER.x - core / 2, CENTER.y - core / 2, core, core);
+
+    // 点燃瞬间（前 460ms）：白色闪核 + 冲击环，黑暗中第一颗星的"诞生"
+    if (!this._reducedMotion && t < appear + 460) {
+      const ik = (t - appear) / 460;
+      // 白色闪核：比金核更大、快速衰减
+      if (ik < 0.55) {
+        const wk = ik / 0.55;
+        const ws = 16 * (1 - wk * 0.5);
+        g.fillStyle(0xffffff, 0.9 * (1 - wk));
+        g.fillRect(CENTER.x - ws / 2, CENTER.y - ws / 2, ws, ws);
+      }
+      // 冲击环：向外扩散的亮环
+      g.lineStyle(2, 0xfff4d8, 0.65 * (1 - ik));
+      g.strokeCircle(CENTER.x, CENTER.y, 8 + ik * 72);
+      g.lineStyle(1, 0xf0c040, 0.4 * (1 - ik));
+      g.strokeCircle(CENTER.x, CENTER.y, 4 + ik * 46);
+    }
 
     // 心跳脉冲环：每 2.4s 一圈向外扩散，与呼吸同频
     if (!this._reducedMotion && t > appear + 600) {
@@ -379,10 +584,32 @@ export class IntroScene extends Phaser.Scene {
         }
       }
     }
+
+    // 收场回流中：五轨星光汇入，中心随之增亮
+    if (!this._reducedMotion && this._convergeAt >= 0 && this._burstAt < 0) {
+      const ck = Math.min(1, (t - this._convergeAt) / CONVERGE_MS);
+      g.fillStyle(0xffd860, 0.25 * ck);
+      g.fillCircle(CENTER.x, CENTER.y, 16 + ck * 10);
+    }
+
+    // 收场白金爆发：回流星光在中心汇聚成一颗超亮新星
+    if (!this._reducedMotion && this._burstAt >= 0) {
+      const bk = Math.min(1, (t - this._burstAt) / BURST_MS);
+      g.fillStyle(0xfff4d8, 0.5 * (1 - bk));
+      g.fillCircle(CENTER.x, CENTER.y, 24 + bk * 200);
+      const bs = 10 + bk * 26;
+      g.fillStyle(0xffffff, 0.95);
+      g.fillRect(CENTER.x - bs / 2, CENTER.y - bs / 2, bs, bs);
+    }
   }
 
   /** 光轨：逐格点亮，头部亮、尾部暗；终局金色波前沿轨道冲向远端节点 */
   _drawPaths(g, t) {
+    // 收场阶段：光轨不再逐格延伸，切换为回流动画
+    if (this._convergeAt >= 0) {
+      this._drawConverge(g, t);
+      return;
+    }
     this._paths.forEach((p, i) => {
       const startAt = this._pathStartAt(i);
       if (t < startAt) return;
@@ -427,8 +654,41 @@ export class IntroScene extends Phaser.Scene {
     });
   }
 
+  /** 收场回流：每条光轨的亮点从远端退回中心（头部亮），远端节点余晖渐灭 */
+  _drawConverge(g, t) {
+    const k = Math.min(1, (t - this._convergeAt) / CONVERGE_MS);
+    this._paths.forEach((p) => {
+      const front = Math.floor((1 - k) * (p.cells.length - 1)); // 回流头从末端退回 0
+      for (let c = 0; c <= front; c++) {
+        const cell = p.cells[c];
+        const dHead = front - c;
+        let alpha = 0.5 * (1 - k * 0.5);
+        if (dHead === 0) alpha = 1.0;
+        else if (dHead === 1) alpha = 0.75;
+        else if (dHead === 2) alpha = 0.6;
+        g.fillStyle(p.color, 0.05 + (dHead === 0 ? 0.25 : 0));
+        g.fillRect(cell.x - 4, cell.y - 4, 8, 8);
+        if (dHead < 3) {
+          g.fillStyle(p.color, alpha * 0.2);
+          g.fillRect(cell.x - 5, cell.y - 5, 10, 10);
+        }
+        g.fillStyle(p.color, alpha);
+        g.fillRect(cell.x - 1.5, cell.y - 1.5, 3, 3);
+      }
+      // 远端节点余晖渐灭（比光轨消退更快，先"交出"星光）
+      const fadeA = Math.max(0, 1 - k * 1.6);
+      if (fadeA > 0) {
+        g.fillStyle(p.node, 0.2 * fadeA);
+        g.fillCircle(p.endX, p.endY, 10);
+        g.fillStyle(p.node, 0.8 * fadeA);
+        g.fillRect(p.endX - 2, p.endY - 2, 4, 4);
+      }
+    });
+  }
+
   /** 远端节点：光轨到达后点亮，一次脉冲环，随后明暗呼吸 */
   _drawNodes(g, t) {
+    if (this._convergeAt >= 0) return; // 收场由 _drawConverge 统一绘制节点余晖
     this._paths.forEach((p) => {
       if (p.litAt < 0) return;
       const since = t - p.litAt;
@@ -492,38 +752,39 @@ export class IntroScene extends Phaser.Scene {
     });
   }
 
-  _revealChars(lineEl, duration = 1200) {
+  /** 注册一行文案的逐字浮现：由 update() 以场景时钟推进（无动画偏好时直接全亮） */
+  _startReveal(lineEl, duration = 900) {
     if (!lineEl) return;
     const chars = lineEl.querySelectorAll('.ui-intro-char');
     if (chars.length === 0) return;
-    const interval = duration / chars.length;
     lineEl.classList.add('visible');
-    chars.forEach((char, i) => {
-      this.time.delayedCall(i * interval, () => char.classList.add('revealed'));
-    });
+    if (this._reducedMotion) {
+      chars.forEach(c => c.classList.add('revealed'));
+      return;
+    }
+    this._revealing.push({ chars, startT: this._now, interval: duration / chars.length, cursor: 0 });
   }
 
-  _showLine(index, at) {
-    this.time.delayedCall(at, () => {
-      if (this._finished) return;
-      const el = document.getElementById(`ui-intro-line${index + 1}`);
-      this._setupText(el, LINES[index]);
-      this._revealChars(el, 900);
-      // L3 是情绪最高点：L1/L2 降透明度，视线聚焦到"他"
-      if (index === 2) {
-        const layer = document.querySelector('.ui-intro-text-layer');
-        if (layer) layer.classList.add('finale');
-      }
-      if (this.audio) this.audio.speak(LINES[index].text, { force: true });
-    });
+  /** 立即展示一行文案（时刻由单时钟队列控制） */
+  _showLine(index) {
+    if (this._finished) return;
+    const el = document.getElementById(`ui-intro-line${index + 1}`);
+    this._setupText(el, LINES[index]);
+    this._startReveal(el, 900);
+    // L3 是情绪最高点：L1/L2 降透明度，视线聚焦到"他"
+    if (index === 2) {
+      const layer = document.querySelector('.ui-intro-text-layer');
+      if (layer) layer.classList.add('finale');
+    }
+    if (this.audio) this.audio.speak(LINES[index].text, { force: true });
   }
 
   _scheduleTimeline(skipHint, fade) {
     if (this._reducedMotion) {
-      // 降级：全部静态点亮，文案直接显示，2.5s 后结束
-      this._showLine(0, 100);
-      this._showLine(1, 500);
-      this._showLine(2, 900);
+      // 降级：全部静态点亮，文案直接显示，2.5s 后结束（静态无时序同步问题，保留 delayedCall）
+      this.time.delayedCall(100, () => this._showLine(0));
+      this.time.delayedCall(500, () => this._showLine(1));
+      this.time.delayedCall(900, () => this._showLine(2));
       this.time.delayedCall(TL.skipAt, () => {
         this._skipEnabled = true;
         if (skipHint) skipHint.classList.add('visible');
@@ -532,41 +793,96 @@ export class IntroScene extends Phaser.Scene {
       return;
     }
 
-    // 中心节点亮起 + 心跳音
-    this.time.delayedCall(TL.heartAt, () => {
-      if (!this._finished && this.audio) this.audio.playIntroHeart();
-    });
-
-    this._showLine(0, TL.line1At);
-    this._showLine(1, TL.line2At);
-    this._showLine(2, TL.line3At);
-
-    // 两批光轨的延伸音效
-    this.time.delayedCall(TL.path1At, () => {
-      if (!this._finished && this.audio) this.audio.playIntroPath();
-    });
-    this.time.delayedCall(TL.path2At, () => {
-      if (!this._finished && this.audio) this.audio.playIntroPath();
-    });
-
+    // 正常路径：全部事件进单时钟队列，由 update() 按场景时钟 t 触发
+    const Q = (at, fn) => this._tlQueue.push({ at, fn });
+    // 中心节点亮起 + 点燃音（低频轰鸣 + 亮光上行）
+    Q(TL.igniteAt, () => { if (this.audio) this.audio.playIntroIgnite(); });
+    Q(TL.line1At, () => this._showLine(0));
+    Q(TL.path1At, () => { if (this.audio) this.audio.playIntroPath(); });
+    Q(TL.line2At, () => this._showLine(1));
+    Q(TL.path2At, () => { if (this.audio) this.audio.playIntroPath(); });
     // 流星音效（与视觉同刻）
-    METEORS.forEach(m => {
-      this.time.delayedCall(m.at, () => {
-        if (!this._finished && this.audio) this.audio.playIntroMeteor();
-      });
-    });
-
-    // 终局高潮音效：金色波前从中心涌出
-    this.time.delayedCall(FINALE.at, () => {
-      if (!this._finished && this.audio) this.audio.playIntroFinale();
-    });
-
-    this.time.delayedCall(TL.skipAt, () => {
+    METEORS.forEach(m => Q(m.at, () => { if (this.audio) this.audio.playIntroMeteor(); }));
+    Q(TL.line3At, () => this._showLine(2));
+    // 终局高潮音效：金色波前从中心涌出（"他"字现金同刻）
+    Q(FINALE.at, () => { if (this.audio) this.audio.playIntroFinale(); });
+    Q(TL.skipAt, () => {
       this._skipEnabled = true;
       if (skipHint) skipHint.classList.add('visible');
     });
+    this._tlQueue.sort((a, b) => a.at - b.at);
 
-    this.time.delayedCall(TL.fadeAt, () => this._finish(fade));
+    // 自然看完的收场序列（回流 → 爆发 → 切场）由 update() 帧驱动，时刻见 TL.fadeAt
+  }
+
+  /** 收场第 1 段：五轨星光开始向中心回流，BGM 淡出，方向词与文案层退场 */
+  _startConverge(t) {
+    if (this._finished) return;
+    this._convergeAt = t;
+    if (this.audio) this.audio.fadeOutBGM((CONVERGE_MS + BURST_MS) / 1000 + 0.3);
+    // 方向词随星光一起回流淡出
+    this._nodeLabels.forEach(label => {
+      if (label) this.tweens.add({ targets: label, alpha: 0, duration: CONVERGE_MS * 0.75, ease: 'Sine.easeIn' });
+    });
+    // 文案层同步退场：故事已讲完，文字随星光一起归还夜空，
+    // 避免白金爆发/白闪上残留文字鬼影（略快于回流，爆发前已消失）
+    const textLayer = document.querySelector('.ui-intro-text-layer');
+    if (textLayer) {
+      textLayer.style.transition = `opacity ${Math.round(CONVERGE_MS * 0.8)}ms ease-in`;
+      textLayer.style.opacity = '0';
+    }
+    // 跳过提示随收场退场（class 驱动，CSS 自带 0.6s 过渡）
+    const skipHint = document.getElementById('ui-intro-skip-hint');
+    if (skipHint) skipHint.classList.remove('visible');
+  }
+
+  /** 收场第 2 段：回流完成 → 白金爆发 + 白闪层点亮（万星归一的低频轰鸣） */
+  _burst(t) {
+    if (this._finished) return;
+    this._burstAt = t;
+    if (this.audio) this.audio.playIntroBurst();
+    const flashEl = document.getElementById('ui-scene-flash');
+    if (flashEl) {
+      flashEl.style.transition = `opacity ${BURST_MS}ms ease-in`;
+      flashEl.style.opacity = '1';
+    }
+  }
+
+  /** 收场第 3 段：白场顶点切入游戏（白闪层跨场景停留，新场景就绪后溶解） */
+  _convergeFinish() {
+    if (this._finished) return;
+    this._finished = true;
+    try {
+      const save = new SaveSystem(this);
+      save.markIntroSeen();
+    } catch (e) {}
+    const targetKey = this._returnToBoot ? 'BootScene' : 'GameScene';
+    // 白闪溶解：目标场景 create 较重（GameScene ~750ms DOM/数据初始化），
+    // 2 帧 RAF 远早于新场景就绪——白闪会溶进黑屏再硬切（实测探针确认）。
+    // 改为监听目标场景 create 生命周期事件：create 完成 + 两帧首渲染后，
+    // 白闪 480ms ease-out 退场，"从白光中浮现新人生"。
+    // 切换黑缝期间白闪停留满白覆盖（BGM 已淡出，如闪光灯余晖）。
+    const flashEl = document.getElementById('ui-scene-flash');
+    if (flashEl && flashEl.style.opacity === '1') {
+      const dissolve = () => {
+        if (flashEl.style.opacity !== '1') return; // 已被跳过路径复位
+        flashEl.style.transition = 'opacity 480ms ease-out';
+        flashEl.style.opacity = '0';
+      };
+      const target = this.scene.get(targetKey);
+      if (target) {
+        target.events.once('create', () => {
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            if (document.getElementById('ui-scene-flash')) dissolve();
+          }));
+        });
+        // 兜底：目标场景 2s 内未就绪则强制溶解，避免白屏卡死
+        setTimeout(dissolve, 2000);
+      } else {
+        dissolve();
+      }
+    }
+    this.scene.start(targetKey, {});
   }
 
   _setupSkip(overlay, skipHint, fade) {
@@ -597,6 +913,9 @@ export class IntroScene extends Phaser.Scene {
 
     const skipHint = document.getElementById('ui-intro-skip-hint');
     if (skipHint) skipHint.classList.remove('visible');
+    // 跳过与收场白闪竞争时，以黑淡为准：复位白闪层
+    const flashEl = document.getElementById('ui-scene-flash');
+    if (flashEl) { flashEl.style.transition = 'none'; flashEl.style.opacity = '0'; }
     if (fade) fade.classList.add('active');
 
     this.time.delayedCall(800, () => {

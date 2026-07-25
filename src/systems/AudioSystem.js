@@ -312,6 +312,10 @@ export class AudioSystem {
    * 对话点击继续/跳过打字 —— 轻微的"嗒"声，比打字机音稍响。
    */
   playDialogAdvance() {
+    if (!this.enabled) return;
+    const now = performance.now();
+    if (now - (this.lastAdvanceTime || 0) < 120) return; // 节流：长按快进/AUTO 模式不炸音
+    this.lastAdvanceTime = now;
     this._playTone(1100, 0.025, 'square', 0.04);
   }
 
@@ -378,11 +382,48 @@ export class AudioSystem {
    */
   playIntroFinale() {
     if (!this.enabled) return;
-    const notes = [523, 659, 784, 1047]; // C5 E5 G5 C6 上行琶音
+    const notes = [523, 659, 784, 1047]; // C5 E5 G5 C6
     notes.forEach((f, i) => {
       this._scheduleSfx(() => this._playTone(f, 0.4, 'triangle', 0.05), i * 90);
     });
-    this._playTone(131, 1.4, 'sine', 0.045); // C2 暖垫
+    this._playTone(131, 1.4, 'sine', 0.045);
+  }
+
+  playIntroIgnite() {
+    if (!this.enabled) return;
+    this._playTone(55, 1.1, 'sine', 0.11);
+    this._scheduleSfx(() => this._playTone(110, 0.9, 'sine', 0.06), 60);
+    this._playSlide(900, 2400, 0.32, 'sine', 0.028);
+    this._scheduleSfx(() => this._playTone(2093, 0.35, 'sine', 0.035), 200);
+  }
+
+  playIntroImpact(dim = false) {
+    if (!this.enabled) return;
+    const base = dim ? 1180 : 1760;
+    const vol = dim ? 0.02 : 0.038;
+    [0, 1, 2].forEach(i => {
+      this._scheduleSfx(
+        () => this._playTone(base * Math.pow(0.82, i), 0.14, 'triangle', vol),
+        i * 55
+      );
+    });
+  }
+
+  playIntroConverge() {
+    if (!this.enabled) return;
+    const notes = [1047, 880, 784, 659, 523];
+    notes.forEach((f, i) => {
+      this._scheduleSfx(() => this._playTone(f, 0.3, 'triangle', 0.04), i * 70);
+    });
+    this._playSlide(1400, 500, 0.5, 'sine', 0.022);
+  }
+
+  playIntroBurst() {
+    if (!this.enabled) return;
+    this._playTone(49, 1.3, 'sine', 0.13);
+    this._scheduleSfx(() => this._playTone(98, 1.0, 'sine', 0.07), 70);
+    this._playSlide(600, 3200, 0.55, 'sine', 0.03);
+    this._scheduleSfx(() => this._playTone(2637, 0.5, 'sine', 0.03), 320);
   }
 
   /**

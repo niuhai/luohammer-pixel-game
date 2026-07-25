@@ -4,7 +4,7 @@ export const NODES = {
   act0_dad: {
     act: '序章',
     actSub: '父亲罗昌珍的教育方式 1972-1989',
-    sceneType: SCENE_TYPES.CLASSROOM,
+    sceneType: SCENE_TYPES.CLASSROOM_NIGHT,
     character: '小罗',
     text: `父亲罗昌珍，和龙县县委书记。管一个县的手，管不住一个儿子。
 
@@ -28,7 +28,7 @@ export const NODES = {
   act0_rebel: {
     act: '序章',
     actSub: '翻窗偷书 · 校园叛逆 1989',
-    sceneType: SCENE_TYPES.CLASSROOM,
+    sceneType: SCENE_TYPES.CLASSROOM_NIGHT,
     character: '小罗',
     text: `老师没收了你的课外书——那是你攒了一个月零花钱，从县城新华书店柜台最底层翻出来的。
 
@@ -48,7 +48,7 @@ export const NODES = {
   act0_childhood: {
     act: '序章',
     actSub: '书记家的叛逆儿子 1972-1989',
-    sceneType: SCENE_TYPES.CLASSROOM,
+    sceneType: SCENE_TYPES.STREET_DAY,
     character: '小罗',
     text: `退学手续办完了。你背着空书包走出校门，延边二月的风像刀子一样刮在脸上，鼻尖冻得通红。门卫大爷看了你一眼，没说话——全县都知道，书记家的儿子退学了，这事儿比过年放鞭炮还热闹。
 
@@ -72,7 +72,7 @@ export const NODES = {
   act0_bookstore: {
     act: '第一章',
     actSub: '书店打工 · 偷看书的少年 1989-1990',
-    sceneType: SCENE_TYPES.CLASSROOM,
+    sceneType: SCENE_TYPES.CLASSROOM_NIGHT,
     character: '小罗',
     text: `退学后你在家待着也不是个事儿，就在县城一家小书店找了份活。月薪80块，管午饭。老板看你整天捧着书不放，叹口气说："你小子是来打工的还是来看书的？"你嘿嘿一笑："两不耽误。"
 
@@ -252,7 +252,7 @@ export const NODES = {
   act0_grandma: {
     act: '序章',
     actSub: '外婆的泡菜坛子 · 朝鲜族的根 1978',
-    sceneType: SCENE_TYPES.CLASSROOM,
+    sceneType: SCENE_TYPES.CLASSROOM_NIGHT,
     character: '小罗',
     text: `外婆是地道的朝鲜族，一辈子没读过书，却能把一整套朝鲜族家训背得滚瓜烂熟。她的厨房里永远摆着四五个泡菜坛子，坛沿上撒着粗盐，盖子一揭开，辣酱和蒜香混着发酵的酸味扑面而来，呛得你直打喷嚏。
 
@@ -273,7 +273,7 @@ export const NODES = {
   act0_mother: {
     act: '序章',
     actSub: '母亲的硬气 · 不说话的朝鲜族女人 1982',
-    sceneType: SCENE_TYPES.CLASSROOM,
+    sceneType: SCENE_TYPES.CLASSROOM_NIGHT,
     character: '小罗',
     text: `母亲是朝鲜族，话不多，性子却比父亲还硬。父亲打你的时候，她从来不拦——她觉得犯了错就该受罚，拦着就是纵容。但她会在你挨完打之后，默默端一碗凉白开放在你床头，再放两块冰糖。碗沿上有一道细裂纹，那是她嫁过来时带的嫁妆，用了十几年也没舍得换。
 
@@ -334,7 +334,7 @@ export const NODES = {
   act0_reading: {
     act: '序章',
     actSub: '读到《存在与虚无》· 第一次被思想点燃 1990',
-    sceneType: SCENE_TYPES.CLASSROOM,
+    sceneType: SCENE_TYPES.CLASSROOM_NIGHT,
     character: '小罗',
     text: `书店角落里那本《存在与虚无》，封面积了一层灰，你翻开第一页就头疼——"存在先于本质"，每个字都认识，连起来像天书。但你犟——看不懂就硬看，一天啃三页，啃了一个月，啃到"人是被判定为自由的"那一句时，你愣住了。
 
@@ -379,7 +379,7 @@ export const NODES = {
   act0_grandma_story: {
     act: '序章',
     actSub: '外婆的煤油灯 · 朝鲜族的智慧 1979',
-    sceneType: SCENE_TYPES.CLASSROOM,
+    sceneType: SCENE_TYPES.CLASSROOM_NIGHT,
     character: '小罗',
     text: `在外婆家躲了三天。父亲没来找你——他大概也知道，让你在外婆家冷静一下，比在家抽你更管用。
 
@@ -423,7 +423,7 @@ export const NODES = {
   act0_night_reading: {
     act: '序章',
     actSub: '深夜读书 · 被一本书点燃 1991',
-    sceneType: SCENE_TYPES.CLASSROOM,
+    sceneType: SCENE_TYPES.CLASSROOM_NIGHT,
     character: '小罗',
     text: `那天夜里你睡不着，从床底下抽出一本借来的旧书——《约翰·克里斯朵夫》。母亲在隔壁房间鼾声均匀，窗外的月亮把光洒在书页上，你不用开灯都能看清字。
 

@@ -86,6 +86,7 @@ export class PixelRenderer {
     this.particles = [];
     this.shakeIntensity = 0;
     this.flashAlpha = 0;
+    this.flashColor = 0xffffff;  // 闪光颜色（白=高光时刻，红=崩溃演出）
     this._wasShaking = false;
     this._particleGfxDirty = false;
     this.currentBg = null;
@@ -1135,10 +1136,16 @@ export class PixelRenderer {
     });
   }
 
-  flashScreen(duration = 0.3) {
+  /**
+   * 全屏闪光
+   * @param {number} duration 持续秒数
+   * @param {number} color 填充色（默认白色 0xffffff；崩溃演出传 0xe04040 血红）
+   */
+  flashScreen(duration = 0.3, color = 0xffffff) {
     this.flashAlpha = 1;
     this.flashDuration = duration;
     this.flashTimer = duration;
+    this.flashColor = color;
   }
 
   /**
@@ -1244,7 +1251,7 @@ export class PixelRenderer {
         this.particleGfx.clear();
         this.drawParticles(this.particleGfx);
         if (this.flashAlpha > 0) {
-          this.particleGfx.fillStyle(0xffffff, this.flashAlpha);
+          this.particleGfx.fillStyle(this.flashColor, this.flashAlpha);
           this.particleGfx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
         }
         this._particleGfxDirty = true;

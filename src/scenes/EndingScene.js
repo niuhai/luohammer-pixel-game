@@ -1763,8 +1763,12 @@ export class EndingScene extends Phaser.Scene {
     // 不崩溃，提示用户并保持结局页可用
     let dataURL;
     try {
-      const endingKeys = Object.keys(ENDINGS);
-      const endingIndex = Math.max(0, endingKeys.indexOf(this.endingKey)) + 1;
+      // R45: 过滤兜底键 'default'——分享卡总数需与结局图鉴（35）一致；
+      // default 兜底结局不印收藏编号（renderShareCard 对 endingIndex=0 自动省略编号行）
+      const endingKeys = Object.keys(ENDINGS).filter(k => k !== 'default');
+      const endingIndex = this.endingKey === 'default'
+        ? 0
+        : Math.max(0, endingKeys.indexOf(this.endingKey)) + 1;
       const canvas = PixelRenderer.renderShareCard(this.state, this.ending, {
         endingKey: this.endingKey,
         endingIndex,

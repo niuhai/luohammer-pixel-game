@@ -66,6 +66,10 @@ export class DialogSystem {
 
     // Click handler for advancing text
     this._onDialogClick = () => {
+      // 推进反馈音：跳过打字/下一段/完成共用（评委全程最高频操作的听觉闭环）
+      if (this.audio && this.audio.playDialogAdvance) {
+        try { this.audio.playDialogAdvance(); } catch(e) {}
+      }
       if (this.isTyping) {
         this.skipTyping();
       } else if (this._segments && this._segmentIndex < this._segments.length - 1) {

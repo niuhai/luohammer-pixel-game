@@ -10,6 +10,9 @@ export class ChoiceSystem {
     this._transientTimers = new Set();
     this._activePreview = null;
     this._previewTimer = null;
+    // R45: 容器滚动时更新"还有更多选项"吸底提示（元素静态存在于 index.html，监听一次即可）
+    this._onChoicesScroll = () => this._updateScrollHint();
+    if (this.el) this.el.addEventListener('scroll', this._onChoicesScroll, { passive: true });
   }
 
   /**
@@ -235,7 +238,10 @@ export class ChoiceSystem {
 
     // 监听窗口大小变化，动态更新对话框高度变量
     if (!this._resizeHandler) {
-      this._resizeHandler = () => this._syncDialogHeight();
+      this._resizeHandler = () => {
+        this._syncDialogHeight();
+        this._updateScrollHint();
+      };
       window.addEventListener('resize', this._resizeHandler);
     }
 
@@ -361,6 +367,13 @@ export class ChoiceSystem {
       this._currentBtns.push(btn);
     });
 
+    // R45: "还有更多选项"吸底提示——sticky 定位不随内容滚走，显隐由 _updateScrollHint 控制
+    const moreHint = document.createElement('div');
+    moreHint.className = 'ui-choices-more';
+    moreHint.setAttribute('aria-hidden', 'true');
+    moreHint.textContent = '▼';
+    this.el.appendChild(moreHint);
+
     // 数字键快捷选择（1-9）— 与 A 自动播放、S 速度切换等全局快捷键解耦
     this._keyHandler = (event) => {
       if (this.scene
@@ -390,6 +403,9 @@ export class ChoiceSystem {
 
     this.el.classList.add('visible');
     balance.classList.add('visible');
+
+    // 选项渲染完成后测量是否溢出（ stagger 动画不影响 scrollHeight 测量 ）
+    requestAnimationFrame(() => this._updateScrollHint());
 
     // 通知 DialogSystem 选项面板已显示，对话框需要上移
     if (this.scene.dialog && this.scene.dialog.notifyChoicesVisible) {
@@ -498,6 +514,18 @@ export class ChoiceSystem {
   }
 
   /**
+   * R45: 选项溢出时显示"▼ 还有更多"吸底提示
+   * 容器可滚动且未滚到底时加 has-more 类；滚到底或无需滚动时移除
+   */
+  _updateScrollHint() {
+    const el = this.el;
+    if (!el) return;
+    const hasOverflow = el.scrollHeight > el.clientHeight + 2;
+    const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 4;
+    el.classList.toggle('has-more', hasOverflow && !atEnd);
+  }
+
+  /**
    * 同步对话框实际高度到 CSS 变量 --dialog-height
    * 确保选项面板定位始终基于对话框的真实高度，避免重叠
    */
@@ -580,6 +608,10 @@ export class ChoiceSystem {
   }
 
   destroy() {
+    if (this.el && this._onChoicesScroll) {
+      this.el.removeEventListener('scroll', this._onChoicesScroll);
+      this._onChoicesScroll = null;
+    }
     this.hide(true);
     this.choices = [];
     this.el = null;

@@ -40,6 +40,19 @@ const FLASH_SCENES = new Set(['fridge_smash', 'court', 'talkshow']);
 // act6_a: TNT鸟巢演示演砸——理想主义最贵的一次摔跤
 const KILLER_NODES = new Set(['act6_night', 'act6_crash', 'act_fridge_smash', 'act7_first_live', 'act6_a']);
 
+// 剧情人物崩溃节点集合：KILLER_NODES 未覆盖的叙事至暗时刻，进入时触发分级崩溃演出
+// 与系统压力崩溃（数值爆表）互为镜像——这里是文本情绪崩溃，前端不能"只震一下"
+// Lv.3=至暗独白（红闪+BGM骤停+双震+强震+压力暗角瞬间拉满），Lv.2=情绪重创（轻红闪+单震+轻震）
+// 注意：与 KILLER_NODES 保持互斥——已有四维演出的节点不重复挂接，避免双重叠加
+const CRASH_FX_NODES = new Map([
+  ['act6_mirror',        { level: 3, pressureSpike: true }], // 镜子前自我对话·"你还能行吗"
+  ['act6_midnight_walk', { level: 3, pressureSpike: true }], // 望京深夜独走·天桥洒水车
+  ['act6_self_doubt',    { level: 3, pressureSpike: true }], // "我错了吗"·理想主义动摇
+  ['act6_creditor_call', { level: 2 }],                      // 供应商老李堵门·红眼眶
+  ['act5_abandon',       { level: 2 }],                      // 阿里弃投·从1到0的深渊
+  ['act1_first',         { level: 2 }]                       // 第一次试讲·大脑空白+俞敏洪摇头
+]);
+
 export class GameScene extends Phaser.Scene {
   constructor() { super('GameScene'); }
 
@@ -978,6 +991,14 @@ export class GameScene extends Phaser.Scene {
       this._triggerKillerMoment(this.state.currentNode);
     }
 
+    // 剧情人物崩溃演出：KILLER 未覆盖的叙事至暗节点，分级红闪冲击
+    // dropTitle:false——剧情文本自身承担叙事，不砸「⚠ 压力崩溃」系统大字
+    // 与 KILLER_NODES 互斥（见常量注释），不会与同节点四维演出叠加
+    const crashFx = CRASH_FX_NODES.get(this.state.currentNode);
+    if (crashFx) {
+      this._playCrashSequence(crashFx.level, { dropTitle: false, pressureSpike: !!crashFx.pressureSpike });
+    }
+
     const targetTexture = this._resolveMoodTexture(mood, pose);
 
     const renderer = this.pixelRenderer;
@@ -1388,6 +1409,151 @@ export class GameScene extends Phaser.Scene {
         const realPressure = this.state.pressure || 0;
         this.pixelRenderer.updatePressureEffect(realPressure, 10);
       }
+    });
+  }
+
+  /**
+   * 崩溃演出序列：压力爆表/人生重创时的全通道冲击。
+   * 与杀手时刻互为镜像——杀手时刻是金色高光（白闪/上升），崩溃是血红下坠（红闪/骤停/砸落）。
+   *
+   * 通道设计（Lv.3 至暗崩溃全开，Lv.2 情绪重创降级）：
+   * - 视觉：红闪（非白闪，崩溃=血红）+ 相机强震 + 血红大字砸下（仅 Lv.3）
+   * - 听觉：BGM 骤停（世界安静了，仅 Lv.3）
+   * - 触觉：双震心悸节奏（Lv.3）/ 单震（Lv.2）
+   * - prefers-reduced-motion：跳过相机震动与砸下动画，保留红闪与音效
+   *
+   * @param {number} level 3=至暗崩溃（pressure_crash），2=情绪重创（身无分文/老赖等阈值事件）
+   * @param {object} [opts] 剧情模式选项
+   * @param {boolean} [opts.dropTitle=true] 是否砸「⚠ 压力崩溃」大字（系统崩溃用；剧情节点传 false，文字自身承担叙事）
+   * @param {boolean} [opts.pressureSpike=false] 压力暗角瞬间拉满 2.5s 后恢复（剧情至暗节点的视觉窒息感）
+   */
+  _playCrashSequence(level = 3, opts = {}) {
+    const isFull = level >= 3;
+    const reducedMotion = typeof window !== 'undefined'
+      && window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // === 防叠加节流：2.5s 内的连续触发（如系统崩溃演出后紧跟剧情崩溃节点）===
+    // 降级为仅红闪，避免震动/砸字/暗角双重叠加造成审美疲劳
+    const now = (this.time && this.time.now) || Date.now();
+    const throttled = this._lastCrashFxTime && (now - this._lastCrashFxTime < 2500);
+    this._lastCrashFxTime = now;
+
+    // === 视觉：红闪（崩溃=血红，与高光时刻的白闪互为镜像）===
+    if (this.pixelRenderer) {
+      this.pixelRenderer.flashScreen(isFull ? 0.3 : 0.15, 0xe04040);
+    }
+    if (throttled) return;
+
+    // === 听觉：BGM 骤停（仅 Lv.3——世界瞬间安静，比任何音效更窒息）===
+    if (isFull) {
+      try { this.audio.fadeOutBGM(0.2); } catch (e) {}
+    }
+
+    // === 触觉：双震心悸节奏（咚…咚）===
+    try {
+      if (navigator.vibrate) navigator.vibrate(isFull ? [120, 60, 120] : 80);
+    } catch (e) {}
+
+    // === 相机：强震 ===
+    if (!reducedMotion && this.transition) {
+      this.transition.shake(isFull ? 12 : 6, isFull ? 500 : 300);
+    }
+
+    // === 视觉窒息：压力暗角瞬间拉满，2.5s 后恢复真实压力（剧情至暗节点）===
+    if (opts.pressureSpike && this.pixelRenderer) {
+      this.pixelRenderer.updatePressureEffect(10, 10);
+      this.time.delayedCall(2500, () => {
+        if (this.pixelRenderer && this.state) {
+          this.pixelRenderer.updatePressureEffect(this.state.pressure || 0, this.state.pressureMax || 10);
+        }
+      });
+    }
+
+    // === DOM：血红大字砸落（仅 Lv.3 系统崩溃，评委记忆锚点；剧情节点不砸字）===
+    if (isFull && !reducedMotion && opts.dropTitle !== false) {
+      this._dropCrashTitle();
+    }
+  }
+
+  /**
+   * 崩溃大字砸落：红闪后 120ms，「⚠ 压力崩溃」从屏幕顶部砸下，
+   * 落地触发反弹 + 二次震动 + 红色扩散环（复用杀手时刻的"砸地震波"范式）。
+   * 全部经 this.time.delayedCall 调度——场景切换时 Phaser 时钟自动取消，无泄漏。
+   */
+  _dropCrashTitle() {
+    this.time.delayedCall(120, () => {
+      // 防御：清理可能的残留元素（连续崩溃/场景异常重启时避免叠加）
+      document.querySelectorAll('.ui-crash-burst-title, .ui-crash-burst-ring').forEach(el => el.remove());
+
+      const titleEl = document.createElement('div');
+      titleEl.className = 'ui-crash-burst-title';
+      titleEl.setAttribute('aria-hidden', 'true'); // 装饰性演出元素，不参与读屏
+      titleEl.textContent = '⚠ 压力崩溃';
+      titleEl.style.cssText = [
+        'position:fixed', 'top:-90px', 'left:50%',
+        'transform:translateX(-50%)',
+        'font-size:clamp(28px,6vw,54px)',
+        'font-weight:900', 'letter-spacing:4px',
+        'color:var(--color-danger)',
+        'text-shadow:0 0 16px rgba(224,64,64,0.8),0 0 32px rgba(224,64,64,0.4)',
+        'z-index:10000', 'pointer-events:none',
+        'font-family:var(--font-pixel)',
+        'transition:top 0.38s cubic-bezier(0.7,0,1,0.5), transform 0.16s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s'
+      ].join(';');
+      document.body.appendChild(titleEl);
+      // 触发砸落动画（下一帧设置 top，确保 transition 生效）
+      requestAnimationFrame(() => { titleEl.style.top = '32%'; });
+
+      // 落地时刻 = 120ms 初始延迟 + 380ms 下落 ≈ 500ms → 相对当前 380ms
+      this.time.delayedCall(380, () => {
+        if (!titleEl.parentNode) return; // 场景已切换则跳过
+        // 1. 落地反弹：scale 1 → 1.15 → 1
+        titleEl.style.transform = 'translateX(-50%) scale(1.15)';
+        this.time.delayedCall(90, () => {
+          if (!titleEl.parentNode) return;
+          titleEl.style.transform = 'translateX(-50%) scale(1)';
+        });
+
+        // 2. 二次震动（落地余震）
+        if (this.transition) {
+          this.transition.shake(5, 200);
+        }
+
+        // 3. 红色扩散环——从大位置向外扩散的崩溃波纹
+        const ring = document.createElement('div');
+        ring.className = 'ui-crash-burst-ring';
+        ring.setAttribute('aria-hidden', 'true');
+        ring.style.cssText = [
+          'position:fixed', 'top:32%', 'left:50%',
+          'width:20px', 'height:20px',
+          'transform:translate(-50%,-50%)',
+          'border:3px solid rgba(224,64,64,0.8)',
+          'border-radius:50%',
+          'z-index:9999', 'pointer-events:none',
+          'transition:all 0.6s cubic-bezier(0.16,1,0.3,1)',
+          'box-shadow:0 0 12px rgba(224,64,64,0.5)'
+        ].join(';');
+        document.body.appendChild(ring);
+        requestAnimationFrame(() => {
+          ring.style.width = '480px';
+          ring.style.height = '480px';
+          ring.style.opacity = '0';
+          ring.style.borderWidth = '1px';
+        });
+        this.time.delayedCall(700, () => {
+          if (ring.parentNode) ring.parentNode.removeChild(ring);
+        });
+      });
+
+      // 落地后 1.4s 淡出移除（从砸落开始算 120+380+1400 ≈ 1900ms 总时长）
+      this.time.delayedCall(1800, () => {
+        if (!titleEl.parentNode) return;
+        titleEl.style.opacity = '0';
+        this.time.delayedCall(300, () => {
+          if (titleEl.parentNode) titleEl.parentNode.removeChild(titleEl);
+        });
+      });
     });
   }
 
@@ -2996,12 +3162,17 @@ export class GameScene extends Phaser.Scene {
    * 处理压力崩溃
    */
   _handlePressureCrash(crashEvent, originalChoice, skipRandomEvent = false) {
+    // === Lv.3 至暗崩溃演出：红闪 + BGM骤停 + 双震 + 相机强震 + 血红大字砸落 ===
+    // 先全通道冲击，550ms 后再弹崩溃对话框（电影节奏：先给一拳，再说话）
+    this._playCrashSequence(3);
+
     // 压力警告音效
     try { this.audio.playPressureWarning(); } catch(e) {}
 
     // === 跨周目技能：绝境逢生 — 崩溃选项负面效果减半 ===
     let crashChoices = crashEvent.choices;
-    if (this.state._crashKeepStats && crashChoices) {
+    const hasKeepStats = !!(this.state._crashKeepStats && crashChoices);
+    if (hasKeepStats) {
       const keepRatio = this.state._crashKeepStats; // 0.5
       crashChoices = crashChoices.map(c => {
         const newEffects = { ...c.effects };
@@ -3012,24 +3183,30 @@ export class GameScene extends Phaser.Scene {
         }
         return { ...c, effects: newEffects };
       });
-      try { toast.info('◉ 绝境逢生：本次崩溃的负面损失已减半。', 3500); } catch(e) {}
     }
 
-    // 用对话框显示崩溃事件
-    this.dialog.show('⚠ 压力崩溃', this._replaceCharacterNameInText(crashEvent.text, this.state.currentNode), () => {
-      this.choices.show(crashChoices, (choice) => {
-        const { state: newState } = applyEffects(this.state, choice.effects);
-        this.state = newState;
-        this.stats.update(this.state);
-        this.choices.hide();
-        this.dialog.hide();
+    // 延迟至演出高潮后弹出崩溃事件对话框（550ms：红闪0.3s收尾 + 大字落地反弹完成）
+    // this.time.delayedCall 由 Phaser 时钟驱动，场景切换自动取消，无泄漏
+    this.time.delayedCall(550, () => {
+      if (hasKeepStats) {
+        try { toast.info('◉ 绝境逢生：本次崩溃的负面损失已减半。', 3500); } catch(e) {}
+      }
+      // 用对话框显示崩溃事件
+      this.dialog.show('⚠ 压力崩溃', this._replaceCharacterNameInText(crashEvent.text, this.state.currentNode), () => {
+        this.choices.show(crashChoices, (choice) => {
+          const { state: newState } = applyEffects(this.state, choice.effects);
+          this.state = newState;
+          this.stats.update(this.state);
+          this.choices.hide();
+          this.dialog.hide();
 
-        // 继续原来的流程
-        if (skipRandomEvent) {
-          this._goToNextNode(originalChoice, STORY[this.state.currentNode]);
-        } else {
-          this._proceedAfterChoice(originalChoice);
-        }
+          // 继续原来的流程
+          if (skipRandomEvent) {
+            this._goToNextNode(originalChoice, STORY[this.state.currentNode]);
+          } else {
+            this._proceedAfterChoice(originalChoice);
+          }
+        });
       });
     });
   }
@@ -3047,6 +3224,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     const t = triggers[index];
+    // === Lv.2 情绪重创演出：人生崩塌级阈值事件（身无分文/被叫老赖/众叛亲离/心如死灰）===
+    // 降级版：轻红闪 + 单震 + 轻相机震动，不打断事件流节奏
+    if (t.id === 'penniless' || t.id === 'deadbeat' || t.id === 'distrusted' || t.id === 'realist') {
+      this._playCrashSequence(2);
+    }
     // 阈值触发音效
     try { this.audio.playThresholdTrigger(); } catch(e) {}
     this.dialog.show('✦ 隐藏事件', this._replaceCharacterNameInText(t.text, this.state.currentNode), () => {
@@ -3493,6 +3675,8 @@ export class GameScene extends Phaser.Scene {
     document.querySelectorAll('.ui-settlement-overlay').forEach(el => el.remove());
     // R30-GATE: 用 class 选择器替代 textContent+zIndex 匹配，更可靠
     document.querySelectorAll('.ui-killer-moment-number, .ui-killer-moment-ring').forEach(el => el.remove());
+    // 清理崩溃演出 DOM（至暗大字/扩散环）——场景切换时防止残留
+    document.querySelectorAll('.ui-crash-burst-title, .ui-crash-burst-ring').forEach(el => el.remove());
     if (this._uiAbortController) {
       this._uiAbortController.abort();
       this._uiAbortController = null;
