@@ -1877,7 +1877,7 @@
 
 ### T106 — [P0] bundle 瘦身 656.97KB → ≤650KB
 
-- **状态**：pending
+- **状态**：done（R27 后构建自动拆分 story chunk，R46 实测 index 430.07KB ≤ 650KB，目标达成）
 - **操作文件**：
   - `luohammer-pixel-game/vite.config.js`（调优 terserOptions）
   - 排查并清理未用 export/死代码（如 src/图/ 大图未 import 但需确认）
@@ -1899,7 +1899,7 @@
 
 ### T107 — [P0+P1] failures 数值平衡 + pride 净偏移再平衡
 
-- **状态**：pending
+- **状态**：done（R30 完成 failures 优化，实测 failures 正负比 2.46 ≤ 3.5 ✅、pride 净偏移 118 ≤ 120 ✅）
 - **操作文件**：
   - `luohammer-pixel-game/src/data/story/1_act0.js`
   - `luohammer-pixel-game/src/data/story/2_act1.js`
@@ -1935,7 +1935,7 @@
 
 ### T108 — [P0] M_隐士路径策略修复 + hermit 结局可达
 
-- **状态**：pending
+- **状态**：done（M 策略已改写优先降 pride + retired 选项 pressure:-6；实测 M 策略 68 步触发 hermit，pressure=0 ≤1，13 策略覆盖 8 结局含 hermit ✅）
 - **操作文件**：
   - `luohammer-pixel-game/scripts/simulate-paths.mjs`（M 策略改写）
   - `luohammer-pixel-game/src/data/story/10_act7.js`（act7_retire retired 选项降压强化）
@@ -1968,9 +1968,9 @@
 
 | ID | 优先级 | 操作文件 | 状态 | 价值级别 |
 |----|--------|---------|------|---------|
-| T106 | P0 | vite.config.js + 死代码清理 | pending | A |
-| T107 | P0+P1 | 1_act0.js ~ 8_act5.js（8 文件） | pending | A |
-| T108 | P0 | simulate-paths.mjs + 10_act7.js | pending | B |
+| T106 | P0 | vite.config.js + 死代码清理 | done(后续轮次达成) | A |
+| T107 | P0+P1 | 1_act0.js ~ 8_act5.js（8 文件） | done(R30/R46 实测达标) | A |
+| T108 | P0 | simulate-paths.mjs + 10_act7.js | done(M策略已触发hermit) | B |
 
 **冲突检测**：3 个 task 文件完全不重叠，可 3 worker 并发。
 
@@ -2260,7 +2260,7 @@
 
 ### T109 — [P0][A] 6亿杀手时刻可靠触发与视觉增强
 
-- **状态**：pending
+- **状态**：done（R70 完成：data-killer-moment 标识 + 触发前残留清理 + 落地悬停 1.5s→2.5s）
 - **操作文件**：
   - `luohammer-pixel-game/src/scenes/GameScene.js`
 - **修改范围**：`_triggerKillerMoment(nodeId)` 方法（L1213-L1373）中 `act6_night` 分支
@@ -2292,7 +2292,7 @@
 
 ### T110 — [P1][B] 修复固定按钮文字/图标溢出
 
-- **状态**：pending
+- **状态**：done（R70 完成：4 个固定按钮统一 box-sizing:border-box + overflow:hidden，图标按钮 padding:0）
 - **操作文件**：
   - `luohammer-pixel-game/index.html`
 - **修改范围**：`.ui-sound-toggle`、`.ui-menu-toggle`、`.ui-narration-toggle` 等固定定位按钮的 CSS（L1299-L1385 附近）
@@ -2321,7 +2321,7 @@
 
 ### T111 — [P1][B] 优化选择按钮点击响应延迟
 
-- **状态**：pending
+- **状态**：done（R70 完成：_currentBtns 缓存替代 querySelectorAll + 水波纹/闪光 rAF 解耦，关键反馈 <16ms）
 - **操作文件**：
   - `luohammer-pixel-game/src/systems/ChoiceSystem.js`
 - **修改范围**：`.ui-choice-btn` 的 click / keydown 事件处理（L293-L373 附近）
@@ -2353,9 +2353,9 @@
 
 | ID | 优先级 | 操作文件 | 状态 | 价值级别 |
 |----|--------|---------|------|---------|
-| T109 | P0 | GameScene.js | pending | A |
-| T110 | P1 | index.html | pending | B |
-| T111 | P1 | ChoiceSystem.js | pending | B |
+| T109 | P0 | GameScene.js | done(R70) | A |
+| T110 | P1 | index.html | done(R70) | B |
+| T111 | P1 | ChoiceSystem.js | done(R70) | B |
 
 **冲突检测**：3 个 task 文件完全不重叠，可 3 worker 并发。
 
