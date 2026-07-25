@@ -317,12 +317,17 @@ export class IntroScene extends Phaser.Scene {
 
   _drawStars(g, t) {
     const fadeIn = this._reducedMotion ? 1 : Math.min(1, t / 800);
+    // 星光齐明：终局波前到齐后，全星场在 900ms 内亮度抬升 40%，整个星空参与高潮
+    let swell = 1;
+    if (!this._reducedMotion && t >= FINALE.at + FINALE.waveMs) {
+      swell = 1 + Math.min(1, (t - FINALE.at - FINALE.waveMs) / 900) * 0.4;
+    }
     for (const s of this._stars) {
-      let alpha = s.base * fadeIn;
+      let alpha = s.base * fadeIn * swell;
       if (s.twinkle && !this._reducedMotion) {
         alpha *= 0.5 + 0.5 * Math.sin(t / 1000 * s.speed * Math.PI + s.phase);
       }
-      g.fillStyle(s.warm ? 0xf0e0b8 : 0xd8dce8, alpha);
+      g.fillStyle(s.warm ? 0xf0e0b8 : 0xd8dce8, Math.min(1, alpha));
       g.fillRect(s.x, s.y, s.size, s.size);
     }
   }

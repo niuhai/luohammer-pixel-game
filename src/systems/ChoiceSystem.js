@@ -239,6 +239,9 @@ export class ChoiceSystem {
       window.addEventListener('resize', this._resizeHandler);
     }
 
+    // 缓存本轮按钮引用，避免 click/keydown 处理器中重复 querySelectorAll（点击响应关键路径优化）
+    this._currentBtns = [];
+
     choices.forEach((choice, i) => {
       const state = this.scene.state || {};
       const { locked, hint: lockHint } = this._getChoiceLock(choice, state, choices);
@@ -299,11 +302,15 @@ export class ChoiceSystem {
           }
           if (this._choiceLock) return;
           this._choiceLock = true;
-          this.el.querySelectorAll('.ui-choice-btn').forEach(b => b.disabled = true);
+          // 关键反馈同步完成（<16ms）：禁用全部按钮 + 选中锁定态 + 触感震动
+          this._currentBtns.forEach(b => b.disabled = true);
           this._markSelected(btn);
-          this._createRipple(btn, event);
           if (this.scene && typeof this.scene.vibrate === 'function') this.scene.vibrate(20);
-          this._triggerChoiceFlash();
+          // 非关键视觉反馈（水波纹/全屏闪光）推迟到下一帧，不阻塞关键路径
+          requestAnimationFrame(() => {
+            this._createRipple(btn, event);
+            this._triggerChoiceFlash();
+          });
           if (onChoice) onChoice(choice);
         });
 
@@ -351,6 +358,7 @@ export class ChoiceSystem {
       }
 
       this.el.appendChild(btn);
+      this._currentBtns.push(btn);
     });
 
     // 数字键快捷选择（1-9）— 与 A 自动播放、S 速度切换等全局快捷键解耦
@@ -369,11 +377,11 @@ export class ChoiceSystem {
         const { locked } = this._getChoiceLock(c, state, choices);
         if (!locked && onChoice) {
           this._choiceLock = true;
-          this.el.querySelectorAll('.ui-choice-btn').forEach(b => b.disabled = true);
-          const _selectedBtn = this.el.querySelectorAll('.ui-choice-btn')[idx];
+          this._currentBtns.forEach(b => b.disabled = true);
+          const _selectedBtn = this._currentBtns[idx];
           if (_selectedBtn) this._markSelected(_selectedBtn);
-          this._triggerChoiceFlash();
           if (this.scene && typeof this.scene.vibrate === 'function') this.scene.vibrate(20);
+          requestAnimationFrame(() => this._triggerChoiceFlash());
           onChoice(c);
         }
       }
@@ -524,7 +532,10 @@ export class ChoiceSystem {
    * @param {HTMLElement} selectedBtn 被选中的按钮元素
    */
   _markSelected(selectedBtn) {
-    const allBtns = this.el.querySelectorAll('.ui-choice-btn');
+    // 优先用缓存的按钮引用（避免重复 querySelectorAll），缓存不可用时兜底查询
+    const allBtns = (this._currentBtns && this._currentBtns.length)
+      ? this._currentBtns
+      : this.el.querySelectorAll('.ui-choice-btn');
     allBtns.forEach(b => {
       if (b === selectedBtn) {
         b.classList.add('selected');
@@ -555,6 +566,7 @@ export class ChoiceSystem {
       this._leaveTimer = null;
       this.el.classList.remove('visible', 'leaving');
       this.el.innerHTML = '';
+      this._currentBtns = [];
       if (this.scene.dialog && this.scene.dialog.notifyChoicesVisible) {
         this.scene.dialog.notifyChoicesVisible(false);
       }

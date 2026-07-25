@@ -230,7 +230,7 @@ export const NODES = {
   act0_gre: {
     act: '第一章',
     actSub: '郊区出租屋 · 自学GRE 2000',
-    sceneType: SCENE_TYPES.CLASSROOM,
+    sceneType: SCENE_TYPES.CLASSROOM_NIGHT,
     character: '小罗',
     text: `2000年，你28岁，回到北京。郊区月租200块的出租屋，墙上发霉，窗户漏风。你买了本GRE红宝书，从第一页开始啃。第一个单词是"abandon"，你盯着它看了三秒，笑了：连红宝书都在劝我放弃。但你翻到了第二页。
 

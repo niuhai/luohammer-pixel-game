@@ -259,7 +259,7 @@ export const NODES = {
   act1_resign: {
     act: '第三章',
     actSub: '辞职 · 与俞敏洪分道扬镳 2006',
-    sceneType: SCENE_TYPES.OFFICE,
+    sceneType: SCENE_TYPES.OFFICE_DAY,
     character: '小罗',
     text: `你坐在俞敏洪对面，桌上摆着辞职信，白纸黑字，像一张判决书。你听见自己的声音从喉咙里挤出来："俞老师，我要辞职。"三个字像三颗钉子，一颗一颗钉进空气里。办公室的空调嗡嗡作响，那一刻的沉默比任何回应都响——你能听见自己心跳，能听见窗外长安街上的车流，能听见俞敏洪指尖在桌面上轻轻敲了三下又停住。
 

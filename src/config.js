@@ -158,7 +158,9 @@ export const SCENE_TYPES = {
   OFFICE_BUSY: 'office_busy',       // 白天忙碌创业办公室（创业上升期）
   LIVESTREAM_FIRST: 'livestream_first', // 首播简陋直播间（首播青涩期）
   STREET_DAY: 'street_day',         // 90年代小城白天老街（延边摆摊期）
-  STAGE_ARENA: 'stage_arena'        // 巨型体育馆（鸟巢TNT发布会）
+  STAGE_ARENA: 'stage_arena',       // 巨型体育馆（鸟巢TNT发布会）
+  CLASSROOM_NIGHT: 'classroom_night', // 深夜教室（苦学/夜读期）
+  OFFICE_DAY: 'office_day'          // 白天明亮办公室（新东方/日常办公期）
 };
 
 /**
@@ -188,6 +190,8 @@ export const SCENE_ASSETS = [
   { key: 'bg-livestream_first', url: 'assets/characters/scene-livestream_first-v2.webp', type: 'livestream_first' },
   { key: 'bg-street_day',    url: 'assets/characters/scene-street_day-v2.webp',    type: 'street_day' },
   { key: 'bg-stage_arena',   url: 'assets/characters/scene-stage_arena-v2.webp',   type: 'stage_arena' },
+  { key: 'bg-classroom_night', url: 'assets/characters/scene-classroom_night-v2.webp', type: 'classroom_night' },
+  { key: 'bg-office_day',    url: 'assets/characters/scene-office_day-v2.webp',    type: 'office_day' },
   // 结局专属插图
   { key: 'bg-ending-legend',   url: 'assets/characters/ending-legend-v2.webp',   type: 'ending-legend' },
   { key: 'bg-ending-phoenix',  url: 'assets/characters/ending-phoenix-v2.webp',  type: 'ending-phoenix' },

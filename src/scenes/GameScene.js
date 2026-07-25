@@ -82,6 +82,10 @@ export class GameScene extends Phaser.Scene {
     street_day:  { tint: 0xffe8c0, tintAlpha: 0.06, rimColor: 0xffcc66, rimAlpha: 0.10, shadowColor: 0x2a1a0a, shadowAlpha: 0.25, shadowScale: 0.9, warmOverlay: 0.04 },
     // 场景变体：巨型体育馆（深蓝夜色+金色舞台光）
     stage_arena: { tint: 0xffc870, tintAlpha: 0.12, rimColor: 0xffaa33, rimAlpha: 0.20, shadowColor: 0x0a0600, shadowAlpha: 0.40, shadowScale: 0.7, warmOverlay: 0.08 },
+    // 场景变体：深夜教室（冷蓝月色，比 classroom 更冷更暗）
+    classroom_night: { tint: 0x8aa0cc, tintAlpha: 0.10, rimColor: 0x6688cc, rimAlpha: 0.12, shadowColor: 0x04060e, shadowAlpha: 0.38, shadowScale: 0.85, warmOverlay: 0.0 },
+    // 场景变体：白天办公室（明亮冷白天光）
+    office_day:  { tint: 0xe8ecf0, tintAlpha: 0.05, rimColor: 0xaaccee, rimAlpha: 0.08, shadowColor: 0x10141c, shadowAlpha: 0.22, shadowScale: 0.9, warmOverlay: 0.02 },
     stage:       { tint: 0xffc870, tintAlpha: 0.12, rimColor: 0xffaa33, rimAlpha: 0.20, shadowColor: 0x0a0600, shadowAlpha: 0.40, shadowScale: 0.7, warmOverlay: 0.08 },
     livestream:  { tint: 0xf0f4ff, tintAlpha: 0.06, rimColor: 0x88ccff, rimAlpha: 0.12, shadowColor: 0x0a0a1a, shadowAlpha: 0.25, shadowScale: 0.9, warmOverlay: 0.03 },
     lab:         { tint: 0xd8e4f0, tintAlpha: 0.04, rimColor: 0x77aadd, rimAlpha: 0.07, shadowColor: 0x081018, shadowAlpha: 0.25, shadowScale: 0.9, warmOverlay: 0.0 },
@@ -229,15 +233,26 @@ export class GameScene extends Phaser.Scene {
     // 2. 直播场景固定立绘
     if (node.sceneType === 'livestream') return 'livestream';
     // 3. 阶段推断：简化版（不查 state，仅按节点 ID 归属阶段）
+    // teacher 阶段不做年龄覆盖（与 _inferMood 三段逻辑一致，用场景姿态即黑毛衣青年组）
     const stage = getStageByNodeId(nodeId);
     if (stage) {
-      const earlyStages = new Set(['youth', 'teacher']);
+      const earlyStages = new Set(['youth']);
       const middleStages = new Set(['startup', 'dark', 'repay', 'reborn']);
       if (earlyStages.has(stage.id)) return 'young';
       if (middleStages.has(stage.id)) return 'middle';
     }
-    // 4. 默认 standing
-    return 'standing';
+    // 4. 与 _renderNode 的 poseMap 保持一致，避免预读姿态与实际渲染姿态错位
+    const poseMap = {
+      'classroom': 'sitting', 'lecture': 'speaking', 'office': 'sitting',
+      'stage': 'speaking', 'livestream': 'sitting', 'lab': 'standing',
+      'podcast': 'sitting', 'street': 'standing', 'ending': 'standing',
+      'fridge_smash': 'angry', 'talkshow': 'speaking', 'court': 'standing',
+      'office_empty': 'sitting', 'office_dark': 'sitting', 'street_night': 'standing',
+      'office_busy': 'sitting', 'livestream_first': 'sitting',
+      'street_day': 'standing', 'stage_arena': 'speaking',
+      'classroom_night': 'sitting', 'office_day': 'sitting'
+    };
+    return poseMap[node.sceneType] || 'standing';
   }
 
   init(data) {
@@ -937,7 +952,8 @@ export class GameScene extends Phaser.Scene {
       // 场景变体沿用基础场景的姿态
       'office_empty': 'sitting', 'office_dark': 'sitting', 'street_night': 'standing',
       'office_busy': 'sitting', 'livestream_first': 'sitting',
-      'street_day': 'standing', 'stage_arena': 'speaking'
+      'street_day': 'standing', 'stage_arena': 'speaking',
+      'classroom_night': 'sitting', 'office_day': 'sitting'
     };
     const pose = poseMap[node.sceneType] || 'standing';
     const mood = this._inferMood(node);
@@ -1229,8 +1245,11 @@ export class GameScene extends Phaser.Scene {
     // 白闪后 100ms，红色巨号数字从屏幕顶部砸下，落地触发"砸地震波"四维冲击
     if (nodeId === 'act6_night') {
       this.time.delayedCall(100, () => {
+        // 防御：清理可能的残留元素（scene 异常重启/DOM 未随 shutdown 清理时避免数字叠加）
+        document.querySelectorAll('[data-killer-moment], .ui-killer-moment-ring').forEach(el => el.remove());
         const numEl = document.createElement('div');
         numEl.className = 'ui-killer-moment-number';
+        numEl.setAttribute('data-killer-moment', 'debt-600m'); // 回归测试可定位标识
         numEl.textContent = '¥600,000,000';
         numEl.style.cssText = [
           'position:fixed', 'top:-120px', 'left:50%',
@@ -1293,8 +1312,8 @@ export class GameScene extends Phaser.Scene {
           });
         });
 
-        // 落地后 1.5s 淡出移除（从落地时刻算起，即 500ms + 1500ms = 2000ms）
-        this.time.delayedCall(2000, () => {
+        // 落地后悬停 2.5s 再淡出（评委 10 分钟演示内可充分看清数字；从落地时刻算起，即 500ms + 2500ms = 3000ms）
+        this.time.delayedCall(3000, () => {
           if (!numEl.parentNode) return;
           numEl.style.transition = 'opacity 0.3s';
           numEl.style.opacity = '0';
@@ -1880,11 +1899,13 @@ export class GameScene extends Phaser.Scene {
     // 2. 直播/卖货场景固定使用直播立绘
     if (node.sceneType === 'livestream') return 'livestream';
 
-    // 3. 根据阶段推断年龄立绘：早期用 young，中后期用 middle
+    // 3. 根据阶段推断年龄立绘：youth 少年 → teacher 黑毛衣青年（默认 pose 组）→ startup+ 中年
     const stage = getStageByNodeId(this.state.currentNode);
     if (stage) {
-      // startup(锤子科技 2012-2018) 主角已 40+ 岁，应归中年组，原归入 earlyStages 会导致该阶段全程显示少年立绘
-      const earlyStages = new Set(['youth', 'teacher']);
+      // 三段年龄过渡：youth 用 young 少年立绘；
+      // teacher 不做年龄覆盖（落到场景 poseMap/情绪姿态，即黑毛衣青年组，作为少年→中年的过渡）；
+      // startup(锤子科技 2012-2018) 及之后主角已 40+ 岁，用 middle 中年立绘
+      const earlyStages = new Set(['youth']);
       const middleStages = new Set(['startup', 'dark', 'repay', 'reborn']);
       if (earlyStages.has(stage.id)) {
         // 年轻阶段：如果没有显式 mood 覆盖情绪，用 young 立绘

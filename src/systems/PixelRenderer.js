@@ -67,7 +67,8 @@ const SCENE_PARTICLE_MODES = {
   classroom: 'dust', lecture: 'dust', podcast: 'dust', ending: 'sparkle',
   office: 'dust_dim', office_empty: 'dust_dim', lab: 'dust_dim', court: 'dust_dim',
   street: 'dust_dim', street_night: 'dust_dim',
-  office_busy: 'dust_bright', street_day: 'dust_bright',
+  office_busy: 'dust_bright', street_day: 'dust_bright', office_day: 'dust_bright',
+  classroom_night: 'dust_dim',
   office_dark: 'rain',
   stage: 'sparkle', stage_arena: 'sparkle', talkshow: 'sparkle', fridge_smash: 'sparkle',
   livestream: 'float_side', livestream_first: 'float_side'
@@ -713,7 +714,9 @@ export class PixelRenderer {
       office_busy: 'bg-office_busy',
       livestream_first: 'bg-livestream_first',
       street_day: 'bg-street_day',
-      stage_arena: 'bg-stage_arena'
+      stage_arena: 'bg-stage_arena',
+      classroom_night: 'bg-classroom_night',
+      office_day: 'bg-office_day'
     };
 
     // 1. 检查预加载纹理
