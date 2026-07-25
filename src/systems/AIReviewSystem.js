@@ -3,7 +3,7 @@
  *
  * 结局画面「AI 人生复盘」按钮的核心逻辑。
  * 两条路径：
- *  1. 大模型复盘（配置 VITE_ARK_API_KEY 后启用，火山方舟 Doubao）——真正的运行时 AI
+ *  1. 大模型复盘（配置 VITE_ARK_API_KEY 后启用，火山方舟大模型）——真正的运行时 AI
  *  2. 本地复盘引擎（兜底）——基于属性模式匹配的老罗风格洞察，离线可用，演示现场零风险
  *
  * UI 自包含：弹窗 DOM 与样式由本文件注入，不污染 index.html。
@@ -23,7 +23,7 @@ export class AIReviewSystem {
     this.ending = opts.ending || {};
     this.endingKey = opts.endingKey || 'default';
     this.apiKey = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_ARK_API_KEY) || '';
-    this.model = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_ARK_MODEL) || 'doubao-1-5-pro-32k-250115';
+    this.model = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_ARK_MODEL) || '';
   }
 
   get isLLMEnabled() { return !!this.apiKey; }
@@ -179,69 +179,78 @@ function _injectReviewStyles() {
       background: rgba(5, 5, 12, 0.82);
       opacity: 0; pointer-events: none;
       transition: opacity 0.35s ease;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
     }
     .ai-review-overlay.visible { opacity: 1; pointer-events: auto; }
     .ai-review-panel {
       width: min(560px, 88vw); max-height: 78vh; overflow-y: auto;
-      background: linear-gradient(160deg, #14142a 0%, #0d0d1c 100%);
-      border: 1px solid rgba(64, 200, 200, 0.45);
+      background: linear-gradient(160deg, var(--color-bg-elevated) 0%, var(--color-bg-deep) 100%);
+      border: 1px solid rgba(var(--color-trust-rgb), 0.45);
       border-radius: 4px;
-      box-shadow: 0 0 32px rgba(64, 200, 200, 0.12), inset 0 0 60px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 0 32px rgba(var(--color-trust-rgb), 0.12), inset 0 0 60px rgba(0, 0, 0, 0.4);
       padding: 28px 30px 24px;
       position: relative;
-      transform: translateY(12px);
-      transition: transform 0.35s ease;
+      /* R29-T3: 从 12px slide 升级为 scale + blur 入场，增强"AI 降临"仪式感 */
+      transform: translateY(16px) scale(0.94);
+      filter: blur(8px);
+      opacity: 0;
+      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), filter 0.45s ease, opacity 0.35s ease;
     }
-    .ai-review-overlay.visible .ai-review-panel { transform: translateY(0); }
+    .ai-review-overlay.visible .ai-review-panel {
+      transform: translateY(0) scale(1);
+      filter: blur(0);
+      opacity: 1;
+    }
     .ai-review-panel::before, .ai-review-panel::after {
       content: ''; position: absolute; width: 18px; height: 18px;
-      border: 2px solid #40c8c8;
+      border: 2px solid var(--color-trust);
     }
     .ai-review-panel::before { top: -2px; left: -2px; border-right: none; border-bottom: none; }
     .ai-review-panel::after { bottom: -2px; right: -2px; border-left: none; border-top: none; }
     .ai-review-tag {
       display: inline-block; font-size: 11px; letter-spacing: 2px;
-      color: #40c8c8; border: 1px solid rgba(64, 200, 200, 0.5);
+      color: var(--color-trust); border: 1px solid rgba(var(--color-trust-rgb), 0.5);
       padding: 2px 10px; margin-bottom: 14px;
     }
     .ai-review-title {
-      font-size: 20px; font-weight: bold; color: #e8e4d8;
+      font-size: 20px; font-weight: bold; color: var(--color-text-primary);
       margin: 0 0 4px; letter-spacing: 1px;
     }
     .ai-review-sub {
-      font-size: 12px; color: #7a7a92; margin-bottom: 18px;
+      font-size: 12px; color: var(--color-text-dim); margin-bottom: 18px;
     }
     .ai-review-body {
-      font-size: 15px; line-height: 1.9; color: #d8d4c8;
+      font-size: 15px; line-height: 1.9; color: var(--color-text-secondary);
       min-height: 120px; white-space: pre-wrap;
       text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
     }
     .ai-review-body .cursor {
       display: inline-block; width: 8px; height: 16px;
-      background: #40c8c8; vertical-align: -2px; margin-left: 2px;
+      background: var(--color-trust); vertical-align: -2px; margin-left: 2px;
       animation: aiReviewBlink 0.8s step-end infinite;
     }
     @keyframes aiReviewBlink { 50% { opacity: 0; } }
     .ai-review-loading {
       display: flex; align-items: center; gap: 10px;
-      color: #40c8c8; font-size: 14px; padding: 30px 0;
+      color: var(--color-trust); font-size: 14px; padding: 30px 0;
     }
     .ai-review-loading .dots span {
       display: inline-block; width: 6px; height: 6px; margin-right: 4px;
-      background: #40c8c8; animation: aiReviewDot 1.2s ease-in-out infinite;
+      background: var(--color-trust); animation: aiReviewDot 1.2s ease-in-out infinite;
     }
     .ai-review-loading .dots span:nth-child(2) { animation-delay: 0.2s; }
     .ai-review-loading .dots span:nth-child(3) { animation-delay: 0.4s; }
     @keyframes aiReviewDot { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
     .ai-review-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
-    .ai-review-source { font-size: 11px; color: #5a5a70; }
+    .ai-review-source { font-size: 11px; color: var(--color-text-gray-cool); }
     .ai-review-close {
-      background: transparent; border: 1px solid rgba(64, 200, 200, 0.6);
-      color: #40c8c8; font-size: 14px; padding: 8px 26px;
+      background: transparent; border: 1px solid rgba(var(--color-trust-rgb), 0.6);
+      color: var(--color-trust); font-size: 14px; padding: 8px 26px;
       cursor: pointer; letter-spacing: 2px;
       transition: background 0.2s, color 0.2s;
     }
-    .ai-review-close:hover { background: #40c8c8; color: #0d0d1c; }
+    .ai-review-close:hover { background: var(--color-trust); color: var(--color-bg-deep); }
   `;
   document.head.appendChild(style);
 }
@@ -252,6 +261,9 @@ function _injectReviewStyles() {
  */
 export function showAIReviewOverlay(reviewSystem) {
   _injectReviewStyles();
+
+  // R23 P1-1：重置打字机取消标志，避免二次打开弹窗时 typewriterCancelled 永久 true 导致内容空白
+  typewriterCancelled = false;
 
   // 清理已有弹窗
   const old = document.querySelector('.ai-review-overlay');
@@ -281,6 +293,7 @@ export function showAIReviewOverlay(reviewSystem) {
 
   const close = () => {
     overlay.classList.remove('visible');
+    typewriterCancelled = true; // R20 P1-002：通知打字机循环停止
     setTimeout(() => overlay.remove(), 350);
     document.removeEventListener('keydown', onKey);
   };
@@ -302,12 +315,18 @@ export function showAIReviewOverlay(reviewSystem) {
   return { close };
 }
 
+// R20 P1-002：模块级取消标志，close() 触发后打字机循环停止修改已分离的 DOM
+let typewriterCancelled = false;
 function _typewrite(el, text) {
   el.innerHTML = '<span class="tw"></span><span class="cursor"></span>';
   const tw = el.querySelector('.tw');
   const cursor = el.querySelector('.cursor');
   let i = 0;
   const step = () => {
+    if (typewriterCancelled) {
+      if (cursor) cursor.remove();
+      return;
+    }
     if (i < text.length) {
       tw.textContent += text[i++];
       setTimeout(step, 28);

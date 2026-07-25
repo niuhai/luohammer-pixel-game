@@ -82,6 +82,11 @@ REVIEW_REPORT.md
 
 # Git worktree for deployment
 .worktrees/
+.gh-pages-temp/
+
+# 演示视频产物（体量大不入库，_record_demo.cjs 可复现）
+demo-footage/*.mp4
+demo-footage/*.webm
 
 # 文档草稿（可选保留，按需删除此行）
 docs/

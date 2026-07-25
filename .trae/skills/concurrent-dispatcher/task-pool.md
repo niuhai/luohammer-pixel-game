@@ -345,7 +345,7 @@
 - **修改范围**：图片处理（裁剪右下角水印区域）
 - **任务类型**：图片处理
 - **工作重点**：
-  1. 所有角色图片右下角有「豆包AI生成」水印，需要去除
+  1. 所有角色图片右下角有「AI生成」水印，需要去除
   2. 用 Python PIL 裁剪右下角约 15% 宽 × 8% 高的水印区域
   3. 两个目录都要处理：characters/ 和 characters_clean/
   4. 处理后图片尺寸会略小，但不影响使用
@@ -1869,6 +1869,115 @@
 
 ---
 
+## R27 轮次任务（GATE 触发轮·全量扫描·数值平衡+bundle瘦身+hermit可达 · 2026-07-24）
+
+> 来源：R27 SCAN 渠道2（simulate-paths + stat-attrs + build）+ 渠道4（GATE-R24 残留 P2 + Lessons Learned）
+> 基线：GATE-R24 加权 9.24/10，目标 9.5+
+> 收敛状态：未收敛，bundle 超约束 + failures 4.71 失衡 + hermit 12 策略 0 触发
+
+### T106 — [P0] bundle 瘦身 656.97KB → ≤650KB
+
+- **状态**：pending
+- **操作文件**：
+  - `luohammer-pixel-game/vite.config.js`（调优 terserOptions）
+  - 排查并清理未用 export/死代码（如 src/图/ 大图未 import 但需确认）
+- **修改范围**：构建配置 + 死代码清理
+- **问题根因**：
+  1. vite.config terserOptions 仅 drop console.log，可加 drop_unused true（terser 默认开启，但可显式强化）
+  2. index chunk 656.97KB，需减 7KB+
+- **改进方案**：
+  1. 检查 src/图/ 目录大图是否被 vite 静态扫描（应不会被 import，但需验证）
+  2. 在 terserOptions.compress 加 `passes: 2`（多次压缩）
+  3. 在 rollupOptions.output.manualChunks 增加拆分：把 story 数据拆为独立 chunk
+  4. 若仍不够，删除可识别的死代码
+- **验收标准**：`npm run build` 后 `dist/assets/index-*.js` ≤ 650KB
+- **决赛加分**：+0.3（加载速度）
+- **依赖**：无
+- **价值级别**：A
+
+---
+
+### T107 — [P0+P1] failures 数值平衡 + pride 净偏移再平衡
+
+- **状态**：pending
+- **操作文件**：
+  - `luohammer-pixel-game/src/data/story/1_act0.js`
+  - `luohammer-pixel-game/src/data/story/2_act1.js`
+  - `luohammer-pixel-game/src/data/story/3_act2.js`
+  - `luohammer-pixel-game/src/data/story/4_fridge.js`
+  - `luohammer-pixel-game/src/data/story/5_fang.js`
+  - `luohammer-pixel-game/src/data/story/6_act3.js`
+  - `luohammer-pixel-game/src/data/story/7_act4.js`
+  - `luohammer-pixel-game/src/data/story/8_act5.js`
+- **修改范围**：在前期节点（act0-act5）增加 failures:-1 和 pride:-1/-2 的折中选项
+- **问题根因**：
+  1. stat-attrs 显示 failures 正负比 4.71（113正 vs 21负），21 处减少全集中在 9_act6/10_act7，前期玩家无"翻身"体感
+  2. pride 净偏移 143 仍偏高（正负比 1.58），需在前期增加 pride:-1/-2
+- **改进方案**：
+  1. 在 act0-act5 的关键节点中，找出"成功翻盘"类选项（如 act1 试讲成功、act2 牛博网高潮、act3 锤子成立、act4 T1发布、act5 坚果Pro回光返照），增加 `failures: -1` effects
+  2. 在"妥协/务实"类选项增加 `pride: -1` 或 `pride: -2`
+  3. 每个文件改 2-3 处，总目标：failures 正负比从 4.71 → ≤3.5，pride 净偏移从 143 → ≤120
+- **严格禁止**：
+  1. 不改节点 ID、不改 next 指向、不改 sceneType
+  2. 不新增节点，只在现有 choices 修改 effects
+  3. effects 数值范围 -2 到 +2
+  4. 保留原 choices 的 label 文案
+- **验收标准**：
+  1. `node scripts/stat-attrs.mjs` 显示 failures 正负比 ≤ 3.5
+  2. pride 净偏移 ≤ 120
+  3. `node scripts/validate-story.mjs` 0 errors
+  4. `node scripts/simulate-paths.mjs` 12 策略覆盖结局数不下降
+- **决赛加分**：+0.5（玩家体感"翻身"机制，决赛演示可展示）
+- **依赖**：无
+- **价值级别**：A
+
+---
+
+### T108 — [P0] M_隐士路径策略修复 + hermit 结局可达
+
+- **状态**：pending
+- **操作文件**：
+  - `luohammer-pixel-game/scripts/simulate-paths.mjs`（M 策略改写）
+  - `luohammer-pixel-game/src/data/story/10_act7.js`（act7_retire retired 选项降压强化）
+- **修改范围**：M 策略 + act7_retire 节点 effects
+- **问题根因**：
+  1. hermit 触发条件：`pressure <= 1 && flags.has('retired')`
+  2. retired flag 选项在 act7_retire:373，next=ending_peace，**直接结束游戏**
+  3. retired 选项有 `maxAttr: { pride: 5 }`，pride>5 时不可选
+  4. M 策略走到 act7_retire 时 pride 通常 >5，retired 选项被过滤，策略失效
+  5. 12 策略 0 次触发 hermit
+- **改进方案**：
+  1. **M 策略改写**：在到达 act7_retire 前，主动选 pride 降低选项；优先经过 pressure_release 阈值事件降压
+  2. **act7_retire retired 选项 effects 强化**：pressure 从 -3 改为 -6（一次性大幅降压，配合 retired_peace 阈值事件 -6，确保 pressure<=1）
+  3. **可选**：retired 选项 next 改为 act7_retire_day1（继续走一段再触发 hermit），但这违反"next 不回退"——act7_retire_day1 是 act7_retire 后继，不算回退，安全
+- **严格禁止**：
+  1. 不改 hermit 触发条件（设计意图）
+  2. 不改 retired 选项的 maxAttr 约束（设计意图）
+  3. 不新增节点
+- **验收标准**：
+  1. `node scripts/simulate-paths.mjs` M 策略触发 hermit 或最接近 hermit（pressure 差距 ≤1）
+  2. 12 策略覆盖结局数 ≥ 8（当前 7）
+  3. `node scripts/validate-story.mjs` 0 errors
+- **决赛加分**：+0.5（结局覆盖完整度）
+- **依赖**：无（与 T107 文件不重叠：T107 改 act0-act5，T108 改 act7）
+- **价值级别**：B
+
+---
+
+## R27 本轮任务摘要
+
+| ID | 优先级 | 操作文件 | 状态 | 价值级别 |
+|----|--------|---------|------|---------|
+| T106 | P0 | vite.config.js + 死代码清理 | pending | A |
+| T107 | P0+P1 | 1_act0.js ~ 8_act5.js（8 文件） | pending | A |
+| T108 | P0 | simulate-paths.mjs + 10_act7.js | pending | B |
+
+**冲突检测**：3 个 task 文件完全不重叠，可 3 worker 并发。
+
+**GATE 触发**：R27 = R24 + 3，满足周期触发条件，DISPATCH+VERIFY+SETTLE 后跑 GATE-R27。
+
+---
+
 ### T89 — [P1] SaveSystem 校验 currentNode 存在于 STORY（R15·SCAN·维度5）
 
 - **状态**：done（2026-07-23。SaveSystem.js import STORY，_isValidState 追加 `if (!STORY[parsed.currentNode]) return false`，旧版存档节点改名后不再白屏崩溃）
@@ -1913,7 +2022,7 @@
 
 ### T92 — [P2] act6_a 检定分支差异化（R15·SCAN·维度4/7）
 
-- **状态**：pending
+- **状态**：done（2026-07-23，commit `de6a237`：扩大 success/fail effects 差异）
 - **操作文件**：`luohammer-pixel-game/src/data/story/9_act6.js`（L41-47）
 - **修改范围**：让 failNext 指向支线节点或让 effects 差异更显著
 - **改进方案**：让 failNext 指向 `act6_crash_blame_team`（新增支线），或至少让 effects 差异更显著（当前 successEffects vs failEffects 仅 pride ±1）
@@ -1937,3 +2046,317 @@
 - **依赖**：无
 
 ---
+
+## R17 轮次任务（专业评委 UI 走查 · 2026-07-23）
+
+> SCAN 结果：P0/P1/P2 = 0/4/2，已完成 6/6，残留 0。
+> VERIFY：ESLint 0 警告；Vitest 289/289；生产构建通过；剧情校验 0 错误/0 警告；路径模拟与 effects 校验通过；Edge E2E 9/9。
+> 收敛状态：UI 主链路进入稳定期，下一轮只接受有实机证据的高收益问题。
+
+### T94 — [P1] 成就图鉴信息架构与交互重构
+
+- **状态**：done（2026-07-23）
+- **操作文件**：`src/ui/AchievementGallery.js`、`index.html`
+- **完成内容**：普通/隐藏/组合三类真实标签切换；数量与总分一致；成就条目改为语义化按钮；新增详情、里程碑进度、键盘关闭与焦点管理；修复总分 fallback 重复计分。
+- **验收证据**：标题页入口 E2E 通过；桌面 1920px 与移动 375px 实机走查通过。
+
+### T95 — [P1] 天赋选择改为决策型卡片界面
+
+- **状态**：done（2026-07-23）
+- **操作文件**：`src/systems/TalentSystem.js`、`index.html`
+- **完成内容**：卡片改为原生 button + `aria-pressed`；桌面卡片与移动纵向列表分别优化；确认按钮持续可见并明确选择进度；第三项选择给出拒绝反馈；移除重复内容 tooltip 及 4 个死方法。
+- **验收证据**：桌面/移动实机选中、取消、达到上限、确认状态均通过；主业务包降至 637.92 kB。
+
+### T96 — [P1] 结局页评委阅读层级重构
+
+- **状态**：done（2026-07-23）
+- **操作文件**：`src/scenes/EndingScene.js`、`index.html`
+- **完成内容**：建立“结局名 → 金句 → 雷达 → AI 洞察 → 总结 → 行动”顺序；AI 复盘提升为主行动；技能树收进更多菜单；移动端标题单行适配，行动区不再覆盖总结。
+- **验收证据**：375×812 下标题 22.5px 单行，正文与按钮无重叠；3 条结局 E2E 通过。
+
+### T97 — [P1] 结局纹理重复加载竞态修复
+
+- **状态**：done（2026-07-23）
+- **操作文件**：`src/scenes/GameScene.js`
+- **完成内容**：删除 GameScene 在立即切换场景前的 fire-and-forget 结局纹理预载，统一由 EndingScene preload 持有加载责任，消除 `Texture key already in use: bg-ending`。
+- **验收证据**：结局 E2E 3/3 通过；生产构建通过。
+
+### T98 — [P2] 全局视觉令牌与移动端可读性提升
+
+- **状态**：done（2026-07-23）
+- **操作文件**：`index.html`
+- **完成内容**：提升次级文字对比度、正文/注释字号下限、面板层次与 focus 状态；补齐安全区与滚动边界。
+- **验收证据**：1920px / 375px 双视口人工走查通过。
+
+### T99 — [P2] UI 遗留代码清理与包体收口
+
+- **状态**：done（2026-07-23）
+- **操作文件**：`src/systems/TalentSystem.js`
+- **完成内容**：移除已失效的 hover/长按预览链路、单例 tooltip 状态与定位代码，避免隐藏交互与卡片正文重复。
+- **验收证据**：ESLint 0 警告；Vitest 289/289；主业务包 637.92 kB。
+
+---
+
+---
+
+## R24 �ִ�������ֵƽ�����ֿɴ��� �� 2026-07-24��
+
+> ��Դ��R24 SCAN ����2��simulate-paths + stat-attrs��+ ����4��GATE-R21 P2 ������
+> �������֣�GATE-R21 ��Ȩ 9.13/10����Ʒ 9.3 / �� 9.0 / ʵ 9.0 / �� 9.2��
+> ����״̬��R23 �������ɶ��ᣬ�������û�Ҫ��"�Ż�������"��������
+> ���ķ��֣�
+> - failures 660 choices �� 0 ����ʽ��ֵ������ pride/reputation ��ɹ������� 1��
+> - pride ��ƫ��=190 / reputation=117 / failures=113 ������ƫ
+> - D_̰��wealth ·�� trust=4 �� 1 �ﲻ�� balance ��֣�������ȼ� 12��
+> - M_��ʿ·������ʵ��ƥ�� ai_visionary��pressure=8 Զ�� hermit Ҫ�� ��1��
+> - 13 ��ģ�����ֻ���� 35 ������е� 5 ��
+
+---
+
+### T100 �� [P0+P1] endings + effects ��ֵƽ���޸�
+
+- **״̬**��pending
+- **���ȼ�**��P0��balance �ɴ��ԣ�+ P1��trust �ɼ��ԺϹ棩
+- **�����ļ�**��
+  - `src/data/endings.js`������ balance/educator/mentor �� trust �ż�ע�ͣ������ж��߼���
+  - `src/data/effects.js`��ATTRIBUTES.trust.hidden �� true ��Ϊ false��
+- **�޸ķ�Χ**��
+  1. effects.js L16: `trust: { name: '��������', icon: '?', min: 0, max: 10, hidden: true, ... }` �� `hidden: false`
+  2. endings.js: ���� check ������trust��5 ��������Ϊ trust ���ڿɼ��ˣ�����ܸ�֪��
+  3. effects.js L65-76: ����"������ 1"�����Ƿ���Ҫ��չ����ǰ pride/reputation delta>2 �Ŵ������ɿ��� failures��3 ʱҲ���� -1��
+- **���ձ�׼**��
+  - npm run lint 0 errors
+  - npm run build ͨ��
+  - vitest ȫ��
+  - stat-attrs.mjs �����������У�trust ���ڿɼ���
+- **�����ӷ�**��+0.5����Ʒ������ + �Ϲ��ԣ�
+- **����**���ޣ��� T101 �Ĳ�ͬ�ļ������ͻ��
+
+---
+
+### T101 �� [P0+P1] story ��ֵƽ�⣺trust/pride/reputation/failures ����
+
+- **״̬**��pending
+- **���ȼ�**��P0��wealth ·�� trust ���䣩+ P1��pride/reputation/failures ȥ������
+- **�����ļ�**��
+  - `src/data/story/9_act6.js`��act6 ��ծ�ڵ㣩
+  - `src/data/story/10_act7.js`��act7_payback + act7_retire ���飩
+  - `src/data/story/7_act4.js`��act4 ��Э�ڵ㣩
+  - `src/data/story/8_act5.js`��act5 ��Э�ڵ㣩
+- **�޸ķ�Χ**��
+  1. 9_act6.js: act6 ��ծ�ɹ��ڵ� effects ���� `trust: 1, failures: -1`���� P0-1 + P1-3��
+  2. 10_act7.js: act7_payback���滹����ɣ�effects ���� `failures: -2`������ act7_retire �Ƿ����� retired flag����δ������ `flag: 'retired'`���� P0-2 + P1-3��
+  3. 7_act4.js + 8_act5.js: ��"��Э/����/��ʵ"�ڵ㣨�����Ͷ�ʡ����� M1�����ؾ�Ӫ��effects ���� `pride: -2` �� `reputation: -2`���� P1-1 + P1-2��
+- **�޸�ԭ��**��
+  - ���Ľڵ� ID��next ָ��sceneType
+  - ֻ������ effects �����������ֶΣ���ɾ�������ֶ�
+  - ÿ���ļ����� 3-5 �� choice �� effects
+  - �޸ĺ��� validate-effects.cjs ȷ���޴���
+- **���ձ�׼**��
+  - npm run lint 0 errors
+  - node scripts/validate-story.mjs 0 errors
+  - node scripts/validate-effects.cjs ȫ��
+  - node scripts/stat-attrs.mjs: pride/reputation/failures ��ƫ���½���Ŀ�꣺pride<150, reputation<90, failures<90��
+  - node scripts/simulate-paths.mjs: D_̰��wealth ·�� trust��5 �ﵽ balance ���
+- **�����ӷ�**��+1.0�������� + ��ֶ����ԣ�
+- **����**���ޣ��� T100 �Ĳ�ͬ�ļ������ͻ��
+
+---
+
+### T102 �� [P2] EndingScene ������ setTimeout ��Ϊ time.delayedCall
+
+- **״̬**��pending
+- **���ȼ�**��P2��GATE-R21 ������
+- **�����ļ�**��`src/scenes/EndingScene.js`
+- **�޸ķ�Χ**��line 128/577/1738 ���� `setTimeout(...)` ��Ϊ `this.time.delayedCall(...)`���� time.removeAllEvents() ͳһ����
+- **���ձ�׼**��
+  - npm run lint 0 errors
+  - vitest ȫ��
+  - ���ҳ E2E ͨ��
+- **�����ӷ�**��+0.1������������
+- **����**����
+
+---
+
+### T103 �� [P2] GameScene _closeSettlement TDZ + _pendingTimeouts Set
+
+- **״̬**��pending
+- **���ȼ�**��P2��GATE-R21 ������
+- **�����ļ�**��`src/scenes/GameScene.js`
+- **�޸ķ�Χ**��
+  1. line 1888-1903: `const _closeSettlement = ...` �Ƶ� `setInterval(...)` ֮ǰ���� TDZ��
+  2. line 282/295-299: `_pendingTimeouts` �� `Array + indexOf/splice` ��Ϊ `Set + add/delete`���� DialogSystem.js:49 һ�£�
+- **���ձ�׼**��
+  - npm run lint 0 errors
+  - vitest ȫ��
+  - simulate-paths ͨ��
+- **�����ӷ�**��+0.1������������
+- **����**����
+
+---
+
+### T104 �� [P2] PixelRenderer _startHeartbeat �������
+
+- **״̬**��pending
+- **���ȼ�**��P2��GATE-R21 ������
+- **�����ļ�**��`src/systems/PixelRenderer.js`
+- **�޸ķ�Χ**��line 1212/1220 `_startHeartbeat` ����� `clearTimeout(this._heartbeatTimer1); clearTimeout(this._heartbeatTimer2);` �������� timer
+- **���ձ�׼**��
+  - npm run lint 0 errors
+  - vitest ȫ��
+- **�����ӷ�**��+0.1������������
+- **����**����
+
+---
+
+### T105 �� [P0+P2] simulate-paths M_��ʿ·�������޸� + flag-aware ����
+
+- **״̬**��pending
+- **���ȼ�**��P0��M �����޸���+ P2��flag-aware ���ǣ�
+- **�����ļ�**��`scripts/simulate-paths.mjs`
+- **�޸ķ�Χ**��
+  1. �޸� M_��ʿ·�����ԣ�line 122-130����ȷ������ѡ retired flag �� choice����� act7_retire���ٴ� act7_payback��������Ҳ����򷵻� 0
+  2. ���� flag-aware ���Ը��Ǹ����֣�
+     - N_��ʿ·�� v2: ����ѡ retired flag �� act7_retire �� ���� pressure �Ƿ񽵵� ��1
+     - O_����·��: ����ѡ persist_premium flag
+     - P_����·��: ����ѡ wrote_book flag
+     - Q_����·��: ����ѡ became_influencer flag
+- **���ձ�׼**��
+  - node scripts/simulate-paths.mjs ������ fatal termination
+  - M_��ʿ·������ʵ��ƥ�� hermit ��֣������� pressure��2��
+  - ���� flag-aware ���Ը������� 3 ���½��
+- **�����ӷ�**��+0.3�����Ը��ǣ�
+- **����**��T101��act7_retire retired flag �޸��� M ���Բ��ܹ�����
+
+---
+
+## R24 �ִ�����ժҪ
+
+| Task | ���ȼ� | �����ļ� | ���� | Ԥ�������� |
+|------|--------|---------|------|-----------|
+| T100 | P0+P1 | endings.js + effects.js | �� | С��2 ���Ķ��� |
+| T101 | P0+P1 | 9_act6.js + 10_act7.js + 7_act4.js + 8_act5.js | �� | �У�8-12 �� effects ������ |
+| T102 | P2 | EndingScene.js | �� | С��3 �� setTimeout �� delayedCall�� |
+| T103 | P2 | GameScene.js | �� | С��2 ���ع��� |
+| T104 | P2 | PixelRenderer.js | �� | С��1 �������� |
+| T105 | P0+P2 | simulate-paths.mjs | T101 | �У������޸� + 4 ���²��ԣ� |
+
+**��ͻ���**������ task ������ͬ�ļ������ͻ��T105 ���� T101 ��ɣ�act7_retire retired flag �޸��������֤ M ���ԣ���
+
+**ִ��˳��**��
+- ��һ��������T100 + T101 + T102��3 worker�����ͻ��
+- �ڶ���������T103 + T104 + T105��3 worker��T105 ���� T101 ��ɣ�
+
+---
+
+## R26 轮次任务（UX/前端专项优化 · 2026-07-24）
+
+> 来源：R26 SCAN 渠道 3（浏览器实机走查 P0 子集）+ 渠道 2（lint/build）+ 渠道 4（历史残留回溯）
+> 约束：只关注 UX/前端优化，不碰剧情/数值/文案创意类改动
+> 当前基线：GATE-R24 加权 9.24/10，R25 自审 C 级
+> 本轮目标：必须产出至少 1 个 A/B 级真实加分项，否则进入收敛判断
+
+---
+
+### T109 — [P0][A] 6亿杀手时刻可靠触发与视觉增强
+
+- **状态**：pending
+- **操作文件**：
+  - `luohammer-pixel-game/src/scenes/GameScene.js`
+- **修改范围**：`_triggerKillerMoment(nodeId)` 方法（L1213-L1373）中 `act6_night` 分支
+- **问题根因**：
+  1. SCAN 渠道 3 在直接加载 `currentNode: 'act6_night'` 状态时未检测到 `¥600,000,000` 元素，存在触发不可靠风险
+  2. 6亿数字特效是决赛核心记忆点，触发失败会直接导致评委加分项丢失
+- **改进方案**：
+  1. 在 `_renderNode` 调用 `_triggerKillerMoment` 前增加防御：确保 DOM 已就绪、state.currentNode 有效
+  2. 给 6亿数字元素增加 `data-killer-moment="debt-600m"` 标识，便于测试/回归定位
+  3. 优化数字砸下动画的时序与可感知性：确保从 `top:-120px` 落到 `38%` 的动画在 500ms 内完成，且落地同时触发二次白闪+震动+扩散环
+  4. 增加淡出前的"悬停"状态保持时间，确保评委在 10 分钟演示内能看清数字
+  5. 如当前实现已正确，则检查并加固边界条件（scene 切换、快速跳转、读档恢复时不漏触发/不重复触发）
+- **严格禁止**：
+  1. 不改节点 ID、next 指向、sceneType
+  2. 不改剧情文案/数值
+  3. 不改 KILLER_NODES 集合定义
+  4. 不关闭/销毁 AudioContext
+- **验收标准**：
+  1. `npm run lint` 0 errors
+  2. `npm run build` 通过
+  3. 用 Playwright 直接加载 `act6_night` 状态后 3000ms 内能在 DOM 中检测到含 `¥600,000,000` 的元素
+  4. 杀手时刻触发后无 console error
+  5. 快速重复进入 act6_night 不导致多个数字重叠
+- **决赛加分**：+1.5（6亿数字砸出是评委 10 分钟后最可能记住的瞬间，可靠触发是加分底线）
+- **依赖**：无
+- **价值级别**：A
+
+---
+
+### T110 — [P1][B] 修复固定按钮文字/图标溢出
+
+- **状态**：pending
+- **操作文件**：
+  - `luohammer-pixel-game/index.html`
+- **修改范围**：`.ui-sound-toggle`、`.ui-menu-toggle`、`.ui-narration-toggle` 等固定定位按钮的 CSS（L1299-L1385 附近）
+- **问题根因**：
+  1. SCAN 渠道 3 检测到存在 `scrollWidth > clientWidth` 的元素，定位到固定按钮区域
+  2. 部分按钮未显式设置 `box-sizing: border-box` 与 `padding: 0`，border 与默认 padding 可能导致内容区小于图标视觉尺寸，在某些字号/缩放组合下溢出
+- **改进方案**：
+  1. 为所有 fixed 定位的 icon/text 按钮统一加 `box-sizing: border-box; padding: 0; overflow: hidden;`
+  2. 检查并收紧 `font-size` / `line-height`，确保图标/文字在 44×44px 热区内不超出内容盒
+  3. 对 `ui-sound-icon` 等子元素加 `display: flex; align-items: center; justify-content: center;` 避免行高导致溢出
+  4. 在 375×812 与 1920×1080 双视口下用 Playwright 回归验证 `scrollWidth <= clientWidth`
+- **严格禁止**：
+  1. 不改按钮的 `position: fixed` 与 safe-area 适配
+  2. 不改按钮的事件监听逻辑
+  3. 不使用 emoji 替换现有像素符号（♪、▣ 等）
+- **验收标准**：
+  1. `npm run lint` 0 errors
+  2. `npm run build` 通过
+  3. Playwright 桌面+移动端走查：所有 visible 按钮 `scrollWidth <= clientWidth` 且 `scrollHeight <= clientHeight`
+  4. 按钮热区仍 ≥ 44×44px
+- **决赛加分**：+0.3（移动端细节完整度，避免评委截图时出现溢出示警）
+- **依赖**：无
+- **价值级别**：B
+
+---
+
+### T111 — [P1][B] 优化选择按钮点击响应延迟
+
+- **状态**：pending
+- **操作文件**：
+  - `luohammer-pixel-game/src/systems/ChoiceSystem.js`
+- **修改范围**：`.ui-choice-btn` 的 click / keydown 事件处理（L293-L373 附近）
+- **问题根因**：
+  1. SCAN 渠道 3 测得点击响应延迟超过 100ms 阈值
+  2. 当前实现中 `_choiceLock` 后遍历所有按钮设置 `disabled`，`_markSelected`、`_triggerChoiceFlash` 可能包含同步 DOM 重排或样式计算
+- **改进方案**：
+  1. 用 `requestAnimationFrame` 或 `setTimeout(0)` 将非关键的视觉反馈（如 flash、粒子、音效）与关键反馈（选中态、lock）解耦，确保关键反馈在 16ms 内完成
+  2. 缓存 `this.el.querySelectorAll('.ui-choice-btn')` 结果，避免在 click 处理器中重复查询
+  3. 检查是否有同步强制重排（如连续读 offsetHeight 后写 style），将其推迟到下一帧
+  4. 保持 `_choiceLock` 防重触发机制不变
+- **严格禁止**：
+  1. 不改 `_choiceLock` 语义
+  2. 不改 choices 的 next/effects
+  3. 不引入新的全局状态
+- **验收标准**：
+  1. `npm run lint` 0 errors
+  2. `npm run build` 通过
+  3. Vitest 相关测试通过
+  4. Playwright 测量：选择按钮 click 到 `disabled` 属性设置 / 选中 class 添加的延迟 < 100ms（取 10 次平均）
+  5. 快速连点仍只触发一次选择
+- **决赛加分**：+0.3（操作跟手感，评委高频点击选项时感知明显）
+- **依赖**：无
+- **价值级别**：B
+
+---
+
+## R26 本轮任务摘要
+
+| ID | 优先级 | 操作文件 | 状态 | 价值级别 |
+|----|--------|---------|------|---------|
+| T109 | P0 | GameScene.js | pending | A |
+| T110 | P1 | index.html | pending | B |
+| T111 | P1 | ChoiceSystem.js | pending | B |
+
+**冲突检测**：3 个 task 文件完全不重叠，可 3 worker 并发。
+
+**GATE 触发**：本轮为 R26，距上次 GATE（R24）已 2 轮，下一轮 R27 触发 GATE；但如本轮 VERIFY 后连续 2 轮无 A/B 级改进，则提前收敛停止。����ɣ�
