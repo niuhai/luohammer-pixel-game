@@ -520,7 +520,9 @@ export class ChoiceSystem {
   _updateScrollHint() {
     const el = this.el;
     if (!el) return;
-    const hasOverflow = el.scrollHeight > el.clientHeight + 2;
+    // R76: 阈值 2→8px——移动端 3 选项面板常有几 px 的边界溢出（圆角/边框取整），
+    // 导致无可滚内容时 ▼ 提示常显造成 affordance 误导；8px 容差不影响真溢出场景（如 8 选项溢出 200+px）
+    const hasOverflow = el.scrollHeight > el.clientHeight + 8;
     const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 4;
     el.classList.toggle('has-more', hasOverflow && !atEnd);
   }

@@ -801,7 +801,11 @@ export class DialogSystem {
         }
       }, 400);
     }
-    // === 自动播放：文字显示完整后绝不自动推进剧情，等待用户点击继续 ===
+    // === R77 F2：AUTO 模式自动推进（竞品《隐形守护者》《人生重开模拟器》标配）===
+    // 未读节点：打完延迟后自动推进（多段→下一段，末段→onComplete 显示选项）；
+    // 已读节点已由快进通道（上方 _isSeenNode 分支）自动推进，不重复调度。
+    // 选项面板绝不自动选择——抉择权始终留给玩家。
+    if (!this._isSeenNode) this._scheduleAutoAdvance();
   }
 
   /**
@@ -818,10 +822,42 @@ export class DialogSystem {
     }
     // 若 TTS 正在朗读，等其结束；否则用 setTimeout 给视觉缓冲
     if (this.audio.isSpeaking()) {
-      this.audio.onceSpeechEnd(action);
+      // R77 F2：TTS 假死防护——部分环境（无音频输出/引擎异常）end 事件永不到达，
+      // speaking 卡在 true，AUTO/快进通道随之永久死锁。按当前段文本长度估算朗读
+      // 上限（~300ms/字，下限 4s），超时强制推进。一次性包装防止超时与
+      // onceSpeechEnd 双触发导致跳段。
+      let fired = false;
+      const once = () => { if (fired) return; fired = true; action(); };
+      const capMs = Math.max(4000, (this._plainText || '').length * 300);
+      this._trackedTimeout(once, capMs);
+      this.audio.onceSpeechEnd(once);
     } else {
       this._trackedTimeout(action, delayMs);
     }
+  }
+
+  /**
+   * R77 F2：AUTO 模式自动推进调度
+   * 打字完成后延迟自动推进剧情（复用 _onDialogClick 统一推进路径：多段→下一段 / 末段→onComplete）。
+   * - 快照校验：回调时段落索引/onComplete 已变化（玩家手动推进过）则不重复触发
+   * - 选项面板可见时绝不推进（抉择权留给玩家）
+   * - TTS 朗读中则等朗读结束（复用 _scheduleAfterSpeech）
+   * - 定时器经 _trackedTimeout 跟踪，场景销毁自动清理
+   */
+  _scheduleAutoAdvance() {
+    if (!this._autoPlay || this.isTyping) return;
+    if (this._isChoicesVisible && this._isChoicesVisible()) return;
+    const segSnapshot = this._segmentIndex;
+    const cbSnapshot = this.onComplete;
+    const isMidSegments = this._segments && this._segmentIndex < this._segments.length - 1;
+    if (!isMidSegments && !cbSnapshot) return; // 无处可推进
+    this._scheduleAfterSpeech(() => {
+      if (!this._autoPlay || this.isTyping) return;
+      if (this._isChoicesVisible && this._isChoicesVisible()) return;
+      if (this._segmentIndex !== segSnapshot) return; // 玩家已手动推进段落
+      if (!isMidSegments && this.onComplete !== cbSnapshot) return; // 玩家已手动触发 onComplete
+      this._onDialogClick();
+    }, 1100);
   }
 
   /**
@@ -851,7 +887,7 @@ export class DialogSystem {
 
   /**
    * 切换自动播放开关（T28）
-   * 注意：autoPlay 仅影响"继续"提示文案，打字机始终自动工作
+   * 注意：autoPlay 影响"继续"提示文案与打完后的自动推进（R77 F2），打字机始终自动工作
    */
   _toggleAutoPlay() {
     this._autoPlay = !this._autoPlay;
@@ -859,6 +895,11 @@ export class DialogSystem {
     this._applyAutoPlayState();
     // 打字机始终工作，不因 autoPlay 切换而暂停
     this._updateContinueHint();
+    // R77 F2：开启时若正处于"打完等待点击"状态，立即启动自动推进；
+    // 关闭时已排队的推进回调会因 _autoPlay=false 自查而自动放弃
+    if (this._autoPlay && !this.isTyping && !this._isSeenNode) {
+      this._scheduleAutoAdvance();
+    }
   }
 
   /**

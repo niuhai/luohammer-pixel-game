@@ -387,6 +387,9 @@ export function showSaveLoadPanel(options = {}) {
   const escHandler = (e) => {
     if (e.key === 'Escape') {
       e.preventDefault();
+      // R77 F4：面板已消费本次 ESC，阻止冒泡到 window 级 GameScene._escHandler——
+      // 否则面板先关闭（visible 移除），菜单开关误判为"菜单态 ESC"而误重开菜单
+      e.stopPropagation();
       if (confirmEl.classList.contains('visible')) {
         hideConfirm();
         return;

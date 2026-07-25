@@ -685,6 +685,10 @@ export class AchievementPopup {
     this.scene = scene;
     this._timers = [];
     this._visible = false;
+    // R81 F1：成就弹窗 FIFO 队列——批量成就同帧/短窗口连发时依序播完，
+    // 不再后者打断前者（_busy 从 _showNow 起贯穿展示+滑出+队列间隙，直到队列清空）
+    this._queue = [];
+    this._busy = false;
 
     _injectStyles();
 
@@ -719,12 +723,24 @@ export class AchievementPopup {
   }
 
   /**
-   * 显示成就弹窗
+   * 显示成就弹窗（R81 F1：忙时入队，FIFO 串行播放）
    * @param {string} name - 成就名称
    * @param {string} icon - 成就图标
    * @param {boolean} hidden - 是否是隐藏成就
    */
   show(name, icon, hidden = false) {
+    if (this._busy) {
+      this._queue.push({ name, icon, hidden });
+      return;
+    }
+    this._busy = true;
+    this._showNow(name, icon, hidden);
+  }
+
+  /**
+   * 立即展示弹窗（不经过队列——仅 show() 与队列排空调用）
+   */
+  _showNow(name, icon, hidden = false) {
     this._clearTimers();
     this._resetState();
 
@@ -754,7 +770,10 @@ export class AchievementPopup {
   _playFlashEffect(onComplete) {
     // 屏幕震动（复用 Phaser 场景的相机震动，不属于弹窗自身的 Phaser 资源）
     // 时长从 600ms 缩短至 250ms，避免抖动过长影响剧情阅读
-    if (this.scene && this.scene.cameras && this.scene.cameras.main) {
+    // R77 F3：prefers-reduced-motion 跳过震动，保留闪光（与全局降级约定一致）
+    const reducedMotion = typeof window !== 'undefined' && window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reducedMotion && this.scene && this.scene.cameras && this.scene.cameras.main) {
       try { this.scene.cameras.main.shake(250, 0.005); } catch (e) {}
     }
 
@@ -875,8 +894,16 @@ export class AchievementPopup {
     this.el.classList.add('slide-out');
 
     this._addTimer(() => {
+      if (!this.el) return; // 滑出完成前弹窗可能已 destroy
       this.el.classList.remove('visible', 'slide-out', 'hidden-achievement');
       this._visible = false;
+      // R81 F1：排空队列——250ms 呼吸间隙后播下一条；队列空则解除忙态
+      const next = this._queue.shift();
+      if (next) {
+        this._addTimer(() => this._showNow(next.name, next.icon, next.hidden), 250);
+      } else {
+        this._busy = false;
+      }
     }, 300);
   }
 
@@ -918,6 +945,9 @@ export class AchievementPopup {
    */
   destroy() {
     this._clearTimers();
+    // R81 F1：清空队列与忙态，防场景销毁后队列残留引用
+    this._queue = [];
+    this._busy = false;
     if (this.el && this.el.parentNode) {
       this.el.parentNode.removeChild(this.el);
     }

@@ -1121,6 +1121,10 @@ export class PixelRenderer {
    * @param {number} duration - 震动时长 ms
    */
   cameraShake(intensity = 4, duration = 200) {
+    // R77 F3：prefers-reduced-motion 收口守卫——压力满档周期抖动等调用方
+    // 未逐个声明降级，在此统一跳过相机震动（暗角/红闪等视觉语义保留）
+    if (typeof window !== 'undefined' && window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const cam = this.scene.cameras.main;
     const shakeEffect = cam.shakeEffect;
     // Phaser 的 shakeEffect 有 isRunning 标志

@@ -369,6 +369,9 @@ export class Transition {
    * @param {number} duration - 震动时长 ms
    */
   shake(intensity = 4, duration = 200) {
+    // R77 F3：reduce 模式收口守卫（调用方守卫之外的兜底，防未来调用方遗漏）
+    if (typeof window !== 'undefined' && window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     this.scene.cameras.main.shake(duration, intensity / 1000);
   }
 

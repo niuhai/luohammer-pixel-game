@@ -231,9 +231,10 @@
     }
 
     body {
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      /* R76: 移除 flex 居中——body flex 与 Phaser autoCenter 内联 margin 双重居中叠加，
+         横屏/超宽窗口 canvas 偏移（实测 812x375 横屏 canvas x=159，应 106：
+         flex 自由空间均分 53 + Phaser 内联 margin-left 106）。
+         canvas 居中职责归 Phaser Scale autoCenter 独占（canvas 自身 display:block）。 */
       font-family: var(--font-pixel);
     }
 
@@ -1543,7 +1544,9 @@
       position: fixed;
       inset: 0;
       background:
-        linear-gradient(180deg, rgba(5, 5, 12, 0.78), rgba(5, 5, 12, 0.92)),
+        /* R76: 顶部不透明度 0.78→0.94——HUD(菜单/声音等固定按钮)透过半透明顶缘隐约可见，
+           与"选择你的天赋"标题区视觉打架（ux-evaluator R76 C级） */
+        linear-gradient(180deg, rgba(5, 5, 12, 0.94), rgba(5, 5, 12, 0.96)),
         radial-gradient(circle at 50% 38%, rgba(240, 192, 64, 0.07), transparent 46%);
       display: none;
       flex-direction: column;
@@ -1637,15 +1640,28 @@
       border-color: var(--color-gold);
       background: linear-gradient(180deg, rgba(34, 31, 52, 0.98), rgba(16, 18, 38, 0.98));
       box-shadow: 0 0 20px rgba(240, 192, 64, 0.25), inset 0 0 0 1px rgba(240, 192, 64, 0.12);
+      /* 选中确认感：盖章弹跳 + 持续浮起（末帧与规则值一致，both 保持） */
+      transform: translateY(-3px);
+      animation: talentSelectStamp 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+      /* 清掉入场 stagger 的内联 animationDelay（JS 设置），否则第 2/3 张卡选中时盖章慢半拍 */
+      animation-delay: 0s !important;
     }
 
-    /* R28-T1: 选中瞬间光波扫过（卡牌游戏仪式感） */
+    /* 选中瞬间：卡牌下沉后弹起并浮起——复用项目"砸落回弹"语言 */
+    @keyframes talentSelectStamp {
+      0% { transform: translateY(0) scale(1); }
+      35% { transform: translateY(1px) scale(0.94); }
+      70% { transform: translateY(-5px) scale(1.05); }
+      100% { transform: translateY(-3px) scale(1); }
+    }
+
+    /* R28-T1: 选中瞬间光波扫过（卡牌游戏仪式感），延迟 0.1s 等盖章起手 */
     .ui-talent-card.selected::before {
       content: '';
       position: absolute;
       inset: 0;
       background: linear-gradient(120deg, transparent 30%, rgba(240, 192, 64, 0.35) 50%, transparent 70%);
-      animation: talentSelectedSweep 0.6s ease-out;
+      animation: talentSelectedSweep 0.6s ease-out 0.1s;
       pointer-events: none;
       border-radius: inherit;
     }
@@ -1662,6 +1678,13 @@
       color: var(--color-gold);
       font-size: 14px;
       font-weight: 700;
+      /* 落章：从上方砸下 + 过冲回弹 + 微转正，盖章仪式感 */
+      animation: talentCheckStamp 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    @keyframes talentCheckStamp {
+      0% { opacity: 0; transform: scale(2.4) rotate(-14deg); }
+      60% { opacity: 1; transform: scale(0.9) rotate(2deg); }
+      100% { opacity: 1; transform: scale(1) rotate(0deg); }
     }
 
     .ui-talent-card.selection-denied {
@@ -1684,7 +1707,9 @@
       animation: talentCardReveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) both, rareGlow 3.2s ease-in-out infinite 0.6s;
     }
     .ui-talent-card[data-rarity="rare"]:hover { border-color: #6aa0ff; box-shadow: 0 0 16px rgba(74, 138, 255, 0.25); }
-    .ui-talent-card[data-rarity="rare"].selected { border-color: #4080F0; box-shadow: 0 0 20px rgba(74, 138, 255, 0.35); }
+    .ui-talent-card[data-rarity="rare"].selected { border-color: #4080F0; box-shadow: 0 0 20px rgba(74, 138, 255, 0.35);
+      /* 合并重声明：盖章弹跳 + 保留稀有度呼吸（否则 0,3,0 的 rareGlow 会盖掉 stamp） */
+      animation: talentSelectStamp 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both, rareGlow 3.2s ease-in-out infinite 0.6s; }
     @keyframes rareGlow {
       0%, 100% { box-shadow: 0 0 4px rgba(74, 138, 255, 0.1); }
       50% { box-shadow: 0 0 14px rgba(74, 138, 255, 0.3), 0 0 24px rgba(74, 138, 255, 0.08); }
@@ -1696,7 +1721,9 @@
       animation: talentCardReveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) both, legendaryGlow 2.4s ease-in-out infinite 0.6s;
     }
     .ui-talent-card[data-rarity="legendary"]:hover { border-color: var(--color-gold-light); box-shadow: 0 0 20px rgba(240, 192, 64, 0.3); }
-    .ui-talent-card[data-rarity="legendary"].selected { border-color: var(--color-gold-light); box-shadow: 0 0 24px rgba(240, 192, 64, 0.4); }
+    .ui-talent-card[data-rarity="legendary"].selected { border-color: var(--color-gold-light); box-shadow: 0 0 24px rgba(240, 192, 64, 0.4);
+      /* 合并重声明：盖章弹跳 + 保留传说呼吸（同上，防 glow 覆盖 stamp） */
+      animation: talentSelectStamp 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both, legendaryGlow 2.4s ease-in-out infinite 0.6s; }
     @keyframes legendaryGlow {
       0%, 100% { box-shadow: 0 0 6px rgba(240, 192, 64, 0.15), 0 0 0 0 rgba(240, 192, 64, 0); }
       50% { box-shadow: 0 0 18px rgba(240, 192, 64, 0.45), 0 0 32px 4px rgba(240, 192, 64, 0.15); }
@@ -1706,12 +1733,16 @@
     @media (prefers-reduced-motion: reduce) {
       .ui-talent-card,
       .ui-talent-card[data-rarity="rare"],
-      .ui-talent-card[data-rarity="legendary"] {
+      .ui-talent-card[data-rarity="legendary"],
+      .ui-talent-card.selected,
+      .ui-talent-card[data-rarity="rare"].selected,
+      .ui-talent-card[data-rarity="legendary"].selected {
         animation: none;
         opacity: 1;
         transform: none;
       }
       .ui-talent-card.selected::before { animation: none; opacity: 0; }
+      .ui-talent-card.selected::after { animation: none; }
     }
 
     .ui-talent-rarity {
@@ -5646,6 +5677,32 @@
         padding-top: 40px; /* 给顶部提示条留空间 */
       }
 
+      /* R76: 竖屏"黑腰带"氛围化——canvas 顶对齐后，其底缘(~318px)与选项面板(~551px)
+         之间原为大段纯黑，与标题页星空/场景画面形成质感断层（ux-evaluator R76 B级）。
+         在 body 背景叠加星图余韵：canvas 底缘深蓝渐隐 + 中段稀疏星点(呼应开场星图)，
+         底部回归纯黑不干扰对话阅读。html, body 选择器与 L169 基础规则同优先级，
+         靠媒体查询位置靠后生效；桌面/横屏不命中此查询，零影响。 */
+      html, body {
+        background:
+          /* 星点层（集中在 36%~66% 的中段黑区，低亮度不抢戏） */
+          radial-gradient(1.5px 1.5px at 12% 42%, rgba(255, 240, 210, 0.32) 50%, transparent 51%),
+          radial-gradient(1px 1px at 27% 55%, rgba(255, 240, 210, 0.22) 50%, transparent 51%),
+          radial-gradient(1.5px 1.5px at 46% 40%, rgba(240, 192, 64, 0.28) 50%, transparent 51%),
+          radial-gradient(1px 1px at 62% 50%, rgba(255, 240, 210, 0.18) 50%, transparent 51%),
+          radial-gradient(1.5px 1.5px at 79% 44%, rgba(255, 240, 210, 0.26) 50%, transparent 51%),
+          radial-gradient(1px 1px at 90% 58%, rgba(240, 192, 64, 0.20) 50%, transparent 51%),
+          radial-gradient(1px 1px at 35% 64%, rgba(255, 240, 210, 0.14) 50%, transparent 51%),
+          radial-gradient(1px 1px at 70% 62%, rgba(255, 240, 210, 0.16) 50%, transparent 51%),
+          /* 竖向氛围：canvas 底缘深蓝余韵 → 中段深空 → 底部纯黑 */
+          linear-gradient(180deg,
+            var(--color-bg-dark) 0%,
+            var(--color-bg-dark) 31%,
+            rgba(18, 18, 42, 0.85) 39%,
+            rgba(13, 13, 26, 0.9) 50%,
+            rgba(10, 10, 16, 1) 62%,
+            var(--color-bg-dark) 72%);
+      }
+
       /* R73: 竖屏 canvas 从垂直居中改为顶部对齐——
          此前 Phaser FIT 居中使 canvas(234px) 落在 y≈328，被选项面板(340起)覆盖仅露 12px，
          场景叙事全丢；顶部对齐后 canvas 44~278 完整可见，与选项面板(340起)零重叠。
@@ -5850,6 +5907,30 @@
         width: 40px;
         height: 5px;
       }
+    }
+
+    /* ========================================
+     * R76: 横屏矮屏（手机横持）选项面板避让属性面板——
+     * 三种布局默认居中宽 640~747px，实测 812x375 下按钮右缘 726px 越过
+     * 属性面板左缘 634px，z-index 100 遮盖属性名/属性条（ux-evaluator 判 P1）。
+     * 横屏矮屏改为左对齐 + right:190px 让位（属性面板~162px + right:2vw + 12px 间隙），
+     * transform 同步去 translateX(-50%)，保留各自纵向入场动画。
+     * ======================================== */
+    @media (orientation: landscape) and (max-height: 500px) {
+      .ui-choices.layout-bottom,
+      .ui-choices.layout-side,
+      .ui-choices.layout-panel {
+        left: 12px;
+        right: 190px;
+        width: auto;
+        min-width: 0;
+        max-width: none;
+      }
+      .ui-choices.layout-bottom { transform: none; }
+      .ui-choices.layout-side { transform: translateY(12px); }
+      .ui-choices.layout-side.visible { transform: translateY(0); }
+      .ui-choices.layout-panel { transform: translateY(16px); }
+      .ui-choices.layout-panel.visible { transform: translateY(0); }
     }
 
     /* === 场景过渡动画（0.5s 淡入） === */

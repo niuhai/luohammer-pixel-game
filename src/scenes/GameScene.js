@@ -900,6 +900,15 @@ export class GameScene extends Phaser.Scene {
    */
   loadNode(nodeId) {
     const node = STORY[nodeId];
+
+    // R77 F1【P0】：离开旧节点时才将其标记为已读——旧实现在 _renderNode 开始即标记，
+    // 首读节点被立即视为已读，误触发快进通道（零交互自动播放 + 「已读·快进中」误导角标），
+    // 破坏交互小说首读控制感。改为：任何路径离开旧节点（选择/结局/崩溃）时才落定已读。
+    const prevNodeId = this.state.currentNode;
+    if (prevNodeId && prevNodeId !== nodeId) {
+      try { SaveSystem.markNodeSeen(prevNodeId); } catch(e) {}
+    }
+
     if (!node) { this.showEnding(); return; }
     if (node.isEnding) { this.showEnding(); return; }
 
@@ -930,8 +939,8 @@ export class GameScene extends Phaser.Scene {
    * async：渲染前会异步等待场景背景 + 角色立绘纹理加载完成，避免出现 Graphics 兜底闪烁
    */
   async _renderNode(node) {
-    // 标记节点为已读（用于快进功能）
-    try { SaveSystem.markNodeSeen(this.state.currentNode); } catch(e) {}
+    // R77 F1【P0】：已读标记已上移至 loadNode（离开旧节点时落定），
+    // 此处绝不可再即时标记——否则首读节点被误判已读，快进通道（自动播放/角标）误触发。
 
     // R39: 章节转场动画——当 act（章号）变化时显示全屏章节卡片
     const prevAct = this._lastAct;
@@ -1252,13 +1261,18 @@ export class GameScene extends Phaser.Scene {
     if (this._lastKillerNode === nodeId) return;
     this._lastKillerNode = nodeId;
 
+    // R77 F3：prefers-reduced-motion 跳过相机震动（与 _playCrashSequence 降级约定一致），保留白闪与音效
+    const reducedMotion = typeof window !== 'undefined'
+      && window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
     // === 视觉维度 ===
     // 1. 白闪（比普通 FLASH_SCENES 更强，0.25s）
     if (this.pixelRenderer) {
       this.pixelRenderer.flashScreen(0.25);
     }
     // 2. 强震动（8px, 400ms，比 shakeHard 略长）
-    if (this.transition) {
+    if (!reducedMotion && this.transition) {
       this.transition.shake(10, 400);
     }
 
@@ -1304,7 +1318,7 @@ export class GameScene extends Phaser.Scene {
           }
 
           // 3. 二次震动（比初始 10px/400ms 弱，模拟"落地余震"）
-          if (this.transition) {
+          if (!reducedMotion && this.transition) {
             this.transition.shake(5, 220);
           }
 
