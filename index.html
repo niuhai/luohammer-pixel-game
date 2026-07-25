@@ -1499,6 +1499,20 @@
       color: var(--color-gold);
     }
 
+    /* 固定按钮防溢出：统一 border-box 盒模型 + 内容裁剪；
+       图标按钮清除浏览器默认 padding，确保 44×44 热区内文字/图标不溢出 */
+    .ui-sound-toggle,
+    .ui-menu-toggle,
+    .ui-narration-toggle,
+    .ui-voice-toggle {
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+    .ui-sound-toggle,
+    .ui-menu-toggle {
+      padding: 0;
+    }
+
     /* === Talent Selection === */
     .ui-talent-overlay {
       position: fixed;
@@ -5764,9 +5778,9 @@
       .scene-transition { animation: none !important; opacity: 1 !important; transform: none !important; }
     }
   </style>
-  <script type="module" crossorigin src="/luohammer-pixel-game/assets/index-PhLVy4fj.js"></script>
+  <script type="module" crossorigin src="/luohammer-pixel-game/assets/index-Di2UOspr.js"></script>
   <link rel="modulepreload" crossorigin href="/luohammer-pixel-game/assets/phaser-DzVrRZrn.js">
-  <link rel="modulepreload" crossorigin href="/luohammer-pixel-game/assets/story-B3j2t4Da.js">
+  <link rel="modulepreload" crossorigin href="/luohammer-pixel-game/assets/story-aSXmg4g3.js">
 </head>
 <body>
 
@@ -5888,7 +5902,7 @@
         <div class="ui-intro-line" id="ui-intro-line2"></div>
         <div class="ui-intro-line" id="ui-intro-line3"></div>
       </div>
-      <div class="ui-intro-skip-hint" id="ui-intro-skip-hint">点击任意处继续 · 按空格跳过</div>
+      <div class="ui-intro-skip-hint" id="ui-intro-skip-hint">点击任意处或按空格跳过</div>
       <div class="ui-intro-fade" id="ui-intro-fade"></div>
     </div>
 
