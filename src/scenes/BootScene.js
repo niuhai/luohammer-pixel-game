@@ -182,6 +182,19 @@ export class BootScene extends Phaser.Scene {
       if (endingGalleryBtn) buttonsEl.appendChild(endingGalleryBtn);
     }
 
+    // R28-T2: 标题按钮 stagger 入场——每个按钮延迟 70ms 出现，营造高级感
+    // 跳过成就积分展示（非按钮），仅对 .ui-boot-btn 设置 animation-delay
+    const bootBtns = buttonsEl.querySelectorAll('.ui-boot-btn');
+    bootBtns.forEach((btn, i) => {
+      // 主按钮（开始/继续）作为第一个，无延迟；后续按钮每个 +70ms
+      const delay = i * 70;
+      btn.style.animationDelay = `${delay}ms`;
+      // 主按钮的呼吸灯也需要相应延迟（入场 0.5s 后开始呼吸）
+      if (btn.classList.contains('ui-boot-btn-primary')) {
+        btn.style.animationDelay = `${delay}ms, ${delay + 500}ms`;
+      }
+    });
+
     // === 隐藏调试开关 + DEBUG 标识 ===
     this._setupDebugToggle(overlay);
 
@@ -243,6 +256,7 @@ export class BootScene extends Phaser.Scene {
     // Hide overlay when scene is shutdown
     this.events.on('shutdown', () => {
       overlay.classList.remove('visible');
+      this._cleanupGuide();
       if (this._typewriterCleanup) {
         this._typewriterCleanup();
         this._typewriterCleanup = null;
@@ -260,6 +274,27 @@ export class BootScene extends Phaser.Scene {
       if (this._overlayResizeHandler) {
         window.removeEventListener('resize', this._overlayResizeHandler);
         this._overlayResizeHandler = null;
+      }
+      // 停止场景上所有补间与计时器
+      this.tweens.killAll();
+      this.time.removeAllEvents();
+      // 移除启动画面静音按钮，避免与游戏主界面按钮冲突
+      if (this._soundToggleBtn && this._soundToggleBtn.parentNode) {
+        this._soundToggleBtn.parentNode.removeChild(this._soundToggleBtn);
+        this._soundToggleBtn = null;
+      }
+      // 清理调试开关相关元素与计时器
+      if (this._debugClickTimer) {
+        clearTimeout(this._debugClickTimer);
+        this._debugClickTimer = null;
+      }
+      if (this._debugZone && this._debugZone.parentNode) {
+        this._debugZone.parentNode.removeChild(this._debugZone);
+        this._debugZone = null;
+      }
+      if (this._debugBadge && this._debugBadge.parentNode) {
+        this._debugBadge.parentNode.removeChild(this._debugBadge);
+        this._debugBadge = null;
       }
     });
   }
@@ -390,7 +425,7 @@ export class BootScene extends Phaser.Scene {
       applyBtn.style.cssText = [
         'background: rgba(240, 192, 64, 0.85)',
         'border: none',
-        'color: #1a1208',
+        'color: var(--color-bg-dark)',
         'padding: 5px 10px',
         'font-size: 11px',
         'border-radius: 3px',
@@ -470,11 +505,28 @@ export class BootScene extends Phaser.Scene {
     const toggle = document.getElementById('ui-boot-guide-toggle');
     if (!guide || !toggle) return;
 
-    // HTML 默认已带 collapsed 类，这里只负责 toggle 交互
-    toggle.addEventListener('click', (e) => {
+    const syncExpandedState = () => {
+      toggle.setAttribute('aria-expanded', String(!guide.classList.contains('collapsed')));
+    };
+
+    this._guideToggleEl = toggle;
+    this._guideToggleHandler = (e) => {
       e.stopPropagation();
       guide.classList.toggle('collapsed');
-    });
+      syncExpandedState();
+    };
+
+    // 标题场景会被重复进入；onclick 保证这个持久 DOM 始终只有一个事件所有者。
+    toggle.onclick = this._guideToggleHandler;
+    syncExpandedState();
+  }
+
+  _cleanupGuide() {
+    if (this._guideToggleEl?.onclick === this._guideToggleHandler) {
+      this._guideToggleEl.onclick = null;
+    }
+    this._guideToggleEl = null;
+    this._guideToggleHandler = null;
   }
 
   /**
@@ -820,39 +872,5 @@ export class BootScene extends Phaser.Scene {
     let enabled = false;
     try { enabled = localStorage.getItem('luohammer_debug') === '1'; } catch (e) {}
     this._debugBadge.style.display = enabled ? 'block' : 'none';
-  }
-
-  /**
-   * 场景关闭时清理资源，防止内存泄漏
-   */
-  shutdown() {
-    if (this.audio) {
-      this.audio.destroy();
-      this.audio = null;
-    }
-    this.tweens.killAll();
-    this.time.removeAllEvents();
-    if (this._typewriterCleanup) {
-      this._typewriterCleanup();
-      this._typewriterCleanup = null;
-    }
-    // 移除启动画面静音按钮，避免与游戏主界面按钮冲突
-    if (this._soundToggleBtn && this._soundToggleBtn.parentNode) {
-      this._soundToggleBtn.parentNode.removeChild(this._soundToggleBtn);
-      this._soundToggleBtn = null;
-    }
-    // 清理调试开关相关元素
-    if (this._debugClickTimer) {
-      clearTimeout(this._debugClickTimer);
-      this._debugClickTimer = null;
-    }
-    if (this._debugZone && this._debugZone.parentNode) {
-      this._debugZone.parentNode.removeChild(this._debugZone);
-      this._debugZone = null;
-    }
-    if (this._debugBadge && this._debugBadge.parentNode) {
-      this._debugBadge.parentNode.removeChild(this._debugBadge);
-      this._debugBadge = null;
-    }
   }
 }

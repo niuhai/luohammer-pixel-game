@@ -13,7 +13,7 @@ export const ATTRIBUTES = {
   reputation: { name: '名声', icon: '♪', min: 0, max: 10, hidden: false, color: 0x4080F0 },
   failures: { name: '翻车', icon: '✕', min: 0, max: 99, hidden: false, color: 0xE04040 },
   pressure: { name: '压力', icon: '◉', min: 0, max: 10, hidden: true, color: 0x8040C0 },
-  trust: { name: '公众信任', icon: '◈', min: 0, max: 10, hidden: true, color: 0x40C0C0 },
+  trust: { name: '公众信任', icon: '◈', min: 0, max: 10, hidden: false, color: 0x40C0C0 },
 };
 
 /**
@@ -41,7 +41,8 @@ export function applyEffects(state, effects) {
 
     // 钳制范围
     if (key === 'failures') {
-      newValue = Math.max(attrDef.min, Math.min(attrDef.max, newValue)); // 翻车只增不减，上限10
+      // R24：修正误导性注释 — failures max=99，且"翻身减1"机制允许减少
+      newValue = Math.max(attrDef.min, Math.min(attrDef.max, newValue));
     } else {
       const maxVal = key === 'pressure' ? (state.pressureMax || 10) : attrDef.max;
       newValue = Math.max(attrDef.min, Math.min(maxVal, newValue));

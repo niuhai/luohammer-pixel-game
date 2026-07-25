@@ -40,7 +40,7 @@ export const NODES = {
     choices: [
       { label: `"书是我的！没收了我就偷回来，天经地义。"`, next: 'act0_childhood', effects: { pride: 1, wealth: 0, reputation: 1 } },
       { label: `"偷书万一被抓，退学就更说不清……找老师据理力争。"`, next: 'ending_scholar', effects: { pride: -1, wealth: 1, reputation: 1 }, maxAttr: { pride: 3 } },
-      { label: `"把书还给老师，但要求当面辩论——说得有理，就得把书还我。"`, next: 'act0_childhood', effects: { pride: 1, wealth: 0, reputation: -1 } }
+      { label: `"把书还给老师，但要求当面辩论——说得有理，就得把书还我。"`, next: 'act0_childhood', effects: { pride: 1, wealth: 0, reputation: -1, failures: -1 } }
     ],
     historyNote: `历史上，老罗确实翻窗偷回了被没收的书。翻窗偷书的那个夜晚，埋下了他二十年后"砸冰箱"的种子——面对不合理的规则，他的本能反应从来不是忍，而是动手。他后来在新东方课堂上讲这段，学生笑得前仰后合，但他说："那是我人生第一次意识到，规则不合理的时候，你得自己动手把公道拿回来。"二十年后，同样的逻辑让他把西门子的冰箱砸成了碎片。而那本偷回来的书，后来被他反复提及，成了他"自学精神"最早的图腾。`,
     progress: 4
@@ -104,7 +104,7 @@ export const NODES = {
       { label: `"认命吧……找个稳定工作打工，折腾够了。"`, next: 'act0_fail1', effects: { pride: -2, wealth: 1, reputation: -1 , pressure: -1} },
       { label: `"还没完！去韩国打工，攒点本钱再折腾。"`, next: 'act0_korea', effects: { pride: 1, wealth: -1, reputation: 0 , pressure: -1} },
       { label: `"倒腾药材试试？听说能赚大钱！"`, next: 'act0_fail3', effects: { pride: 1, wealth: -1, reputation: 0 , pressure: -1} },
-      { label: `"去书店打工吧……一边看书一边攒钱，也许答案不在街上，在书里。"`, next: 'act0_bookstore', effects: { pride: 0, wealth: 0, reputation: 0 , pressure: -1} }
+      { label: `"去书店打工吧……一边看书一边攒钱，也许答案不在街上，在书里。"`, next: 'act0_reading', effects: { pride: 0, wealth: 0, reputation: 0 , pressure: -1} }
     ],
     historyNote: `历史上，老罗在延边折腾了好几年，卖过书、烤过串、倒腾过药材。这些失败不是浪费——每一次赔钱，都让他更清楚自己不是什么。他后来回忆："那几年我学到的最重要的事就是脸皮要厚，胆子要大。"后来他做锤子手机时，有人说他不懂供应链，他说："我连药材都能发霉，供应链算什么？"——这是用十年失败换来的胆量。而延边街头的失败，也成了他后来脱口秀里最丰富的"素材库"。`,
     progress: 8
@@ -239,7 +239,7 @@ export const NODES = {
 <b>这封信要是石沉大海，你就真的不知道下一步该往哪儿走了。但你还是寄了——因为不寄，就永远不知道答案。</b>`,
     choices: [
       { label: `"万一没录取呢？先找个别的英语培训机构备着。"`, next: 'act1_preputation', effects: { pride: 0, wealth: 0, reputation: 0 } },
-      { label: `"破釜沉舟！只投新东方，不成不罢休！"`, next: 'act1_first', effects: { pride: 2, wealth: -1, reputation: 1, achievement: '万字求职信', icon: '✉' } },
+      { label: `"破釜沉舟！只投新东方，不成不罢休！"`, next: 'act1_first', effects: { pride: 2, wealth: -1, reputation: 1, achievement: '万字求职信', icon: '✉', failures: -1 } },
       { label: `"边学GRE边写求职信，两手准备。"`, next: 'act1_first', effects: { pride: -1, wealth: 0, reputation: 1 } }
     ],
     historyNote: `历史上，老罗确实写了那封万字求职信。一个高中退学生，凭什么跟北大清华的硕士竞争？他只能用文字的厚度弥补学历的薄度。万字求职信揭示了老罗一生的行事风格：要么不做，要么All in。俞敏洪后来回忆说："这封信写得太狂了，但我就是被这种狂打动了。"后来他做锤子手机，把全部身家砸进去；做直播还债，一天播十几个小时——都是同一个"破釜沉舟"的基因在驱动。`,
@@ -283,7 +283,7 @@ export const NODES = {
 
 <b>母亲的眼泪是无声的，比父亲的皮带更疼。她教会你：硬气不是不流泪，是流着泪也不出声。</b>`,
     choices: [
-      { label: `"妈，我以后不惹事了——让您操心。"`, next: 'act0_rebel', effects: { pride: -1, wealth: 0, reputation: 1, trust: 1 } },
+      { label: `"妈，我以后不惹事了——让您操心。"`, next: 'act0_rebel', effects: { pride: -2, wealth: 0, reputation: 1, trust: 1 } },
       { label: `"我才不认错！打架是他先挑的，凭什么我鞠躬！"`, next: 'act0_rebel', effects: { pride: 2, wealth: 0, reputation: -1, pressure: 1 } },
       { label: `"把母亲那碗凉白开端起来喝——冰糖还没化完，甜的。"`, next: 'act0_rebel', effects: { pride: 0, wealth: 0, reputation: 0, pressure: -1, trust: 1 } }
     ],
@@ -305,7 +305,7 @@ export const NODES = {
     choices: [
       { label: `"跟金家老大比学习？没意思——比就比谁将来混得大！"`, next: 'act0_confusion', effects: { pride: 2, wealth: 0, reputation: -1, pressure: 1 } },
       { label: `"不比了——各有各的活法，他考他的大学，我走我的路。"`, next: 'act0_b', effects: { pride: 1, wealth: 0, reputation: 0 } },
-      { label: `"偷偷观察金家老大——他凭什么能考第一？学学他的方法。"`, next: 'act0_confusion', effects: { pride: -1, wealth: 0, reputation: 1 } }
+      { label: `"偷偷观察金家老大——他凭什么能考第一？学学他的方法。"`, next: 'act0_confusion', effects: { pride: -2, wealth: 0, reputation: 1 } }
     ],
     historyNote: `历史上老罗在延边长大，朝鲜族邻居中确实有不少"别人家的孩子"。延边朝鲜族高考成绩长期名列吉林省前茅，重视教育的传统根深蒂固。老罗的"反骨"很大程度上是对这种"比较文化"的反叛——他不服的不是学习本身，而是"用同一把尺子量所有人"的逻辑。后来他做锤子手机喊出"漂亮得不像实力派"，本质上是同一种反叛：你们用销量量我，我偏要用美感量自己。`,
     progress: 6
@@ -414,7 +414,7 @@ export const NODES = {
 <b>第一次心动最折磨人的不是得不到，是你不知道自己到底想要什么——你想靠近她，又怕靠近了会破坏那个完美的距离。少年时的喜欢，本质上是一场一个人的独角戏，对方甚至不知道自己是主角。</b>`,
     choices: [
       { label: `"写一封情书——把说不出口的话写下来，偷偷塞进她的课本里。"`, next: 'act0_b', effects: { pride: 2, wealth: 0, reputation: -1, pressure: 2 }, flag: 'first_love_letter', achievement: '少年维特', icon: '✉' },
-      { label: `"算了，暗恋就暗恋着——说出来万一被拒绝，连想的资格都没了。"`, next: 'act0_b', effects: { pride: -1, wealth: 0, reputation: 0, pressure: 1 } },
+      { label: `"算了，暗恋就暗恋着——说出来万一被拒绝，连想的资格都没了。"`, next: 'act0_b', effects: { pride: -2, wealth: 0, reputation: 0, pressure: 1 } },
       { label: `"直接去跟她表白！我小罗连退学都不怕，还怕被一个女孩拒绝？"`, next: 'act0_gre', effects: { pride: 3, wealth: 0, reputation: -1, pressure: 3 }, flag: 'first_love_confess' }
     ],
     historyNote: `历史上老罗在延边时期确实有过青春期的暗恋。他后来在新东方课堂上偶尔提及少年心事，但从不点名。朝鲜族少女在延边是常见的青春记忆——金顺姬是虚构的名字，但那种"走廊里擦肩而过"的心动，是每个少年都经历过的普世情感。老罗后来做手机时反复强调"美感"，某种程度上与这种少年时期的审美启蒙有关——他对美的敏感，最早是从延边的阳光、发梢和走廊里擦肩而过的女孩开始的。第一次心动教会他一件事：有些东西得不到比得到更珍贵，因为它永远停留在最完美的状态里。`,

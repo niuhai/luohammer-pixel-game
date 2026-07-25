@@ -278,8 +278,12 @@ export class GameScene extends Phaser.Scene {
     this._lastChoiceTime = null;
     this._totalChoicesMade = 0;
 
-    // 原生 setTimeout 引用列表（_onShutdown 时集中清理，防止场景切换后回调引用已销毁对象）
-    this._pendingTimeouts = [];
+    // 原生 setTimeout 引用集合（R24 P1-3：Array → Set，与 DialogSystem 实现统一）
+    this._pendingTimeouts = new Set();
+
+    // R39: 章节转场跟踪——记录上一次渲染的 act，用于检测章节切换
+    this._lastAct = null;
+    this._chapterTransitionEl = null;
   }
 
   /**
@@ -291,13 +295,31 @@ export class GameScene extends Phaser.Scene {
    */
   _trackedTimeout(fn, delay) {
     const id = setTimeout(() => {
-      // 回调触发时从列表中移除自身引用
-      const idx = this._pendingTimeouts.indexOf(id);
-      if (idx >= 0) this._pendingTimeouts.splice(idx, 1);
+      // 回调触发时从集合中移除自身引用
+      this._pendingTimeouts.delete(id);
       try { fn(); } catch (e) { /* 场景已销毁时静默忽略 */ }
     }, delay);
-    this._pendingTimeouts.push(id);
+    this._pendingTimeouts.add(id);
     return id;
+  }
+
+  /**
+   * 安全保存：检查 SaveSystem.save() 返回值，失败时 toast 提示
+   * R23 P1-2：避免无痕模式/配额满时静默丢档
+   * @param {string} label 存档场景标签（用于 toast 提示）
+   * @returns {boolean} 是否保存成功
+   */
+  _safeSave(label = '存档') {
+    try {
+      const ok = this.save.save(this._serializeState());
+      if (!ok) {
+        try { toast.error(`${label}失败，请检查浏览器存储空间`); } catch(e) {}
+      }
+      return ok;
+    } catch(e) {
+      try { toast.error(`${label}异常`); } catch(e) {}
+      return false;
+    }
   }
 
   /**
@@ -320,6 +342,9 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * 累计游玩次数
+   * 同时写入 localStorage['luohammer_play_count']（replay_bonus 天赋读取）
+   * 和 MetaProgression.data.playCount（IntroScene 跳过开场判定读取）
+   * 避免双数据源不同步导致 IntroScene 永不跳过开场
    */
   _incrementPlayCount() {
     try {
@@ -327,6 +352,10 @@ export class GameScene extends Phaser.Scene {
       count++;
       localStorage.setItem('luohammer_play_count', String(count));
     } catch (e) {}
+    // R19 修复：同步 MetaProgression 的 playCount，避免 IntroScene 跳过逻辑失效
+    if (this.meta && typeof this.meta.incrementPlayCount === 'function') {
+      try { this.meta.incrementPlayCount(); } catch (e) {}
+    }
   }
 
   /**
@@ -594,8 +623,8 @@ export class GameScene extends Phaser.Scene {
     };
     this._returnToMenu = () => {
       this._hideMenuConfirm();
-      // 自动保存
-      try { this.save.save(this._serializeState()); } catch(e) {}
+      // 自动保存（R24 P0-1：检查返回值，避免静默丢档）
+      this._safeSave('退出至标题前自动存档');
       // 清理可能干扰的定时器，然后直接切换场景
       try { this.time.removeAllEvents(); } catch(e) {}
       // 停止BGM（非阻塞，新场景会重新创建 AudioSystem）
@@ -876,6 +905,14 @@ export class GameScene extends Phaser.Scene {
     // 标记节点为已读（用于快进功能）
     try { SaveSystem.markNodeSeen(this.state.currentNode); } catch(e) {}
 
+    // R39: 章节转场动画——当 act（章号）变化时显示全屏章节卡片
+    const prevAct = this._lastAct;
+    const newAct = node.act || '';
+    if (prevAct && newAct && prevAct !== newAct) {
+      this._showChapterTransition(newAct, node.actSub || '');
+    }
+    this._lastAct = newAct;
+
     if (this.chapterNameEl) this.chapterNameEl.textContent = node.act || '';
     if (this.chapterSubEl) this.chapterSubEl.textContent = node.actSub || '';
 
@@ -972,6 +1009,171 @@ export class GameScene extends Phaser.Scene {
         this.choices.show(resolvedChoices, (choice) => { this.makeChoice(choice); });
       }
     }, node.mood);
+
+    // R26 P1：首次进入游戏时显示操作引导（一次性）
+    if (this.isNewGame && this.state.currentNode === 'intro' && !this._tutorialShown) {
+      this._trackedTimeout(() => this._showFirstTimeTutorial(), 600);
+    }
+  }
+
+  /**
+   * R26 P1：首次进入游戏时显示操作引导卡片
+   * - 一次性，localStorage 持久化已读状态
+   * - 6 秒后自动消失，或点击任意位置消失
+   * - 非阻塞（pointer-events: none），不影响游戏交互
+   */
+  _showFirstTimeTutorial() {
+    if (this._tutorialShown) return;
+    try {
+      if (localStorage.getItem('luohammer_tutorial_seen')) {
+        this._tutorialShown = true;
+        return;
+      }
+    } catch (e) { this._tutorialShown = true; return; }
+
+    this._tutorialShown = true;
+    try { localStorage.setItem('luohammer_tutorial_seen', '1'); } catch (e) {}
+
+    // 注入样式（一次性）
+    if (!document.getElementById('tutorial-styles')) {
+      const style = document.createElement('style');
+      style.id = 'tutorial-styles';
+      style.textContent = `
+        .first-time-tutorial {
+          position: fixed;
+          bottom: calc(35% + 16px);
+          right: max(16px, env(safe-area-inset-right));
+          z-index: 9999;
+          width: min(240px, 60vw);
+          padding: 12px 14px;
+          background: rgba(13, 13, 28, 0.95);
+          border: 1px solid var(--color-gold);
+          border-radius: 4px;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.6), 0 0 12px rgba(240,192,64,0.15);
+          opacity: 0;
+          transform: translateX(24px);
+          transition: opacity 0.4s ease, transform 0.4s ease;
+          pointer-events: none;
+          font-family: var(--font-pixel);
+        }
+        .first-time-tutorial.visible {
+          opacity: 1;
+          transform: translateX(0);
+        }
+        .first-time-tutorial .tut-title {
+          font-size: 12px;
+          color: var(--color-gold);
+          letter-spacing: 1px;
+          margin-bottom: 8px;
+        }
+        .first-time-tutorial .tut-tip {
+          font-size: 11px;
+          color: var(--color-text-dim);
+          line-height: 1.7;
+          margin-bottom: 3px;
+        }
+        @media (max-width: 480px) {
+          .first-time-tutorial {
+            bottom: calc(38% + 12px);
+            width: min(200px, 55vw);
+            padding: 10px 12px;
+          }
+          .first-time-tutorial .tut-title { font-size: 11px; }
+          .first-time-tutorial .tut-tip { font-size: 10px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .first-time-tutorial {
+            opacity: 1;
+            transform: none;
+            transition: none;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    const card = document.createElement('div');
+    card.className = 'first-time-tutorial';
+    card.setAttribute('role', 'status');
+    card.setAttribute('aria-live', 'polite');
+    card.innerHTML = `
+      <div class="tut-title">► 操作指引</div>
+      <div class="tut-tip">点击对话框推进剧情</div>
+      <div class="tut-tip">每个选择改变六维属性</div>
+      <div class="tut-tip">没有对错，只有不同人生</div>
+    `;
+    document.body.appendChild(card);
+
+    // 入场动画（用 setTimeout 代替 requestAnimationFrame，后台标签页更可靠）
+    setTimeout(() => { if (card.parentNode) card.classList.add('visible'); }, 50);
+
+    // 自动消失
+    const dismiss = () => {
+      card.classList.remove('visible');
+      this._tutorialFadeTimer = setTimeout(() => {
+        if (card.parentNode) card.parentNode.removeChild(card);
+      }, 400);
+    };
+
+    this._tutorialAutoTimer = setTimeout(dismiss, 6000);
+
+    // 点击任意位置提前消失（延迟绑定避免立即触发）
+    this._trackedTimeout(() => {
+      const earlyDismiss = () => {
+        if (this._tutorialAutoTimer) { clearTimeout(this._tutorialAutoTimer); this._tutorialAutoTimer = null; }
+        dismiss();
+        document.removeEventListener('click', earlyDismiss, true);
+      };
+      document.addEventListener('click', earlyDismiss, true);
+    }, 800);
+  }
+
+  /**
+   * R39: 章节转场动画
+   * 当 act（章号）变化时，全屏显示章节卡片（章号 + 副标题），淡入→停留→淡出
+   * 纯视觉反馈，不阻断点击（pointer-events: none），让玩家可继续推进对话
+   * 仅在章号真正变化时触发；首节点（_lastAct 为空）不触发
+   * @param {string} actName 章节名（如"第十六章"）
+   * @param {string} actSub 章节副标题（如"小野电子烟 · 11月1日禁令 2019"）
+   */
+  _showChapterTransition(actName, actSub) {
+    // 清理上一次未结束的转场卡片（快速连续切换章节时）
+    if (this._chapterTransitionEl && this._chapterTransitionEl.parentNode) {
+      this._chapterTransitionEl.parentNode.removeChild(this._chapterTransitionEl);
+      this._chapterTransitionEl = null;
+    }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'ui-chapter-transition';
+    overlay.setAttribute('role', 'status');
+    overlay.setAttribute('aria-live', 'polite');
+    overlay.innerHTML = `
+      <div class="ui-chapter-transition-card">
+        <div class="ui-chapter-transition-divider">━ ━ ━</div>
+        <div class="ui-chapter-transition-act">${actName}</div>
+        <div class="ui-chapter-transition-sub">${actSub || ''}</div>
+        <div class="ui-chapter-transition-divider">━ ━ ━</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    this._chapterTransitionEl = overlay;
+
+    // 触发入场动画（下一帧加 visible 类，确保 transition 生效）
+    this._trackedTimeout(() => {
+      if (overlay.parentNode) overlay.classList.add('visible');
+    }, 50);
+
+    // 1.15s 后开始淡出
+    this._trackedTimeout(() => {
+      if (overlay.parentNode) overlay.classList.remove('visible');
+      overlay.classList.add('leaving');
+    }, 1150);
+
+    // 1.5s 后移除 DOM
+    this._trackedTimeout(() => {
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      if (this._chapterTransitionEl === overlay) this._chapterTransitionEl = null;
+    }, 1500);
   }
 
   /**
@@ -1024,10 +1226,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     // === 6亿数字砸出（仅 act6_night · 评委记忆锚点）===
-    // 白闪后 100ms，红色巨号数字从屏幕顶部砸下，落地保持 1.5s 后淡出
+    // 白闪后 100ms，红色巨号数字从屏幕顶部砸下，落地触发"砸地震波"四维冲击
     if (nodeId === 'act6_night') {
       this.time.delayedCall(100, () => {
         const numEl = document.createElement('div');
+        numEl.className = 'ui-killer-moment-number';
         numEl.textContent = '¥600,000,000';
         numEl.style.cssText = [
           'position:fixed', 'top:-120px', 'left:50%',
@@ -1038,13 +1241,61 @@ export class GameScene extends Phaser.Scene {
           'text-shadow:0 0 20px rgba(224,64,64,0.8),0 0 40px rgba(224,64,64,0.4)',
           'z-index:10000', 'pointer-events:none',
           'font-family:var(--font-pixel)',
-          'transition:top 0.4s cubic-bezier(0.7,0,1,0.5)'
+          'transition:top 0.4s cubic-bezier(0.7,0,1,0.5), transform 0.18s cubic-bezier(0.34,1.56,0.64,1)'
         ].join(';');
         document.body.appendChild(numEl);
         // 触发砸下动画
         requestAnimationFrame(() => { numEl.style.top = '38%'; });
-        // 落地后 1.5s 淡出移除
-        this.time.delayedCall(1900, () => {
+
+        // R28-T3: 落地瞬间"砸地震波"——数字反弹 + 白闪 + 震动 + 扩散环
+        // 落地时刻 = 100ms 初始延迟 + 400ms 下落 = 500ms
+        this.time.delayedCall(400, () => {
+          if (!numEl.parentNode) return; // 场景已切换则跳过
+          // 1. 数字落地反弹：scale 1 → 1.18 → 1（cubic-bezier 弹性曲线已在 transition 中）
+          numEl.style.transform = 'translateX(-50%) scale(1.18)';
+          this.time.delayedCall(90, () => {
+            if (!numEl.parentNode) return;
+            numEl.style.transform = 'translateX(-50%) scale(1)';
+          });
+
+          // 2. 1 帧白闪（比初始白闪弱，模拟"砸地"瞬间高光）
+          if (this.pixelRenderer) {
+            this.pixelRenderer.flashScreen(0.08);
+          }
+
+          // 3. 二次震动（比初始 10px/400ms 弱，模拟"落地余震"）
+          if (this.transition) {
+            this.transition.shake(5, 220);
+          }
+
+          // 4. 扩散波纹环——从数字位置向外扩散的红圈
+          const ring = document.createElement('div');
+          ring.className = 'ui-killer-moment-ring';
+          ring.style.cssText = [
+            'position:fixed', 'top:38%', 'left:50%',
+            'width:20px', 'height:20px',
+            'transform:translate(-50%,-50%)',
+            'border:3px solid rgba(224,64,64,0.8)',
+            'border-radius:50%',
+            'z-index:9999', 'pointer-events:none',
+            'transition:all 0.6s cubic-bezier(0.16,1,0.3,1)',
+            'box-shadow:0 0 12px rgba(224,64,64,0.5)'
+          ].join(';');
+          document.body.appendChild(ring);
+          requestAnimationFrame(() => {
+            ring.style.width = '600px';
+            ring.style.height = '600px';
+            ring.style.opacity = '0';
+            ring.style.borderWidth = '1px';
+          });
+          this.time.delayedCall(700, () => {
+            if (ring.parentNode) ring.parentNode.removeChild(ring);
+          });
+        });
+
+        // 落地后 1.5s 淡出移除（从落地时刻算起，即 500ms + 1500ms = 2000ms）
+        this.time.delayedCall(2000, () => {
+          if (!numEl.parentNode) return;
           numEl.style.transition = 'opacity 0.3s';
           numEl.style.opacity = '0';
           this.time.delayedCall(300, () => {
@@ -1808,7 +2059,7 @@ export class GameScene extends Phaser.Scene {
         const newPct = Math.min(100, Math.max(0, (change.newValue / maxVal) * 100));
         const isPositive = change.delta > 0;
         const deltaText = change.delta > 0 ? `+${change.delta}` : `${change.delta}`;
-        const deltaColor = isPositive ? '#40C040' : '#E04040';
+        const deltaColor = isPositive ? 'var(--color-success-text)' : 'var(--color-danger-text)';
 
         const attrEl = document.createElement('div');
         attrEl.className = 'ui-settlement-attr';
@@ -1818,7 +2069,7 @@ export class GameScene extends Phaser.Scene {
           <div class="ui-settlement-attr-label">${attrDef.name}</div>
           <div class="ui-settlement-attr-bar-bg">
             <div class="ui-settlement-attr-bar-old" style="width: ${oldPct}%"></div>
-            <div class="ui-settlement-attr-bar-new" style="width: ${oldPct}%; background: ${isPositive ? '#40C040' : '#E04040'}"></div>
+            <div class="ui-settlement-attr-bar-new" style="width: ${oldPct}%; background: ${isPositive ? 'var(--color-success)' : 'var(--color-danger)'}"></div>
           </div>
           <div class="ui-settlement-attr-delta" style="color: ${deltaColor}">${deltaText}</div>
           <div class="ui-settlement-attr-values">${change.oldValue} → ${change.newValue}</div>
@@ -1878,25 +2129,12 @@ export class GameScene extends Phaser.Scene {
     };
     updateCountdown();
 
-    const countdownTimer = setInterval(() => {
-      countdown--;
-      if (countdown <= 0) {
-        clearInterval(countdownTimer);
-        this._settlementTimer = null;
-        _closeSettlement();
-        return;
-      }
-      updateCountdown();
-    }, 1000);
-    // 提升为实例属性，便于 _onShutdown 清理（避免场景切换时 setInterval 泄漏）
-    this._settlementTimer = countdownTimer;
-
-    // 关闭结算画面
+    // R24 P1-2：_closeSettlement 改用 this._settlementTimer，解除对 countdownTimer 的依赖
     let settled = false;
     const _closeSettlement = () => {
       if (settled) return;
       settled = true;
-      clearInterval(countdownTimer);
+      clearInterval(this._settlementTimer);
       this._settlementTimer = null;
 
       // 应用结算效果
@@ -1945,6 +2183,20 @@ export class GameScene extends Phaser.Scene {
       }, 400);
     };
 
+    // R24 P1-2：setInterval 创建移到 _closeSettlement 定义之后，消除前向引用
+    const countdownTimer = setInterval(() => {
+      countdown--;
+      if (countdown <= 0) {
+        clearInterval(countdownTimer);
+        this._settlementTimer = null;
+        _closeSettlement();
+        return;
+      }
+      updateCountdown();
+    }, 1000);
+    // 提升为实例属性，便于 _onShutdown 清理（避免场景切换时 setInterval 泄漏）
+    this._settlementTimer = countdownTimer;
+
     // 继续按钮
     const continueBtn = overlay.querySelector('#ui-settlement-continue');
     if (continueBtn) {
@@ -1981,6 +2233,8 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * 属性变化时高亮属性面板对应条目
+   * 注：浮动数值（+1/-2）由 StatsSystem._updateBars 的 prevValue 比较自动触发，
+   * 此方法仅负责属性条亮度闪烁（stat-flash-up/down）
    */
   _flashStatBar(attr, delta) {
     try {
@@ -2123,7 +2377,7 @@ export class GameScene extends Phaser.Scene {
     this._checkParallelUniverse(choice.label);
 
     this.stats.update(this.state);
-    try { this.save.save(this._serializeState()); } catch(e) {}
+    this._safeSave('选择后存档');
 
     // 选择效果后检查压力崩溃；未崩溃则继续阈值/随机事件流程
     this._checkPressureCrashOrProceed(() => {
@@ -2450,7 +2704,8 @@ export class GameScene extends Phaser.Scene {
           if (flag) this.state.flags.add(flag);
           this.state.triggeredEvents.add(eventId);
           this.stats.update(this.state);
-          try { this.save.save(this._serializeState()); } catch(e) {}
+          // R24 P0-2：检查返回值，避免随机事件后丢档
+          this._safeSave('随机事件后存档');
 
           // 随机事件效果后重检压力崩溃；崩溃处理完成后直接推进节点，避免再次触发随机事件
           this._checkPressureCrashOrProceed(() => {
@@ -2619,6 +2874,12 @@ export class GameScene extends Phaser.Scene {
    * 统一的节点跳转逻辑（检定后或直接跳转共用）
    */
   _proceedToNode(choice, nextNodeId, currentNode) {
+    // R19 修复：阈值/连击触发器可能在 makeChoice 的 save 之后修改了 state（如
+    // checkThresholdTriggers/checkComboTriggers 的 applyEffects），此处补一次 save
+    // 避免 transition 动画期间崩溃导致这些变更丢失
+    // R24 P0-3：检查返回值，避免阈值/连击后丢档
+    this._safeSave('阈值/连击触发后补存档');
+
     if (currentNode && currentNode.historyNote) {
       // 历史对照音效
       try { this.audio.playHistoryCard(); } catch(e) {}
@@ -2640,7 +2901,7 @@ export class GameScene extends Phaser.Scene {
         if (!this.state.readHistoryNotes) this.state.readHistoryNotes = [];
         if (!this.state.readHistoryNotes.includes(nodeId)) {
           this.state.readHistoryNotes.push(nodeId);
-          try { this.save.save(this._serializeState()); } catch(e) {}
+          this._safeSave('历史真相已读标记');
         }
       };
 
@@ -2940,7 +3201,7 @@ export class GameScene extends Phaser.Scene {
 
     const box = document.createElement('div');
     box.style.cssText = [
-      'background: #1a1a2e',
+      'background: var(--color-bg-border)',
       'border: 2px solid var(--color-gold)',
       'border-radius: 6px',
       'padding: 20px',
@@ -3092,11 +3353,23 @@ export class GameScene extends Phaser.Scene {
     }
 
     // 清理所有挂起的原生 setTimeout（防止场景切换后回调引用已销毁对象）
-    if (this._pendingTimeouts && this._pendingTimeouts.length > 0) {
+    if (this._pendingTimeouts && this._pendingTimeouts.size > 0) {
       for (const id of this._pendingTimeouts) {
         clearTimeout(id);
       }
-      this._pendingTimeouts = [];
+      this._pendingTimeouts.clear();
+    }
+
+    // R26 P1：清理新手引导卡片定时器 + DOM
+    if (this._tutorialAutoTimer) { clearTimeout(this._tutorialAutoTimer); this._tutorialAutoTimer = null; }
+    if (this._tutorialFadeTimer) { clearTimeout(this._tutorialFadeTimer); this._tutorialFadeTimer = null; }
+    const _tutCard = document.querySelector('.first-time-tutorial');
+    if (_tutCard && _tutCard.parentNode) _tutCard.parentNode.removeChild(_tutCard);
+
+    // R39：清理章节转场卡片（防止场景切换时 DOM 残留；定时器已被 _pendingTimeouts 统一清理）
+    if (this._chapterTransitionEl && this._chapterTransitionEl.parentNode) {
+      this._chapterTransitionEl.parentNode.removeChild(this._chapterTransitionEl);
+      this._chapterTransitionEl = null;
     }
 
     // 清理 PixelRenderer（Graphics/Sprite/纹理）
@@ -3114,9 +3387,10 @@ export class GameScene extends Phaser.Scene {
       this.choices.destroy();
       this.choices = null;
     }
-    // 清理 StatsSystem（隐藏 DOM 元素）
-    if (this.stats && this.stats.el) {
-      this.stats.el.classList.remove('visible');
+    // 清理 StatsSystem（隐藏 DOM 元素 + 清理定时器）
+    if (this.stats) {
+      if (this.stats.el) this.stats.el.classList.remove('visible');
+      if (typeof this.stats.destroy === 'function') this.stats.destroy();
     }
     this.stats = null;
     // 清理 Transition（Graphics/tween）
@@ -3187,11 +3461,10 @@ export class GameScene extends Phaser.Scene {
     if (this._hideMenuConfirm) this._hideMenuConfirm(false);
     // 清理检定动画遮罩（防止场景切换时残留）
     document.querySelectorAll('.check-animation-overlay').forEach(el => el.remove());
-    // 清理杀手时刻"6亿"数字 DOM 元素 + 阶段结算 overlay（防止 _trackedTimeout 被清除后残留）
+    // 清理杀手时刻"6亿"数字 DOM 元素 + 落地波纹环 + 阶段结算 overlay（防止 _trackedTimeout 被清除后残留）
     document.querySelectorAll('.ui-settlement-overlay').forEach(el => el.remove());
-    document.querySelectorAll('div').forEach(el => {
-      if (el.textContent === '¥600,000,000' && el.style.zIndex === '10000') el.remove();
-    });
+    // R30-GATE: 用 class 选择器替代 textContent+zIndex 匹配，更可靠
+    document.querySelectorAll('.ui-killer-moment-number, .ui-killer-moment-ring').forEach(el => el.remove());
     if (this._uiAbortController) {
       this._uiAbortController.abort();
       this._uiAbortController = null;

@@ -316,6 +316,35 @@ export class AudioSystem {
   }
 
   /**
+   * 开场动画：中心节点（"此刻的你"）亮起 —— 低音心跳般的"嗡"。
+   */
+  playIntroHeart() {
+    if (!this.enabled) return;
+    this._playTone(65, 0.8, 'sine', 0.09);   // C2
+    this._scheduleSfx(() => this._playTone(131, 0.7, 'sine', 0.05), 80);
+  }
+
+  /**
+   * 开场动画：一条光轨开始延伸 —— 轻微上行的 slide，像光被拉出去。
+   */
+  playIntroPath() {
+    if (!this.enabled) return;
+    this._playSlide(520, 780, 0.18, 'sine', 0.035);
+  }
+
+  /**
+   * 开场动画：远端节点点亮。音高随 index 沿五声音阶上行，情绪逐星抬升。
+   * @param {number} index 第几个被点亮的节点（0 起）
+   */
+  playIntroNode(index = 0) {
+    if (!this.enabled) return;
+    const scale = [523, 587, 659, 784, 880, 1047]; // C5 D5 E5 G5 A5 C6
+    const freq = scale[Math.min(index, scale.length - 1)];
+    this._playTone(freq, 0.22, 'triangle', 0.06);
+    this._scheduleSfx(() => this._playTone(freq * 2, 0.3, 'sine', 0.035), 70);
+  }
+
+  /**
    * 音频上下文是否已解锁。
    */
   isUnlocked() {
@@ -574,6 +603,20 @@ export class AudioSystem {
    */
   _getBGMPattern(type) {
     switch(type) {
+      case 'intro':
+        // 开场星图：稀疏高音正弦如星光点缀，低音长音 pad 铺出深空感
+        return [
+          [{freq:131,dur:0.9,type:'sine',vol:0.035}],   // C3 pad
+          [{freq:1047,dur:0.5,type:'sine',vol:0.028}],  // C6 星光
+          {freq:0,dur:0.3},
+          [{freq:1319,dur:0.4,type:'sine',vol:0.024}],  // E6
+          {freq:0,dur:0.4},
+          [{freq:98,dur:0.9,type:'sine',vol:0.03}],     // G2 pad
+          [{freq:784,dur:0.45,type:'sine',vol:0.026}],  // G5
+          {freq:0,dur:0.35},
+          [{freq:1568,dur:0.5,type:'sine',vol:0.018}],  // G6
+          {freq:0,dur:0.5},
+        ];
       case 'menu':
         // 主界面：缓慢的方波循环，旋律+低音八度和弦伴奏
         return [

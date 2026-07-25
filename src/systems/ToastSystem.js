@@ -74,6 +74,8 @@ export class ToastSystem {
     this._processing = false;
     this._styleInjected = false;
     this._destroyed = false;
+    // R20 P2-004：跟踪所有 pending setTimeout，destroy 时批量清理
+    this._activeTimers = new Set();
     this._init();
   }
 
@@ -143,13 +145,29 @@ export class ToastSystem {
     const item = this._queue.shift();
     this._renderToast(item);
 
-    // 等当前 Toast 渲染后，间隔 100ms 处理下一个
-    setTimeout(() => {
+    // 等当前 Toast 渲染后，间隔 100ms 处理下一个（R23 P1-3：纳入 _activeTimers 跟踪）
+    this._trackedTimeout(() => {
       this._processing = false;
       if (this._queue.length > 0) {
         this._processQueue();
       }
     }, QUEUE_INTERVAL);
+  }
+
+  /**
+   * 安全注册原生 setTimeout 并跟踪引用，destroy 时自动清理
+   * R23 P1-3：与 DialogSystem/GameScene 的 _trackedTimeout 模式一致
+   * @param {Function} fn 回调函数
+   * @param {number} delay 延迟毫秒
+   * @returns {number} setTimeout id
+   */
+  _trackedTimeout(fn, delay) {
+    const id = setTimeout(() => {
+      this._activeTimers.delete(id);
+      try { fn(); } catch (e) { /* 容器已销毁时静默忽略 */ }
+    }, delay);
+    this._activeTimers.add(id);
+    return id;
   }
 
   /**
@@ -181,8 +199,8 @@ export class ToastSystem {
       if (closed) return;
       closed = true;
       item.classList.remove('show');
-      // 等淡出动画结束后移除节点
-      setTimeout(() => {
+      // 等淡出动画结束后移除节点（R23 P1-3：纳入 _activeTimers 跟踪）
+      this._trackedTimeout(() => {
         if (item.parentNode) {
           item.parentNode.removeChild(item);
         }
@@ -201,12 +219,13 @@ export class ToastSystem {
       });
     });
 
-    // 自动消失
-    const autoCloseTimer = setTimeout(close, duration || DEFAULT_DURATION);
+    // 自动消失（R23 P1-3：纳入 _activeTimers 跟踪）
+    const autoCloseTimer = this._trackedTimeout(close, duration || DEFAULT_DURATION);
 
     // 点击时清除自动定时器，避免重复触发
     item.addEventListener('click', () => {
       clearTimeout(autoCloseTimer);
+      this._activeTimers.delete(autoCloseTimer);
     });
   }
 

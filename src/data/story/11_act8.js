@@ -173,7 +173,7 @@ export const NODES = {
     choices: [
       { label: `"梁文锋说得对，靠嘴吃饭也是一种天赋。做播客！——但承认这个，等于承认科技梦碎了"`, next: 'act8_podcast', effects: { pride: 1, wealth: 1, reputation: 2 , pressure: 1} },
       { label: `"不！我一定要在科技领域证明自己！继续做AI！"`, next: 'ending_ai_visionary', effects: { pride: 3, wealth: -1, reputation: 1, achievement: 'AI先知', icon: '▦' }, flag: 'ai_believer', requires: { wealth: 7, reputation: 5 } },
-      { label: `"我不该自己创业了。去做创业导师，帮年轻人少走弯路"`, next: 'ending_mentor', effects: { pride: 1, wealth: 1, reputation: 2, trust: 2, achievement: '薪火相传', icon: '◈' }, flag: 'mentor', requires: { trust: 5 } },
+      { label: `"我不该自己创业了。去做创业导师，帮年轻人少走弯路"`, next: 'ending_mentor', effects: { pride: 1, wealth: 1, reputation: 2, trust: 2, achievement: '薪火相传', icon: '◈' }, flag: 'mentor', requires: { reputation: 5 } },
       { label: `"做AI！这是下一个风口！"`, next: 'act8_j1', effects: {"pride":1,"wealth":-1,"reputation":-1} },
       { label: `"先做市场调研，看看AI到底能做什么"`, next: 'act8_market', effects: {"pride":0,"wealth":0,"reputation":0} },
       { label: `"AI方向也需要精简团队……"`, next: 'act8_layoff', effects: {"pride":-1,"wealth":0,"reputation":-1} },
@@ -295,7 +295,7 @@ export const NODES = {
       { label: `"且听需要时间！好产品不是一天做成的——锤子T1也是迭代出来的。"`, next: 'act8_liang', effects: { pride: 1 } },
       { label: `"又失败了……也许我真的不适合做产品，该认了。"`, next: 'act8_liang', effects: { pride: -1, failures: 1 } },
       { label: `"且听不行就关掉，止损比死撑更需要勇气。"`, next: 'act8_liang', effects: { pride: 0, reputation: -1, failures: 1, trust: 1 } },
-      { label: `"也许我真的该做播客了……至少说话不会失败。"`, next: 'ending_writer', effects: { pride: 1, wealth: 1, reputation: 1 }, requires: { pride: 4, reputation: 4 } }
+      { label: `"也许我真的该做播客了……至少说话不会失败。"`, next: 'ending_talkshow_star', effects: { pride: 1, wealth: 1, reputation: 1 }, requires: { pride: 4, reputation: 4 } }
     ],
     historyNote: `历史上且听APP发布后市场反应确实冷淡，在AI赛道中没有找到差异化优势，用户留存率低。这件事之所以重要，是因为1000元门票秒光和日活3000之间的距离，就是老罗一生的缩影：他能让全世界为他鼓掌，却无法让一个人为他停留。后来，这个规律从锤子到细红线，从未改变。科技春晚的盛况和且听的冷清形成了老罗创业生涯最残酷的对比——他能把人聚起来，却留不住人。而留不住人的原因很简单：聚人靠的是嘴，留人靠的是产品——嘴和产品之间的鸿沟，就是他一辈子在填、却始终填不平的坑。`,
     progress: 100

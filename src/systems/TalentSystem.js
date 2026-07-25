@@ -99,6 +99,8 @@ export class TalentSystem {
       card.setAttribute('data-rarity', talent.rarity);
       card.setAttribute('aria-pressed', 'false');
       card.setAttribute('aria-label', `${talent.name}，${rarityLabels[talent.rarity]}天赋`);
+      // R28-T1: stagger 入场——每张卡延迟 100ms 出现，营造抽卡仪式感
+      card.style.animationDelay = `${_i * 100}ms`;
 
       // Build effects HTML
       const effectEntries = Object.entries(talent.effects).filter(([_k, v]) => v !== 0);
@@ -132,6 +134,37 @@ export class TalentSystem {
     });
 
     this.overlay.classList.add('visible');
+
+    // R28-T1: 卡牌出现音效——翻牌声 + 稀有度差异化提示音
+    // 复用 AudioSystem.playTalentSelect 的三角波音色，但节奏更短促模拟"翻牌"
+    // 传说天赋：额外的金光闪耀音（复用 playAchievementLegendary 的和弦）
+    try {
+      const audio = this.scene && this.scene.audio;
+      if (audio && audio.enabled) {
+        // 翻牌声：每张卡 80ms 间隔的短促三角波
+        for (let i = 0; i < talents.length; i++) {
+          const delay = i * 100;
+          const isLegendary = talents[i].rarity === 'legendary';
+          const isRare = talents[i].rarity === 'rare';
+          if (audio._scheduleSfx) {
+            audio._scheduleSfx(() => {
+              audio._playTone(440 + i * 80, 0.06, 'triangle', 0.07);
+            }, delay);
+            // 稀有度差异化：传说/稀有多一个高音点缀
+            if (isLegendary) {
+              audio._scheduleSfx(() => {
+                audio._playTone(1047, 0.12, 'sine', 0.06);
+                audio._playTone(1319, 0.15, 'sine', 0.05);
+              }, delay + 80);
+            } else if (isRare) {
+              audio._scheduleSfx(() => {
+                audio._playTone(880, 0.1, 'sine', 0.05);
+              }, delay + 80);
+            }
+          }
+        }
+      }
+    } catch (e) {}
   }
 
   /**

@@ -503,7 +503,8 @@ function _injectStyles() {
   style.textContent = `
     .achievement-popup {
       position: fixed;
-      top: 15vh;
+      /* P2-3: 移动端刘海屏顶部裁切修复，确保弹窗在安全区域内 */
+      top: max(15vh, calc(env(safe-area-inset-top, 0px) + 12px));
       left: 50%;
       transform: translateX(-50%) translateY(-200%);
       max-width: min(90vw, 360px);

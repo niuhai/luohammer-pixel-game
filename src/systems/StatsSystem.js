@@ -10,16 +10,16 @@ export class StatsSystem {
 
     // 可见属性 — 每项独立配色 + 渐变填充
     const stats = [
-      { key: 'pride',       label: '理想', icon: '◆', color: '#f0c040', gradient: 'linear-gradient(90deg, #c49a2a, #f0c040)', tooltip: '理想主义：你的信念和坚持，越高越不容易妥协' },
-      { key: 'wealth',      label: '财富', icon: '¥', color: '#40c060', gradient: 'linear-gradient(90deg, #2a8a4a, #40c060)', tooltip: '财富：经济实力，影响商业决策的底气' },
-      { key: 'reputation',  label: '名声', icon: '★', color: '#4090e0', gradient: 'linear-gradient(90deg, #2070b0, #4090e0)', tooltip: '名声：社会影响力，公众对你的认知度' },
-      { key: 'failures',    label: '翻车', icon: '✕', color: '#e04040', gradient: 'linear-gradient(90deg, #b03030, #e04040)', tooltip: '翻车：失败次数，越多越容易触发负面事件' }
+      { key: 'pride',       label: '理想', icon: '◆', color: 'var(--color-gold)', gradient: 'linear-gradient(90deg, var(--color-gold-dark), var(--color-gold))', tooltip: '理想主义：你的信念和坚持，越高越不容易妥协' },
+      { key: 'wealth',      label: '财富', icon: '¥', color: 'var(--color-wealth)', gradient: 'linear-gradient(90deg, var(--color-wealth-dark), var(--color-wealth))', tooltip: '财富：经济实力，影响商业决策的底气' },
+      { key: 'reputation',  label: '名声', icon: '★', color: 'var(--color-reputation)', gradient: 'linear-gradient(90deg, var(--color-reputation-dark), var(--color-reputation))', tooltip: '名声：社会影响力，公众对你的认知度' },
+      { key: 'failures',    label: '翻车', icon: '✕', color: 'var(--color-failures)', gradient: 'linear-gradient(90deg, var(--color-failures-dark), var(--color-failures))', tooltip: '翻车：失败次数，越多越容易触发负面事件' }
     ];
 
     // 隐藏属性
     this.hiddenStats = [
-      { key: 'pressure', label: '压力', icon: '◈', color: '#8040C0', gradient: 'linear-gradient(90deg, #6030a0, #8040c0)', tooltip: '压力：心理负担，过高会触发崩溃事件' },
-      { key: 'trust',    label: '信任', icon: '◇', color: '#40C0C0', gradient: 'linear-gradient(90deg, #30a0a0, #40c0c0)', tooltip: '公众信任：社会对你的信赖程度' }
+      { key: 'pressure', label: '压力', icon: '◈', color: 'var(--color-pressure)', gradient: 'linear-gradient(90deg, var(--color-pressure-dark), var(--color-pressure))', tooltip: '压力：心理负担，过高会触发崩溃事件' },
+      { key: 'trust',    label: '信任', icon: '◇', color: 'var(--color-trust)', gradient: 'linear-gradient(90deg, var(--color-trust-dark), var(--color-trust))', tooltip: '公众信任：社会对你的信赖程度' }
     ];
 
     // Build DOM for visible stats
@@ -124,6 +124,7 @@ export class StatsSystem {
 
   /**
    * 首次进入游戏时，在属性面板旁显示一次性引导气泡
+   * R25 P2-2：定时器存为实例属性，destroy 时可清理，避免场景销毁后孤立
    */
   _showFirstTimeHint() {
     if (this._hintShown) return;
@@ -147,11 +148,19 @@ export class StatsSystem {
     const removeHint = () => {
       if (hint.parentNode) {
         hint.classList.add('fading');
-        setTimeout(() => { if (hint.parentNode) hint.parentNode.removeChild(hint); }, 400);
+        this._hintFadeTimer = setTimeout(() => { if (hint.parentNode) hint.parentNode.removeChild(hint); }, 400);
       }
     };
-    setTimeout(removeHint, 3500);
+    this._hintRemoveTimer = setTimeout(removeHint, 3500);
     this.el.addEventListener('click', removeHint, { once: true });
+  }
+
+  /**
+   * R25 P2-2：销毁时清理引导气泡定时器，避免场景切换后孤立
+   */
+  destroy() {
+    if (this._hintRemoveTimer) { clearTimeout(this._hintRemoveTimer); this._hintRemoveTimer = null; }
+    if (this._hintFadeTimer) { clearTimeout(this._hintFadeTimer); this._hintFadeTimer = null; }
   }
 
   _updateBars(bars, state) {

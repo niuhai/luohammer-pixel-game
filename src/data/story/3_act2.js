@@ -50,7 +50,7 @@ export const NODES = {
 <b>宣言说出口只需要一秒，但守住它，需要一辈子。而一辈子，是由无数个“一秒钟”组成的。</b>`,
     choices: [
       { label: `"删帖保平安。平台活着才能保护更多人。"`, next: 'act2_censor1', effects: { pride: -2, wealth: 1, reputation: -1, failures: 1, trust: -1 } },
-      { label: `"不删！这是牛博网的底线，有些东西比活着重要。"`, next: 'act2_fight', effects: { pride: 2, wealth: -1, reputation: 2, achievement: '不妥协', icon: '⚔', trust: 1 } }
+      { label: `"不删！这是牛博网的底线，有些东西比活着重要。"`, next: 'act2_fight', effects: { pride: 2, wealth: -1, reputation: 2, achievement: '不妥协', icon: '⚔', trust: 1, failures: -1 } }
     ],
     historyNote: `历史上，老罗选择了不删帖。牛博网存在的唯一理由就是“不删帖”——如果删了，牛博网跟新浪搜狐有什么区别？区别就是：我们曾经不一样。这个选择让牛博网多次被约谈、被关停服务器，最终在2009年1月被彻底关闭。但老罗从不后悔——他说：“牛博网死得干干净净，比活着苟且好。”牛博网的生死定义了老罗此后面对所有压力时的默认姿态：宁可站着死，不愿跪着活。后来做锤子手机、直播还债，他都是同一个逻辑。`,
     progress: 38
@@ -157,7 +157,7 @@ export const NODES = {
 <b>学校每年招生稳定，口碑不错，但直到2011年也只有一个财年盈利。你心里一直有个声音在响：这不是终点。你只是在这里歇脚，等风来。</b>`,
     choices: [
       { label: `"培训学校挺好的，稳定赚钱，别折腾了——人生能有几年安稳日子？"`, next: 'ending_comfort', effects: { pride: -2, wealth: 2, reputation: 0, pressure: -1 }, flag: 'stayed_xinfang', maxAttr: { pride: 5 } },
-      { label: `"一块钱听八次课！先做营销再想做手机——文案是我的武器。"`, next: 'act2_school', effects: { pride: 2, wealth: -1, reputation: 1, pressure: 1 } },
+      { label: `"一块钱听八次课！先做营销再想做手机——文案是我的武器。"`, next: 'act2_school', effects: { pride: 2, wealth: -1, reputation: 1, pressure: 1, failures: -1 } },
       { label: `"有个学生因为牛博网改变了人生……"`, next: 'act2_student', effects: { "pride": 1, "wealth": 0, "reputation": 1, "pressure": 1 } },
       { label: `"把牛博网的精神延续下去——换个战场不换信仰。"`, next: 'act2_poster', effects: { pride: 1, wealth: 0, reputation: -1, pressure: 1 } }
     ],
@@ -176,7 +176,7 @@ export const NODES = {
 <b>牛博网关了，你小罗没有关。只要人还站着，故事就没有结束。而你的故事，才刚刚翻到下一章。</b>`,
     choices: [
       { label: `"好好做培训！用教育改变更多人的命运，这也是理想。"`, next: 'act2_poster', effects: { pride: 1, wealth: 0, reputation: -1, pressure: 1 } },
-      { label: `"培训只是过渡，我的目标还是更大的事——不能在这里安顿下来。"`, next: 'act2_poster', effects: { wealth: 1, pride: -1, reputation: -1 } },
+      { label: `"培训只是过渡，我的目标还是更大的事——不能在这里安顿下来。"`, next: 'act2_poster', effects: { wealth: 1, pride: -2, reputation: -1 } },
       { label: `"培训只是跳板……我要用赚的钱和影响力做更大的事。"`, next: 'act2_poster', effects: { pride: 0, wealth: 1, reputation: -1 } }
     ],
     historyNote: `历史上，老罗英语培训学校2008年7月开业。这件事标志着老罗从“理想主义者”到“现实创业者”的身份转换——但他的心里，从来没有真正接受过这个转换，身体在教室，灵魂还在牛博网。老罗亲自参与运营，但直到2011年也只有一个财年盈利。他后来对朋友说：“我每天站在讲台上教英语，脑子里想的却是另一件事。”后来，正是这种“身在曹营心在汉”的状态，让他做出了人生最大胆的决定——做手机。不安分的人，终究不会安分。`,
@@ -217,7 +217,7 @@ export const NODES = {
     choices: [
       { label: `"去做手机！哪怕倾家荡产，也要试一次——不试才是真正的倾家荡产。"`, next: 'act_fridge_start', effects: { pride: 2, wealth: 0, reputation: -1, pressure: 2 }, requires: { pride: 4 } },
       { label: `"做手机太疯狂了，培训学校虽然无聊但至少安稳。"`, next: 'ending_comfort', effects: { pride: -2, wealth: 2, reputation: 0 }, flag: 'stayed_xinfang', maxAttr: { pride: 5 } },
-      { label: `"不急着做手机……先做一个手机ROM试试水。"`, next: 'act_fridge_start', effects: { pride: 0, wealth: 1, reputation: -1 } }
+      { label: `"不急着做手机……先做一个手机ROM试试水。"`, next: 'act_fridge_start', effects: { pride: -1, wealth: 1, reputation: -1 } }
     ],
     historyNote: `历史上，老罗确实在2011年前后开始萌生做手机的念头。做手机的念头最终改变了他的人生轨迹——从英语老师到手机创业者，从培训学校到锤子科技，这是他人生最大的一次跳跃，也是最危险的一次。他后来回忆说：“我看着乔布斯发布会的录像，心想我也能做。”这个念头最初被所有人嘲笑——一个英语老师要做手机？但老罗的逻辑是：手机行业缺的不是技术，是审美和用户体验，而这恰恰是他最擅长的。后来的事实证明，他看到了对的方向，但低估了从方向到产品之间的距离——那段距离，值6个亿。`,
     progress: 46
@@ -235,7 +235,7 @@ export const NODES = {
 
 <b>好文案能打开一扇门，但门后是不是你想要的世界，只有跨过去才知道。</b>`,
     choices: [
-      { label: `"继续做培训，把学校做大做强。手机那是科技巨头的事，我够不着。"`, next: 'ending_comfort', effects: { pride: -1, wealth: 2, reputation: 1 }, flag: 'stayed_xinfang', maxAttr: { pride: 4, wealth: 4 } },
+      { label: `"继续做培训，把学校做大做强。手机那是科技巨头的事，我够不着。"`, next: 'ending_comfort', effects: { pride: -2, wealth: 2, reputation: 1 }, flag: 'stayed_xinfang', maxAttr: { pride: 4, wealth: 4 } },
       { label: `"西门子冰箱门关不严？我要去维权！顺便见见雷军——有些事，得先砸开再说。"`, next: 'act_fridge_start', effects: { pride: 2, wealth: -1, reputation: 1, pressure: 1, achievement: '文案之神', icon: '✎' } },
       { label: `"我还有一个更大的梦想……"`, next: 'act2_dream', effects: { "pride": 1, "wealth": 0, "reputation": -1, "pressure": 1 } }
     ],

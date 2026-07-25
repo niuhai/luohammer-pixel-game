@@ -8,7 +8,7 @@ export const NODES = {
     character: '小罗',
     text: `你决定 all in TNT——用语音和触控取代键盘鼠标。不到100人的团队挑战乔布斯几百人做的 Lisa，这不是以卵击石，是以卵击山——山连晃都没晃，卵碎了一地。\n\n语音识别在嘈杂环境下惨到让人怀疑人生，你喊十遍“打开微信”，它给你打开了一切——就是没打开微信。触控延迟像跟屏幕下象棋，多任务说崩就崩。\n\n有人劝你别在鸟巢演示，你沉默很久说：“不演示，怎么让世界看到方向？”但你心里清楚——TNT 离“可用”还有一条太平洋那么宽。\n\n<b>理想主义最危险的时刻，不是不知道前方是悬崖，而是明明知道，却说服自己那是一条跑道。</b>`,
     choices: [
-      { label: `"TNT 必须演示——哪怕不完美，也要让世界看到未来的方向！"`, next: 'act6_a', effects: { pride: 2, wealth: 0, reputation: 0 }, requires: { pride: 5 } },
+      { label: `"TNT 必须演示——哪怕不完美，也要让世界看到未来的方向！"`, next: 'act6_a', effects: { pride: 1, wealth: 0, reputation: 0 }, requires: { pride: 5 } },
       { label: `"TNT 还没准备好——取消演示保住信誉，来日方长。"`, next: 'act6_a', effects: { pride: -1, wealth: 0, reputation: 1, trust: 1 } },
       { label: `"演示可以，但提前声明这是概念演示，不是成品——降低预期反而能保住信誉。"`, next: 'act6_a', effects: { pride: 0, wealth: 0, reputation: 1, trust: 1 } }
     ],
@@ -23,7 +23,7 @@ export const NODES = {
     text: `2018年5月14日，发布会前夜。你一个人站在鸟巢空旷的场地上，回声在八万个座位间弹跳，像困兽在铁笼里咆哮。\n\n光是场地费就花了近千万——锤子账上本就不多的钱，又被你烧掉了一大块。三万张票已售罄，中国科技史上最大规模的个人产品发布会，明天就在你脚下上演。\n\n你摸了摸口袋里的演讲稿，纸已被汗浸软——你分不清纸上写的是未来的蓝图，还是自己的墓志铭。<b>你抬头看鸟巢的穹顶，钢结构像一张巨大的网，你站在网中央，分不清自己是蜘蛛还是猎物。</b>\n\n你深吸一口气：明天，让世界看看。但你没敢往下想——万一世界看了，然后笑了呢？`,
     choices: [
       { label: `"取消 TNT 演示，只讲手机——留得青山在不怕没柴烧。"`, next: 'act6_a', effects: { pride: -2, wealth: 0, reputation: 1, pressure: -1 } },
-      { label: `"赌就赌到底——千万场地费都花了，TNT 必须上！"`, next: 'act6_a', effects: { pride: 2, wealth: 0, reputation: 1, pressure: 3, trust: -1, achievement: '背水一战', icon: '▦' }, requires: { pride: 5 } },
+      { label: `"赌就赌到底——千万场地费都花了，TNT 必须上！"`, next: 'act6_a', effects: { pride: 1, wealth: 0, reputation: 1, pressure: 3, trust: -1, achievement: '背水一战', icon: '▦' }, requires: { pride: 5 } },
       { label: `"TNT工作站，我要重新开发——还没到放弃的时候！"`, next: 'act6_tnt_dev', effects: {"pride":1,"wealth":-1,"reputation":0,"pressure":2} }
     ],
     historyNote: `历史上鸟巢发布会花费近千万场地费，三万张票售罄。老罗坚持现场演示TNT，但产品远未成熟。内部人士透露，发布会前团队曾建议取消TNT演示环节，但老罗认为“不演示就等于承认失败”。结果演砸了，这场发布会成为锤子科技由盛转衰的转折点。有人评价：“鸟巢之夜是老罗人生最壮烈的豪赌——赌注是整个公司，筹码是一个半成品，结果是一场灾难。”鸟巢场地费加上搭建、宣传，总成本超过3000万，相当于锤子当时近半年的运营资金。这件事之所以重要，是因为它把“发布会”这个营销工具变成了命运审判台：在锤子之前，发布会是老罗最擅长的舞台；在鸟巢之后，它成了锤子最著名的翻车现场。`,
@@ -37,13 +37,13 @@ export const NODES = {
     text: `2018年5月15日，北京鸟巢。你穿黑色T恤走上台，台下三万人，直播过千万。\n\n你讲TNT的理念，台下掌声雷动。然后，演示开始了。你对着麦克风说“下一张”。屏幕没反应。又喊了一遍——还是没反应。\n\n空气凝固了，三万人的期待变成困惑，变成窃笑，变成让人窒息的安静。你连喊了十几次“下一张！下一张！”，声音从自信变成恳求，从恳求变成绝望。\n\n你转头对台下说：“安静！吵到我用TNT了！”——全场哄笑，但没人知道你那一刻恨不得台下真的吵一点，吵一点就听不出你的声音在发抖。\n\n触控也频频卡顿，所有人都看得出——演砸了。<b>三万人的鸟巢，安静得像一场葬礼，而你既是死者，又是致悼词的人。</b>`,
     choices: [
       { label: `"TNT 是失败的产品——砍掉它，专注手机活下去，及时止损才是理性。"`, next: 'act6_crash', effects: { pride: -1, wealth: 0, reputation: 0, failures: 1 } },
-      { label: `"TNT 理念没错，只是演示出了问题——继续投入，证明自己，方向不能错！"`, next: 'act6_crash', effects: { pride: 2, wealth: -1, reputation: -1, failures: 1, achievement: '安静！', icon: '◉' }, requires: { pride: 6 },
+      { label: `"TNT 理念没错，只是演示出了问题——继续投入，证明自己，方向不能错！"`, next: 'act6_crash', effects: { pride: 1, wealth: -1, reputation: -1, failures: 1, achievement: '安静！', icon: '◉' }, requires: { pride: 6 },
         check: {
           attr: 'pride', min: 7,
           successNext: 'act6_crash', failNext: 'act6_crash',
           successText: '你的理想主义感染了团队，虽然演示翻车，但团队士气未散，有人愿意陪你再战！',
           failText: '演示翻车后团队信心崩溃，核心成员开始动摇，你的理想主义没能撑住现实的重压。',
-          successEffects: { pride: 2, trust: 2, reputation: 1 }, failEffects: { pride: -2, pressure: 3, trust: -2, reputation: -1 }
+          successEffects: { pride: 1, trust: 2, reputation: 1 }, failEffects: { pride: -2, pressure: 3, trust: -2, reputation: -1 }
         }
       },
       { label: `"不砍也不加码，维持最小团队继续迭代。"`, next: 'act6_crash', effects: { pride: 0, wealth: -1, reputation: 0 } },
@@ -119,7 +119,7 @@ export const NODES = {
     character: '小罗',
     text: `律师把一份文件推到你面前：“这是你之前签的个人无限责任担保，金额1.2亿。”\n\n你看着那份文件，上面有你熟悉的签名——当时公司正处在高速扩张期，你觉得担保不过是走个形式。现在这个“形式”变成了1.2亿的枷锁。\n\n律师说：“你可以申请破产清算，个人只承担担保部分。但如果你选择不破产，这1.2亿加上公司的5亿，总共6亿，全部由你个人承担。你一辈子可能都还不完。”\n\n你盯着那个签名，想起签字那天自己的手有多稳。那时候你觉得，签了字就是承诺，承诺了就会实现。现在你才明白：<b>签字只需要一秒钟，但还债可能需要一辈子。</b>`,
     choices: [
-      { label: `"我签的字，我认——1.2亿我扛！但公司的5亿不该我背，法律有法律的底线，底线之上才是道义。"`, next: 'act6_debt', effects: { pride: 2 , pressure: 1, wealth: -1} },
+      { label: `"我签的字，我认——1.2亿我扛！但公司的5亿不该我背，法律有法律的底线，底线之上才是道义。"`, next: 'act6_debt', effects: { pride: 1 , pressure: 1, wealth: -1} },
       { label: `"1.2亿……这也太不公平了——让我再想想，不能冲动做决定。"`, next: 'act6_debt', effects: { pride: -1 } },
       { label: `"找律师看看有没有其他方案——也许担保本身就有法律瑕疵。"`, next: 'act6_lawyer', effects: { pride: 0, wealth: -1, reputation: 0 } },
       { label: `"签字但加条件——个人只担保1.2亿，超出部分公司承担。"`, next: 'act6_debt', effects: { pride: 1, wealth: 0, reputation: -1 } }
@@ -171,10 +171,10 @@ export const NODES = {
     actSub: '律师建议破产清算 · 法律与道义 2018',
     sceneType: SCENE_TYPES.COURT,
     character: '小罗',
-    text: `律师坐在你对面，桌上摊开七八份文件，每一份都是不同的债权人发来的律师函——银行的、供应商的、租赁公司的、前员工的。他语气平静得像在念菜单。“罗总，我建议你申请破产清算。按照公司法，公司债务跟个人是隔离的，你只需要承担无限责任担保的那1.2亿。剩下的4.8亿，法律上你不用还。”\n\n你盯着他看了十秒钟，然后问：“那些供应商呢？那些因为信任我而垫资的小老板呢？他们公司可能因为我这笔烂账倒闭，两百多号人等着发工资。”律师叹了口气，把眼镜摘下来擦了擦：“法律不讲感情。我做了二十年破产案，见过太多这样的老板——你不是第一个，也不会是最后一个。”\n\n窗外的法院大楼门口，你能看见几个蹲在地上抽烟的人——那是等你的供应商，已经守了三天了。其中一个头发花白的，你认识，是做手机壳的老王，上个月刚把房子抵押了发工资。他看见你的时候没骂街，只是冲你点了点头——那个点头比骂街还重。\n\n你站起来，走到窗边，看着法院大楼外面那棵光秃秃的树。冬天了，树上一片叶子都没有，但你知道春天它还会长出来——可是那些因为你的烂账而倒闭的小公司，他们还有春天吗？\n\n法律给你的是一把伞，但你站在雨里想的不是自己淋不淋——是那些因为你才站在雨里的人。`,
+    text: `律师坐在你对面，桌上摊开七八份文件，每一份都是不同的债权人发来的律师函——银行的、供应商的、租赁公司的、前员工的。他语气平静得像在念菜单。“罗总，我建议你申请破产清算。按照公司法，公司债务跟个人是隔离的，你只需要承担无限责任担保的那1.2亿。剩下的4.8亿，法律上你不用还。”\n\n你盯着他看了十秒钟，然后问：“那些供应商呢？那些因为信任我而垫资的小老板呢？他们公司可能因为我这笔烂账倒闭，两百多号人等着发工资。”律师叹了口气，把眼镜摘下来擦了擦：“法律不讲感情。我做了二十年破产案，见过太多这样的老板——你不是第一个，也不会是最后一个。”\n\n窗外的法院大楼门口，你能看见几个蹲在地上抽烟的人——那是等你的供应商，已经守了三天了。其中一个头发花白的，你认识，是做手机壳的老王，上个月刚把房子抵押了发工资。他看见你的时候没骂街，只是冲你点了点头——那个点头比骂街还重。\n\n你站起来，走到窗边，看着法院大楼外面那棵光秃秃的树。冬天了，树上一片叶子都没有，但你知道春天它还会长出来——可是那些因为你的烂账而倒闭的小公司，他们还有春天吗？\n\n<b>法律给你的是一把伞，但你站在雨里想的不是自己淋不淋——是那些因为你才站在雨里的人。</b>`,
     choices: [
       { label: `"听律师的——破产清算是最理性的选择，活着才有翻盘的机会。"`, next: 'act6_debt', effects: { pride: -1, wealth: 1, failures: 1, trust: -1 } },
-      { label: `"法律是法律，道义是道义——我不破产，自己扛！信用比法律更值钱！"`, next: 'act6_debt', effects: { pride: 2, reputation: 2, trust: 1 , pressure: 1, wealth: -1}, flag: 'honest_repay' },
+      { label: `"法律是法律，道义是道义——我不破产，自己扛！信用比法律更值钱！"`, next: 'act6_debt', effects: { pride: 1, reputation: 1, trust: 1 , pressure: 1, wealth: -1, failures: -1}, flag: 'honest_repay' },
       { label: `"有没有折中方案——部分破产，部分自己扛？"`, next: 'act6_debt', effects: { pride: 0, wealth: 0, reputation: 0 } },
       { label: `"个人破产但不公司破产——至少保住品牌和团队。"`, next: 'act6_debt', effects: { pride: 0, wealth: 1, reputation: -1 } }
     ],
@@ -186,10 +186,10 @@ export const NODES = {
     actSub: '供应商围堵 · "锤子科技还我血汗钱" 2018',
     sceneType: SCENE_TYPES.STREET,
     character: '小罗',
-    text: `供应商围堵了望京总部。大厅里拉着红色横幅——“锤子科技还我血汗钱”，红底白字，像一道伤口贴在大楼脸上。\n\n几十号人轮班守在门口，吃着25块钱的盒饭，就怕你跑了——他们不是在守门，是在守命。有个供应商老大拉住你的衣袖：“罗总，我们小公司，两百多号人等着吃饭呢。”\n\n你看着他布满血丝的眼睛，那双眼睛里不是愤怒，是恐惧。那种恐惧你太熟悉了，因为你自己的眼睛里也是同样的恐惧，只是你的恐惧里还多了一层愧疚——他们的恐惧是你造成的。\n\n你说不出话，喉咙像被一只手掐住了。你知道，这些人不是在讨债，是在讨命——你欠的不是钱，是一个个活生生的人赖以活下去的希望。`,
+    text: `供应商围堵了望京总部。大厅里拉着红色横幅——“锤子科技还我血汗钱”，红底白字，像一道伤口贴在大楼脸上。\n\n几十号人轮班守在门口，吃着25块钱的盒饭，就怕你跑了——他们不是在守门，是在守命。有个供应商老大拉住你的衣袖：“罗总，我们小公司，两百多号人等着吃饭呢。”\n\n你看着他布满血丝的眼睛，那双眼睛里不是愤怒，是恐惧。那种恐惧你太熟悉了，因为你自己的眼睛里也是同样的恐惧，只是你的恐惧里还多了一层愧疚——他们的恐惧是你造成的。\n\n你说不出话，喉咙像被一只手掐住了。你知道，这些人不是在讨债，是在讨命——你欠的不是钱，是一个个活生生的人赖以活下去的希望。<b>讨债的人眼里有恐惧，而你眼里有愧疚——他们的恐惧是你造成的，这是比债务本身更重的枷锁。</b>`,
     choices: [
       { label: `"申请破产清算——让法院来分配剩余资产，这是法律途径，不是逃避。"`, next: 'act6_supplier_detail', effects: { pride: -2, wealth: 1, reputation: -2, failures: 1, trust: -1 } },
-      { label: `"想办法还——不能让这些供应商的血汗钱打水漂，他们也有家人要养！"`, next: 'act6_supplier_detail', effects: { pride: 2, wealth: -1, reputation: 2, trust: 1 }, flag: 'honest_repay' },
+      { label: `"想办法还——不能让这些供应商的血汗钱打水漂，他们也有家人要养！"`, next: 'act6_supplier_detail', effects: { pride: 1, wealth: -1, reputation: 1, trust: 1, failures: -1 }, flag: 'honest_repay' },
       { label: `"供应商逼上门了，要我做担保——先看看担保的法律后果"`, next: 'act6_guarantee', effects: {"pride":0,"wealth":-1,"reputation":0} }
     ],
     historyNote: `历史上确实有供应商围堵锤子科技望京总部，拉着“锤子科技还我血汗钱”横幅。这些供应商大多是中小型企业，垫资生产后收不到货款，现金流断裂就可能倒闭。老罗后来还债时优先还的就是这些小供应商的钱，他说：“大公司扛得住，小公司可能就因为我这一笔烂账倒闭了。”先还最弱势的人，不是因为高尚，是因为他们最等不起。围堵从2018年11月底持续到12月底，最高峰时有超过50名供应商轮班值守，部分人甚至自带被褥睡在办公楼大厅。`,
@@ -200,9 +200,9 @@ export const NODES = {
     actSub: '供应商围堵细节 · 25块盒饭与轮班守门 2018',
     sceneType: SCENE_TYPES.STREET,
     character: '小罗',
-    text: `供应商的围堵持续了将近一个月。大厅里永远弥漫着盒饭的味道，25块钱一份，他们就蹲在地上吃，吃完把饭盒摞在墙角，摞得比人还高。\n\n有个做手机壳的老板，五十多岁，头发花白，每天早上八点准时出现在门口，手里攥着一沓欠条。他看见你就喊：“罗总，我们公司就靠这笔钱发工资了！”他的声音不大，但每个字都像钉子钉在你胸口。\n\n还有一个做包装的老板娘，带着七八个月的肚子来守门，她说：“等孩子出生了，我得有钱养他。”\n\n你每次听到这些话，都觉得自己欠的不是钱，是一条条活生生的人命。`,
+    text: `供应商的围堵持续了将近一个月。大厅里永远弥漫着盒饭的味道，25块钱一份，他们就蹲在地上吃，吃完把饭盒摞在墙角，摞得比人还高。\n\n有个做手机壳的老板，五十多岁，头发花白，每天早上八点准时出现在门口，手里攥着一沓欠条。他看见你就喊：“罗总，我们公司就靠这笔钱发工资了！”他的声音不大，但每个字都像钉子钉在你胸口。\n\n还有一个做包装的老板娘，带着七八个月的肚子来守门，她说：“等孩子出生了，我得有钱养他。”\n\n你每次听到这些话，都觉得自己欠的不是钱，是一条条活生生的人命。<b>25块的盒饭他们蹲着吃，87万的欠条他们攥着等——你欠的每一笔债背后，都有一个睡不安稳的家庭。</b>`,
     choices: [
-      { label: `"我一定还——就算卖血卖肾也还！你们给我时间！我小罗说到做到！"`, next: 'act6_debt', effects: { pride: 2, reputation: 1, pressure: 2, trust: 1 , wealth: -1}, flag: 'honest_repay' },
+      { label: `"我一定还——就算卖血卖肾也还！你们给我时间！我小罗说到做到！"`, next: 'act6_debt', effects: { pride: 1, reputation: 1, pressure: 2, trust: 1 , wealth: -1, failures: -1}, flag: 'honest_repay' },
       { label: `"我真的还不起了——对不起，我申请破产，让法院来处理，这是对所有人最公平的方式。"`, next: 'act6_debt', effects: { pride: -2, pressure: -2, trust: -2, failures: 1 } },
       { label: `"深夜一个人坐在办公室，想了很多……"`, next: 'act6_night', effects: {"pride":0,"wealth":0,"reputation":0,"pressure":1} },
       { label: `"那个做手机壳的老王——去问问他，到底欠他多少，他的处境怎样。"`, next: 'act6_supplier_oldwang', effects: { pride: 0, wealth: 0, reputation: 0, pressure: 1 } },
@@ -219,13 +219,13 @@ export const NODES = {
     text: `6亿。\n\n这个数字压在你胸口，像一块浇了水的铁——越压越沉，越沉越冷。你试着深呼吸一次，肋骨像被勒紧了一圈。\n\n律师把方案摊在桌上："申请破产清算，个人最多承担1.2亿，剩下4.8亿法律上一笔勾销。这是规则，不是逃。"他说得很平静，平静得像在念一份天气预报。\n\n你没接话。你想起法院门口那些人。\n\n那个头发花白的手机壳老板——上周你还看见他蹲在台阶上啃25块的盒饭，饭粒掉在西装裤上他都没擦。他的厂子四十多号人，押在你这一笔货款上。那个挺着大肚子的包装老板娘，上次见你时塞给你一袋自家腌的咸菜，说"罗总，等你过了这关再结账不迟"——她家老大今年要考大学，学费还指望着这笔货款。还有那个玻璃贴膜的小伙子，去年刚结婚，借了亲戚钱押货给你，现在丈母娘天天催他离婚。\n\n4.8亿。法律上一笔勾销。但勾掉的不是数字，是这些人后半生的某一种可能。\n\n马克·吐温快60岁靠全球巡讲还清10万美元债务。史玉柱从巨人大厦倒塌后东山再起。你对自己说：我也可以。\n\n但"可以"这两个字，自己说一遍是决心，说十遍就成了祈祷。\n\n你站在法院门口。冬天的风刮在脸上像刀子，鼻尖已经冻麻了。面前是那扇玻璃门——擦得很干净，干净到你能看见自己映在上面的脸：胡子拉碴，眼袋深得像两个坑，像一个你不太认识的人。\n\n你抬起手。门把手是金属的，冷得刺骨。你把手放上去，那股凉意顺着指尖一路爬到手肘。\n\n推开门进去，签一个字，6亿就变成1.2亿。律师在身后等着，笔已经准备好了。\n\n你停在那里。两秒。\n\n两秒里你想了很多：你想起T1发布会那天五千人起立鼓掌的声浪，想起鸟巢三万人看你演砸时那窒息的安静，想起凌晨三点办公室里烟灰缸堆成的小山，想起女儿昨天打电话问"爸爸什么时候回家"——你回答不上来。\n\n你也想起那个手机壳老板啃盒饭的样子，想起老板娘那袋咸菜。\n\n你把手从门把手上拿开了。\n\n不是猛地拿开，是慢慢地，一根手指一根手指地松开，像松开一把烧红的铁钳。金属把手上留下你手心的汗印，三秒就蒸发了。\n\n你转身，走进了风里。\n\n<b>6亿是山，但你决定背着它走。不是因为你扛得动，是因为你身后那些人，已经没有山可背了。一个人最大的体面，不是不欠债，是欠了债还敢直视债主的眼睛。</b>`,
     choices: [
       { label: `"申请破产清算——法律上没有问题，这才是理性选择，活着比什么都重要。"`, next: 'ending_escape', effects: { pride: -2, wealth: 1, reputation: -2, trust: -3, pressure: -2 }, flag: 'declared_bankruptcy', maxAttr: { pride: 3 } },
-      { label: `"扛下6亿债务——不破产，老子自己还！信用是我最后的资产！"`, next: 'act7_smoke', effects: { pride: 3, wealth: -2, reputation: 3, trust: 2, achievement: ['真·汉子', '无债一身轻'], icon: ['▣', '¤'] }, flag: 'honest_repay', requires: { pride: 5 },
+      { label: `"扛下6亿债务——不破产，老子自己还！信用是我最后的资产！"`, next: 'act7_smoke', effects: { pride: 2, wealth: -2, reputation: 2, trust: 2, achievement: ['真·汉子', '无债一身轻'], icon: ['▣', '¤'] }, flag: 'honest_repay', requires: { pride: 5 },
         check: {
           attr: 'trust', min: 4,
           successNext: 'act7_smoke', failNext: 'act7_smoke',
           successText: '你的信任度足够高，供应商愿意给你时间还债，有人公开支持你！',
           failText: '你的信任度不够，供应商不信任你，催债更加猛烈，但你还是选择了扛下。',
-          successEffects: { reputation: 2, trust: 1 }, failEffects: { pressure: 3, reputation: -1 }
+          successEffects: { reputation: 1, trust: 1 }, failEffects: { pressure: 3, reputation: -1 }
         }
       },
       { label: `"办公室已经空了，只剩我一个人……"`, next: 'act6_office_empty', effects: {"pride":-1,"wealth":0,"reputation":0} },
@@ -249,12 +249,12 @@ export const NODES = {
 
 你看着窗外北京的冬天，枯枝在风里颤抖。坚果团队跟了你三四年，有人从T1时代就在，他们管你叫"罗总"的时候，眼里是有光的。现在你要亲手把他们交给字节——虽然你知道去字节对他们可能是更好的归宿，但这不妨碍你觉得自己像个逃兵。
 
-你签了字。笔尖落在纸上的那一刻，你觉得有什么东西碎了——不是公司，是你心里那个"我能改变世界"的念头。锤子科技从你手里诞生，又从你手里终结。你保住了团队的去处，却失去了自己的战场。
+你签了字。笔尖落在纸上的那一刻，你觉得有什么东西碎了——不是公司，是你心里那个"我能改变世界"的念头。锤子科技从你手里诞生，又从你手里终结。<b>你保住了团队的去处，却失去了自己的战场——而一个没有战场的将军，比一个战死的士兵更孤独。</b>
 
 你把签好的文件推给律师，苦笑了一下："至少他们不用跟我一起沉了。"你站起来，最后看了一眼办公室——墙上还挂着T1发布会的海报，海报上的你意气风发，举着手机，眼里有光。你关上门，光就灭了。`,
     choices: [
       { label: `"团队有了归宿，我也该找自己的路了——6亿债务，我自己还。"`, next: 'act7_smoke', effects: { pride: 1, wealth: 1, reputation: 0, pressure: -1, trust: 1 } },
-      { label: `"卖掉团队的钱先还一部分债——能还多少算多少，总比什么都不做强。"`, next: 'act7_smoke', effects: { pride: -1, wealth: 2, reputation: -1, pressure: -2 } },
+      { label: `"卖掉团队的钱先还一部分债——能还多少算多少，总比什么都不做强。"`, next: 'act7_smoke', effects: { pride: -1, wealth: 2, reputation: -1, pressure: -2, trust: 1, failures: -1 } },
       { label: `"跟字节谈谈，能不能让我也进去？至少先活下来再说。"`, next: 'act7_smoke', effects: { pride: -2, wealth: 1, reputation: -2, pressure: -1, failures: 1 } }
     ],
     historyNote: `历史上2019年1月，字节跳动确实收购了锤子科技的坚果手机团队和技术专利，组建新石实验室。老罗本人并未加入字节，继续独立承担6亿债务。被收购的团队后来在字节旗下发布了坚果R2（2020），但反响平平，2021年团队逐步解散。这件事之所以重要：它是锤子科技实质性的终结——虽然公司壳子还在，但核心资产和团队已经易主。老罗后来在直播中说："卖掉团队是我最难的决定之一，但我不后悔——他们去了字节，比我强。至少字节有钱，能让他们继续做手机。"这笔收购的金额从未公开披露，但据传为数亿元人民币，远不足以覆盖6亿债务。老罗卖掉的不是公司，是自己最后一张牌——而他要把剩下的牌，一张一张用直播还回去。`,
@@ -298,7 +298,7 @@ export const NODES = {
 <b>钱是这个世界上最准的试纸——它能让友谊显形，也能让友谊褪色。你欠6个亿的时候，才看清谁是朋友，谁是路人。而看清的代价，是发现自己原来一直高估了"朋友"这个词。</b>`,
     choices: [
       { label: `"不怪他们——换作是我，可能也不敢接欠6亿的人的电话。理解万岁。"`, next: 'act6_supplier', effects: { pride: 1, wealth: 0, reputation: 0, pressure: -1, trust: -1 } },
-      { label: `"记下这些号码——等我翻身了，让他们看看谁才是真朋友。"`, next: 'act6_supplier', effects: { pride: 2, wealth: 0, reputation: -1, pressure: 1 } },
+      { label: `"记下这些号码——等我翻身了，让他们看看谁才是真朋友。"`, next: 'act6_supplier', effects: { pride: 1, wealth: 0, reputation: -1, pressure: 1 } },
       { label: `"算了，不打扰了——真正会帮我的人，不用我打也会来。"`, next: 'act6_supplier', effects: { pride: 0, wealth: 0, reputation: 0, pressure: -1, trust: 1 } }
     ],
     historyNote: `历史上老罗在锤子倒闭后确实经历了"人走茶凉"。他后来在直播中半开玩笑地说："欠6个亿之后，我通讯录里能打的电话少了八成。"但玩笑底下是真实的寒心——创业圈的人脉大多建立在"你有用"的前提下，一旦你"没用"了，人脉比雪化得还快。后来老罗还清债务后，反而没有去报复那些避而不见的人，他说："不怪他们，人性如此。但我记住了谁在我最难的时候还接我电话——这些人，我一辈子认。"`,
@@ -320,7 +320,7 @@ export const NODES = {
 <b>限制消费令限制的不是消费，是尊严——它把"你不能"三个字，印在了你额头上。</b>`,
     choices: [
       { label: `"认了——这是我自己造的孽，法律怎么判我怎么受。"`, next: 'act7_smoke', effects: { pride: -1, wealth: 0, reputation: -1, pressure: 2, failures: 1 } },
-      { label: `"不能坐飞机就坐汽车——路是长的，但总会到。限制令限制不了我还债的决心。"`, next: 'act7_smoke', effects: { pride: 2, wealth: 0, reputation: 1, pressure: 1, trust: 1 } },
+      { label: `"不能坐飞机就坐汽车——路是长的，但总会到。限制令限制不了我还债的决心。"`, next: 'act7_smoke', effects: { pride: 1, wealth: 0, reputation: 1, pressure: 1, trust: 1 } },
       { label: `"找律师看看能不能申请解除——至少让我能出差谈合作，不赚钱怎么还债？"`, next: 'act6_lawyer', effects: { pride: 0, wealth: -1, reputation: 0, pressure: -1 } }
     ],
     historyNote: `历史上老罗确实因锤子科技债务纠纷被法院下达限制消费令（2019年）。注意：限制消费令≠失信被执行人名单——前者限制高消费行为，后者是更严重的信用惩戒。老罗多次在公开场合强调自己只是"限制高消费"，并非"失信被执行人"，但公众和媒体常将两者混为一谈，统称"老赖"。老罗后来从北京去杭州谈直播合作，不得不坐了十几小时汽车。他在采访中调侃这段经历："限高令让我体验了一把公路旅行的乐趣。"但调侃底下是真实的屈辱——一个曾经要改变世界的人，连一张机票都买不了。后来这段经历反而成了他直播带货的"信用背书"——观众觉得"这个人限高令都扛着没跑，值得信任"。`,
@@ -363,7 +363,7 @@ export const NODES = {
 
 <b>有些债是用钱还的，有些债是用命还的。老王那根递过来的烟，是你这辈子抽过最重的一根。</b>`,
     choices: [
-      { label: `"老王，我发誓——你这笔钱，我第一个还。说到做到。"`, next: 'act6_debt', effects: { pride: 2, wealth: 0, reputation: 1, pressure: 1, trust: 2 }, flag: 'honest_repay' },
+      { label: `"老王，我发誓——你这笔钱，我第一个还。说到做到。"`, next: 'act6_debt', effects: { pride: 1, wealth: 0, reputation: 1, pressure: 1, trust: 2, failures: -1 }, flag: 'honest_repay' },
       { label: `"老王，我对不起你——但我现在真的拿不出钱，你给我半年。"`, next: 'act6_debt', effects: { pride: -1, wealth: 0, reputation: -1, pressure: 2, failures: 1 } },
       { label: `"帮老王想想别的出路——也许他能把库存转到别的渠道卖。"`, next: 'act6_debt', effects: { pride: 1, wealth: 0, reputation: 1, pressure: -1 } }
     ],
@@ -385,7 +385,7 @@ export const NODES = {
 
 <b>凌晨三点的镜子是最诚实的——它不会夸你，也不会骗你。它只让你看清自己到底还剩多少。而你看到的，是一个被6亿压弯了腰、但还没趴下的人。</b>`,
     choices: [
-      { label: `"对着镜子说：还能行。哪怕只有我自己听见，也要说——说了就要做到。"`, next: 'act6_debt', effects: { pride: 2, wealth: 0, reputation: 0, pressure: -1 } },
+      { label: `"对着镜子说：还能行。哪怕只有我自己听见，也要说——说了就要做到。"`, next: 'act6_debt', effects: { pride: 1, wealth: 0, reputation: 0, pressure: -1 } },
       { label: `"不敢看镜子了——洗把脸回去，明天的事明天再说。"`, next: 'act6_debt', effects: { pride: -1, wealth: 0, reputation: 0, pressure: 1 } },
       { label: `"对着镜子把所有债主的名单默念一遍——记住每一个，将来一个一个还。"`, next: 'act6_debt', effects: { pride: 1, wealth: 0, reputation: 0, pressure: 1, trust: 1 } },
       { label: `"镜子里的自己让我害怕——我需要更深地面对这个疑问。"`, next: 'act6_self_doubt', effects: { pride: -1, wealth: 0, reputation: 0, pressure: 2 } }
@@ -434,7 +434,7 @@ export const NODES = {
 
 <b>债主最让你难受的不是他们凶，是他们偶尔露出的脆弱——那一刻你意识到，你不是在跟债主对峙，你是在跟一群同样被生活逼到墙角的人对峙。而把他们逼到墙角的，是你。</b>`,
     choices: [
-      { label: `"老李，我发誓一定还！你给我三个月，我先凑一笔把工人工资发了。"`, next: 'act6_debt', effects: { pride: 2, wealth: -1, reputation: 1, pressure: 3, trust: 1 }, flag: 'honest_repay' },
+      { label: `"老李，我发誓一定还！你给我三个月，我先凑一笔把工人工资发了。"`, next: 'act6_debt', effects: { pride: 1, wealth: -1, reputation: 1, pressure: 3, trust: 1, failures: -1 }, flag: 'honest_repay' },
       { label: `"老李，求你宽限我……我现在真的拿不出钱，但我不想赖账。"`, next: 'act6_guarantee', effects: { pride: -2, wealth: 0, reputation: -1, pressure: 2, failures: 1 } },
       { label: `"老李，你再逼我也没用——要钱没有，要命一条，咱们走法律程序！"`,
         next: 'act6_debt',
@@ -468,7 +468,7 @@ export const NODES = {
 
 <b>自我怀疑不是软弱，是清醒。一个人最危险的时刻不是怀疑自己，是永远不怀疑自己——因为不怀疑的人不会复盘，不复盘的人会犯同样的错。而你，已经犯不起同样的错了。</b>`,
     choices: [
-      { label: `"坚持理想主义——方向没错，错的是方法。下次我会用更聪明的方式坚持。"`, next: 'act6_debt', effects: { pride: 2, wealth: 0, reputation: 0, pressure: -1 }, flag: 'idealism_refined' },
+      { label: `"坚持理想主义——方向没错，错的是方法。下次我会用更聪明的方式坚持。"`, next: 'act6_debt', effects: { pride: 1, wealth: 0, reputation: 0, pressure: -1 }, flag: 'idealism_refined' },
       { label: `"接受现实——理想主义害了我，以后做个务实的人，不再赌了。"`, next: 'act6_debt', effects: { pride: -2, wealth: 0, reputation: 0, pressure: -2, failures: 1 } },
       { label: `"暂时妥协——先还债，理想可以等，但债不等人。"`, next: 'act6_debt', effects: { pride: -1, wealth: 0, reputation: 1, pressure: -1 }, flag: 'pragmatic_compromise' }
     ],

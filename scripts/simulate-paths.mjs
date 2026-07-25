@@ -115,10 +115,13 @@ const strategies = {
     });
     return best;
   },
-  'J_随机_种子7': createRandomStrategy(7),
+  'J_随机_种子3': createRandomStrategy(3),
   'K_随机_种子42': createRandomStrategy(42),
   'L_随机_种子99': createRandomStrategy(99),
-  // 隐士路径：优先推进到 act7_payback，再退网到 act7_retire，再选 retired
+  // 隐士路径：优先推进到 act7_payback，再退网到 act7_retire，再选 retired。
+  // 关键：排除 ending_ 选项避免提前离场，在非 ending 选项中优先降 pride，
+  // 确保抵达 act7_retire 时 pride<=5（retired 选项 maxAttr 可过）；
+  // retired 选项 effects pressure -6 + retired_peace 阈值 -6 = -12，确保 pressure<=1 触发 hermit。
   'M_隐士路径': (choices) => {
     const retiredChoice = choices.find(c => c.flag === 'retired');
     if (retiredChoice) return choices.indexOf(retiredChoice);
@@ -126,7 +129,13 @@ const strategies = {
     if (retireNext) return choices.indexOf(retireNext);
     const paybackNext = choices.find(c => c.next === 'act7_payback');
     if (paybackNext) return choices.indexOf(paybackNext);
-    return 0;
+    const nonEnding = choices.filter(c => !c.next || !c.next.startsWith('ending_'));
+    const pool = nonEnding.length > 0 ? nonEnding : choices;
+    const prideReduceChoice = pool.find(c => (c.effects && (c.effects.pride || 0) < 0));
+    if (prideReduceChoice) return choices.indexOf(prideReduceChoice);
+    const pressureReduceChoice = pool.find(c => (c.effects && (c.effects.pressure || 0) < 0));
+    if (pressureReduceChoice) return choices.indexOf(pressureReduceChoice);
+    return choices.indexOf(pool[0]);
   },
 };
 

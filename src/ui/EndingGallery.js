@@ -77,12 +77,14 @@ export function showEndingGallery(options = {}) {
   const grid = overlay.querySelector('#ui-ending-gallery-grid');
 
   // 渲染结局卡片
-  ENDINGS.forEach(ending => {
+  ENDINGS.forEach((ending, idx) => {
     const isUnlocked = seenSet.has(ending.id);
     const card = document.createElement('div');
     card.className = isUnlocked
       ? 'ui-ending-gallery-card-item ui-ending-gallery-card-unlocked'
       : 'ui-ending-gallery-card-item ui-ending-gallery-card-locked';
+    // R38: stagger 入场动画延迟（前 12 张卡片错开入场，强化"揭晓感"）
+    card.style.setProperty('--card-index', Math.min(idx, 12));
 
     if (isUnlocked) {
       const desc = (ending.desc || '').replace(/罗远/g, '老罗');

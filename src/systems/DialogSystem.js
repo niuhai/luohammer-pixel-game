@@ -19,6 +19,7 @@ export class DialogSystem {
     this.isTyping = false;
     this.typingTimer = null;
     this.fullText = '';
+    this._plainText = '';
     this.currentIndex = 0;
     this.onComplete = null;
     this.audio = null;
@@ -44,6 +45,9 @@ export class DialogSystem {
       onShow: null,          // 对话框显示时
       onHide: null           // 对话框隐藏时
     };
+
+    // R20 P2-001：统一跟踪匿名 setTimeout，destroy 时可批量清理
+    this._pendingTimers = new Set();
 
     // DOM elements
     this.el = document.getElementById('ui-dialog');
@@ -95,6 +99,46 @@ export class DialogSystem {
         if (this.scene && typeof this.scene.vibrate === 'function') this.scene.vibrate(12);
         this._onDialogClick();
       }, signalOpts);
+
+      // === P1-5：长按连续快进 ===
+      // 长按 500ms 后进入自动推进模式，每 250ms 触发一次 _onDialogClick
+      // 松开或离开时停止；与单击、滑动 gesture 共存
+      this._longPressTimer = null;
+      this._longPressActive = false;
+      this._autoAdvanceInterval = null;
+
+      const startLongPress = () => {
+        // 选项面板可见时不响应长按（避免误触）
+        if (this._isChoicesVisible()) return;
+        // 多段叙事中间段不响应长按（避免跳过重要剧情）
+        if (this._segments && this._segmentIndex < this._segments.length - 1) return;
+
+        this._clearLongPress();
+        this._longPressTimer = setTimeout(() => {
+          this._longPressActive = true;
+          if (this.scene && typeof this.scene.vibrate === 'function') this.scene.vibrate(8);
+          this._startAutoAdvance();
+        }, 500);
+      };
+
+      const cancelLongPress = () => {
+        if (this._longPressTimer) {
+          clearTimeout(this._longPressTimer);
+          this._longPressTimer = null;
+        }
+        if (this._longPressActive) {
+          this._longPressActive = false;
+          this._stopAutoAdvance();
+        }
+      };
+
+      this.touchLayer.addEventListener('pointerdown', startLongPress, signalOpts);
+      this.touchLayer.addEventListener('pointerup', cancelLongPress, signalOpts);
+      this.touchLayer.addEventListener('pointerleave', cancelLongPress, signalOpts);
+      this.touchLayer.addEventListener('pointercancel', cancelLongPress, signalOpts);
+
+      this._longPressStartHandler = startLongPress;
+      this._longPressCancelHandler = cancelLongPress;
     }
 
     // === 自动播放开关按钮（T28）===
@@ -200,6 +244,45 @@ export class DialogSystem {
   _isChoicesVisible() {
     const choicesEl = document.getElementById('ui-choices');
     return choicesEl && choicesEl.classList.contains('visible');
+  }
+
+  /**
+   * P1-5：清理长按定时器（不清理已启动的自动推进）
+   */
+  _clearLongPress() {
+    if (this._longPressTimer) {
+      clearTimeout(this._longPressTimer);
+      this._longPressTimer = null;
+    }
+  }
+
+  /**
+   * P1-5：启动自动推进模式（长按触发）
+   * 每 250ms 触发一次 _onDialogClick，实现连续快进
+   */
+  _startAutoAdvance() {
+    this._stopAutoAdvance();
+    // 立即触发一次，给玩家即时反馈
+    this._onDialogClick();
+    this._autoAdvanceInterval = setInterval(() => {
+      // 防御：如果对话框已隐藏或选项面板已显示，停止自动推进
+      if (!this.el.classList.contains('visible') || this._isChoicesVisible()) {
+        this._stopAutoAdvance();
+        this._longPressActive = false;
+        return;
+      }
+      this._onDialogClick();
+    }, 250);
+  }
+
+  /**
+   * P1-5：停止自动推进模式
+   */
+  _stopAutoAdvance() {
+    if (this._autoAdvanceInterval) {
+      clearInterval(this._autoAdvanceInterval);
+      this._autoAdvanceInterval = null;
+    }
   }
 
   /**
@@ -339,6 +422,18 @@ export class DialogSystem {
     // 如果拆分后只有一段，不需要拆分
     if (segments.length <= 1) return null;
 
+    // 拆分后检查每段 <b></b> 是否配对，不配对则与下一段合并
+    // 避免 <b> 标签被句号拆断导致 innerHTML 渲染时过度高亮
+    for (let i = 0; i < segments.length - 1; i++) {
+      const open = (segments[i].match(/<b>/g) || []).length;
+      const close = (segments[i].match(/<\/b>/g) || []).length;
+      if (open !== close) {
+        segments[i + 1] = segments[i] + segments[i + 1];
+        segments.splice(i, 1);
+        i--;
+      }
+    }
+
     return segments;
   }
 
@@ -368,9 +463,9 @@ export class DialogSystem {
     // 显示/隐藏"已读·快进中"角标
     this._updateSeenBadge();
 
-    // 清理 HTML 标签
-    let cleanText = (text || '').replace(/<b>/g, '').replace(/<\/b>/g, '');
-    cleanText = cleanText.replace(/<\/p><p>/g, '\n').replace(/<p>/g, '').replace(/<\/p>/g, '');
+    // 清理 HTML 标签（保留 <b> 标签供 _applyKeywordHighlight 金句高亮使用；
+    // <b> 标签的打字机过滤由 _plainText 负责，TTS 过滤由 onTextStart 传 _plainText 负责）
+    const cleanText = (text || '').replace(/<\/p><p>/g, '\n').replace(/<p>/g, '').replace(/<\/p>/g, '');
 
     // === 尝试拆分长文本 ===
     const segments = DialogSystem.splitLongText(cleanText);
@@ -418,8 +513,8 @@ export class DialogSystem {
     this.textEl.style.opacity = '0';
     this.textEl.style.transform = 'translateY(-8px)';
 
-    // 150ms 后替换文字并从下方滑入
-    setTimeout(() => {
+    // 150ms 后替换文字并从下方滑入（R25 P2-1：改用 _trackedTimeout 统一跟踪）
+    this._trackedTimeout(() => {
       this._showTextDirect(this.currentCharacterName, segmentText, segmentOnComplete);
       // _showTextDirect 会设置 opacity:1、transition:none 并清空 textContent，
       // 同时启动打字机（若自动播放开启，首字已追加到 textContent）。
@@ -449,7 +544,8 @@ export class DialogSystem {
     if (this.nameEl.textContent !== (characterName || '')) {
       this.nameEl.style.transition = 'opacity 0.15s ease-out';
       this.nameEl.style.opacity = '0';
-      setTimeout(() => {
+      // R25 P2-1：改用 _trackedTimeout 统一跟踪
+      this._trackedTimeout(() => {
         this.nameEl.textContent = characterName || '';
         this.nameEl.style.color = cssColor;
         this.nameEl.style.opacity = '1';
@@ -464,6 +560,9 @@ export class DialogSystem {
     this.nameEl.style.borderBottom = '2px solid ' + cssColor;
 
     this.fullText = text;
+    // _plainText：去除 <b></b> 标签的纯文本，用于打字机逐字显示
+    // fullText（含标签）保留给 _applyKeywordHighlight 和 hooks 使用
+    this._plainText = (text || '').replace(/<\/?b>/g, '');
     this.textEl.textContent = '';
     // 确保文字可见（防止残留的 opacity:0/transform 样式导致文字不可见或错位）
     this.textEl.style.opacity = '1';
@@ -491,8 +590,9 @@ export class DialogSystem {
     if (this.touchLayer) this.touchLayer.classList.add('visible');
 
     // === Hook: onTextStart — 开始打字前 ===
+    // 传 _plainText（去除 <b> 标签）给 TTS，避免朗读"小于b大于"字面文本
     if (this.hooks.onTextStart) {
-      try { this.hooks.onTextStart(characterName, text); } catch(e) {}
+      try { this.hooks.onTextStart(characterName, this._plainText); } catch(e) {}
     }
     // === Hook: onShow ===
     if (this.hooks.onShow) {
@@ -586,9 +686,9 @@ export class DialogSystem {
     // 已读节点：快速打字（25ms/字）+ 缩短的标点停顿，保留打字机氛围
     if (this._isSeenNode) {
       let fastDelay = 25;
-      if (this.currentIndex > 0 && this.currentIndex <= this.fullText.length) {
-        const ch = this.fullText[this.currentIndex - 1];
-        const prevCh = this.currentIndex > 1 ? this.fullText[this.currentIndex - 2] : '';
+      if (this.currentIndex > 0 && this.currentIndex <= this._plainText.length) {
+        const ch = this._plainText[this.currentIndex - 1];
+        const prevCh = this.currentIndex > 1 ? this._plainText[this.currentIndex - 2] : '';
         if (ch === '。') fastDelay += 120;
         else if (ch === '，') fastDelay += 50;
         else if (ch === '！' || ch === '!') fastDelay += 40;
@@ -599,9 +699,9 @@ export class DialogSystem {
       return fastDelay;
     }
     let delay = this._getMoodBaseInterval();
-    if (this.currentIndex > 0 && this.currentIndex <= this.fullText.length) {
-      const ch = this.fullText[this.currentIndex - 1];
-      const prevCh = this.currentIndex > 1 ? this.fullText[this.currentIndex - 2] : '';
+    if (this.currentIndex > 0 && this.currentIndex <= this._plainText.length) {
+      const ch = this._plainText[this.currentIndex - 1];
+      const prevCh = this.currentIndex > 1 ? this._plainText[this.currentIndex - 2] : '';
       if (ch === '。') {
         delay += 200;
       } else if (ch === '，') {
@@ -628,9 +728,9 @@ export class DialogSystem {
     if (mood === 'depressed') return slowSpeed * 1.5;
     if (mood === 'happy') return this._typingInterval;
     // 无显式mood时从文本推断
-    if (this.fullText) {
-      if (this.fullText.includes('！') || this.fullText.includes('!')) return fastSpeed * 0.7;
-      if (this.fullText.includes('...') || this.fullText.includes('……')) return slowSpeed * 1.5;
+    if (this._plainText) {
+      if (this._plainText.includes('！') || this._plainText.includes('!')) return fastSpeed * 0.7;
+      if (this._plainText.includes('...') || this._plainText.includes('……')) return slowSpeed * 1.5;
     }
     return this._typingInterval;
   }
@@ -639,16 +739,16 @@ export class DialogSystem {
    * 推进一个字符的打字
    */
   _advanceTyping() {
-    if (this.currentIndex >= this.fullText.length) {
+    if (this.currentIndex >= this._plainText.length) {
       this.finishTyping();
       return;
     }
     this.currentIndex++;
-    this.textEl.textContent = this.fullText.substring(0, this.currentIndex);
+    this.textEl.textContent = this._plainText.substring(0, this.currentIndex);
 
     // === 打字机音效：标点必响，非标点每2字响一下 ===
     if (this.audio && this.audio.playTypewriterChar) {
-      const ch = this.fullText[this.currentIndex - 1];
+      const ch = this._plainText[this.currentIndex - 1];
       const isPunctuation = '。！？，,.！？、；：…—'.includes(ch);
       if (isPunctuation || this.currentIndex % 2 === 0) {
         this.audio.playTypewriterChar();
@@ -659,7 +759,7 @@ export class DialogSystem {
   skipTyping() {
     this._typingActive = false;
     if (this.typingTimer) this.typingTimer.remove();
-    this.textEl.textContent = this.fullText;
+    this.textEl.textContent = this._plainText;
     this.finishTyping();
   }
 
@@ -709,14 +809,14 @@ export class DialogSystem {
   _scheduleAfterSpeech(action, delayMs = 300) {
     if (!this.audio || typeof this.audio.onceSpeechEnd !== 'function') {
       // 无 audio 或方法不存在，回退到原延迟逻辑
-      setTimeout(action, delayMs);
+      this._trackedTimeout(action, delayMs);
       return;
     }
     // 若 TTS 正在朗读，等其结束；否则用 setTimeout 给视觉缓冲
     if (this.audio.isSpeaking()) {
       this.audio.onceSpeechEnd(action);
     } else {
-      setTimeout(action, delayMs);
+      this._trackedTimeout(action, delayMs);
     }
   }
 
@@ -726,11 +826,16 @@ export class DialogSystem {
    */
   _applyKeywordHighlight() {
     if (!this.fullText || !this.textEl) return;
-    // 先转义 HTML 特殊字符，防止 XSS 或破坏 DOM 结构
+    // 保护 <b></b> 标签：先替换为占位符，转义后再恢复
     let text = this.fullText
+      .replace(/<b>/g, '__B_TAG__')
+      .replace(/<\/b>/g, '__EB_TAG__')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
+    text = text
+      .replace(/__B_TAG__/g, '<b>')
+      .replace(/__EB_TAG__/g, '</b>');
     const keywords = ['6亿', '理想主义', '锤子', '真还传', '十字路口', '老罗', '翻车', '崩溃', '梦想', '骄傲'];
     // 构建正则：按长度降序匹配，避免短关键词覆盖长关键词的子串
     const sortedKeywords = [...keywords].sort((a, b) => b.length - a.length);
@@ -958,8 +1063,8 @@ export class DialogSystem {
         // 添加淡出动画
         if (container && container.style.display !== 'none') {
           container.classList.add('fading-out');
-          // 淡出动画结束后真正隐藏
-          setTimeout(() => {
+          // 淡出动画结束后真正隐藏（R25 P2-1：改用 _trackedTimeout 统一跟踪）
+          this._trackedTimeout(() => {
             this._consumeHistoryNoteContinue();
           }, 400);
         }
@@ -1042,6 +1147,30 @@ export class DialogSystem {
   }
 
   /**
+   * R20 P2-001：跟踪匿名 setTimeout，destroy 时可批量清理
+   * @param {Function} fn - 回调函数
+   * @param {number} delay - 延迟毫秒
+   * @returns {number} timer ID（可用于提前 clearTimeout）
+   */
+  _trackedTimeout(fn, delay) {
+    const timer = setTimeout(() => {
+      this._pendingTimers.delete(timer);
+      try { fn(); } catch (e) { /* 防御：回调异常不应阻塞清理 */ }
+    }, delay);
+    this._pendingTimers.add(timer);
+    return timer;
+  }
+
+  /**
+   * 清理所有待执行的 tracked setTimeout
+   */
+  _clearPendingTimers() {
+    if (!this._pendingTimers) return;
+    this._pendingTimers.forEach((t) => clearTimeout(t));
+    this._pendingTimers.clear();
+  }
+
+  /**
    * 销毁资源，防止内存泄漏
    */
   destroy() {
@@ -1051,8 +1180,14 @@ export class DialogSystem {
       this.typingTimer.remove();
       this.typingTimer = null;
     }
+    // R20 P2-001：清理所有 tracked setTimeout
+    this._clearPendingTimers();
     // 停止提示动画
     this._stopPulse();
+    // P1-5：清理长按与自动推进
+    this._clearLongPress();
+    this._stopAutoAdvance();
+    this._longPressActive = false;
     // 清理多段叙事状态
     this._segments = null;
     this._segmentIndex = 0;

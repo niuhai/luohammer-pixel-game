@@ -43,9 +43,17 @@ export class Transition {
 
   /**
    * 原有淡入淡出转场（保持向后兼容）
+   * R19 防御：重入时记录 console.warn 便于排查"黑屏卡死"类问题
+   * （Transition 重入会导致 onMidpoint 被丢弃，loadNode 永不调用）
    */
   play(onMidpoint, onComplete) {
-    if (this.active) return;
+    if (this.active) {
+      console.warn('[Transition] play() called during active transition — onMidpoint/onComplete callbacks dropped', {
+        hasOnMidpoint: !!onMidpoint,
+        hasOnComplete: !!onComplete
+      });
+      return;
+    }
     this.active = true;
 
     this.scene.tweens.add({

@@ -42,6 +42,7 @@ export class EndingScene extends Phaser.Scene {
 
   create() {
     // 隐藏游戏主界面遗留的 DOM UI，确保结局画面干净完整
+    // 使用 class 而非 inline style，避免重玩时 inline display:none 无法被 .visible 覆盖
     this._hideGameUI();
 
     // 结局背景音乐
@@ -77,20 +78,55 @@ export class EndingScene extends Phaser.Scene {
     // === 成就积分结算、组合成就检查、经验里程碑检查 ===
     this._checkAchievementRewards();
 
-    // === 选择高光闪回 → 然后渲染结局 ===
-    this._startFlashback(() => {
-      this._renderEndingDOM();
-    });
+    // === P1-1：选择高光闪回 → 然后渲染结局 ===
+    // history 为空时闪回会被跳过，此时显示"人生结算中..."过渡文案兜底
+    const hasHistory = this.state.history && this.state.history.length > 0;
+    if (!hasHistory) {
+      this._showCalculatingOverlay();
+      // 短暂延迟让玩家看到过渡文案，避免画面突变
+      this.time.delayedCall(600, () => {
+        this._hideCalculatingOverlay();
+        this._renderEndingDOM();
+      });
+    } else {
+      this._startFlashback(() => {
+        this._renderEndingDOM();
+      });
+    }
 
-    // Hide overlay when scene is shutdown
-    this.events.on('shutdown', () => {
-      const overlay = document.getElementById('ui-ending-overlay');
-      const lifeMapOverlay = document.getElementById('ui-life-map-overlay');
-      const flashback = document.getElementById('ui-ending-flashback');
-      if (overlay) overlay.classList.remove('visible');
-      if (lifeMapOverlay) lifeMapOverlay.classList.remove('visible');
-      if (flashback) flashback.classList.remove('visible');
-    });
+    // === 资源清理：注册到 shutdown 事件（Phaser 3 不会自动调用 shutdown() 方法）===
+    // 所有清理逻辑集中在 _onShutdown 中，防止内存泄漏与 DOM 残留
+    this.events.on('shutdown', this._onShutdown, this);
+  }
+
+  /**
+   * P1-1：显示"人生结算中..."过渡文案
+   * 仅在 history 为空（无闪回）时作为兜底过渡，避免画面空白
+   */
+  _showCalculatingOverlay() {
+    let el = document.getElementById('ui-ending-calculating');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'ui-ending-calculating';
+      el.className = 'ui-ending-calculating';
+      el.innerHTML = '<div class="ui-ending-calculating-text">◈ 人生结算中...</div>';
+      const overlay = document.getElementById('ui-overlay') || document.body;
+      overlay.appendChild(el);
+    }
+    // 触发动画
+    requestAnimationFrame(() => el.classList.add('visible'));
+  }
+
+  /**
+   * 隐藏"人生结算中..."过渡文案
+   */
+  _hideCalculatingOverlay() {
+    const el = document.getElementById('ui-ending-calculating');
+    if (el) {
+      el.classList.remove('visible');
+      // R24 P1-1：改用 time.delayedCall，由 time.removeAllEvents() 统一清理
+      this.time.delayedCall(300, () => { if (el.parentNode) el.parentNode.removeChild(el); });
+    }
   }
 
   /**
@@ -167,6 +203,9 @@ export class EndingScene extends Phaser.Scene {
 
   /**
    * 隐藏游戏主界面残留的 DOM UI（对话框、选项、属性条、章节标题、随机事件等）
+   * P0-1 修复：使用 class 而非 inline style.display='none'，避免重玩时
+   * inline 样式无法被 CSS .visible 类覆盖，导致 UI 永久消失。
+   * GameScene.create() 中负责移除 .ending-hidden class。
    */
   _hideGameUI() {
     const ids = [
@@ -176,7 +215,7 @@ export class EndingScene extends Phaser.Scene {
     ];
     ids.forEach(id => {
       const el = document.getElementById(id);
-      if (el) el.style.display = 'none';
+      if (el) el.classList.add('ending-hidden');
     });
     // 注意：不能隐藏 #ui-overlay 容器，因为 #ui-ending-overlay、#ui-life-map-overlay
     // 等子元素需要在 EndingScene 中显示。父元素 display:none 会导致所有子元素
@@ -191,6 +230,8 @@ export class EndingScene extends Phaser.Scene {
    */
   /**
    * 结局前选择高光闪回——快速展示玩家本局关键选择的走马灯动画
+   * P1-4 修复：使用 AbortController 统一管理 pointerdown / keydown 监听器，
+   * 在 _onShutdown 中 abort，避免场景提前关闭时监听器泄漏。
    */
   _startFlashback(onComplete) {
     const flashback = document.getElementById('ui-ending-flashback');
@@ -244,17 +285,21 @@ export class EndingScene extends Phaser.Scene {
       }
     });
 
-    // 逐个展示选择
+    // P1-4：使用 AbortController 管理监听器，方便在 shutdown 时统一清理
+    this._flashbackAbort = new AbortController();
+    const signalOpts = { signal: this._flashbackAbort.signal };
+
     let skipFlag = false;
     const skipHandler = () => { skipFlag = true; };
-    flashback.addEventListener('pointerdown', skipHandler);
+    flashback.addEventListener('pointerdown', skipHandler, signalOpts);
     const keyHandler = (e) => { if (e.code === 'Space') skipFlag = true; };
-    window.addEventListener('keydown', keyHandler);
+    window.addEventListener('keydown', keyHandler, signalOpts);
 
     picks.forEach((item, i) => {
       const delay = 800 + i * 700;
       this.time.delayedCall(delay, () => {
         if (skipFlag) return;
+        if (this._flashbackAbort.signal.aborted) return; // 场景已关闭
         const el = document.createElement('div');
         el.className = 'ui-ending-flashback-choice';
         const nodeLabel = item.nodeId ? item.nodeId.replace(/_/g, ' ').toUpperCase() : '';
@@ -267,11 +312,16 @@ export class EndingScene extends Phaser.Scene {
     // 闪回结束后进入结局
     const totalDuration = 800 + picks.length * 700 + 1200;
     this.time.delayedCall(totalDuration, () => {
-      flashback.removeEventListener('pointerdown', skipHandler);
-      window.removeEventListener('keydown', keyHandler);
+      if (this._flashbackAbort) {
+        this._flashbackAbort.abort();
+        this._flashbackAbort = null;
+      }
       flashback.classList.remove('visible');
       if (label) label.classList.remove('show');
-      onComplete();
+      // 仅在未被提前 abort 时调用 onComplete
+      if (!skipFlag || choicesEl.children.length > 0) {
+        onComplete();
+      }
     });
   }
 
@@ -335,6 +385,12 @@ export class EndingScene extends Phaser.Scene {
 
     // Title
     titleEl.textContent = (this.ending.title || '').replace(/罗远/g, '老罗');
+    // R43: 按结局类型给标题加视觉差异化 class（legendary 金光脉冲/tragic 灰暗无光/peaceful 柔绿光）
+    titleEl.classList.remove('legendary', 'tragic', 'peaceful');
+    const pStyle = this.endingPresentation && this.endingPresentation.particleStyle;
+    if (pStyle === 'legendary' || pStyle === 'peaceful' || pStyle === 'tragic') {
+      titleEl.classList.add(pStyle);
+    }
 
     // Description
     descEl.textContent = (this.ending.desc || '').replace(/罗远/g, '老罗');
@@ -432,7 +488,7 @@ export class EndingScene extends Phaser.Scene {
     unlocked.forEach(ach => {
       const hidden = isHiddenAchievement(ach.name);
       const item = document.createElement('span');
-      item.style.cssText = `font-size: 9px; color: ${hidden ? '#ff88cc' : 'var(--color-gold)'}; white-space: nowrap; padding: 1px 4px; border-radius: 2px; background: ${hidden ? 'rgba(255,136,204,0.1)' : 'rgba(240,192,64,0.08)'}; border: 1px solid ${hidden ? 'rgba(255,136,204,0.3)' : 'rgba(240,192,64,0.2)'}; cursor: pointer;`;
+      item.style.cssText = `font-size: 9px; color: ${hidden ? 'var(--color-hidden)' : 'var(--color-gold)'}; white-space: nowrap; padding: 1px 4px; border-radius: 2px; background: ${hidden ? 'rgba(var(--color-hidden-rgb), 0.1)' : 'rgba(var(--color-gold-rgb), 0.08)'}; border: 1px solid ${hidden ? 'rgba(var(--color-hidden-rgb), 0.3)' : 'rgba(var(--color-gold-rgb), 0.2)'}; cursor: pointer;`;
       item.textContent = `${ach.icon} ${ach.name}`;
       item.dataset.name = ach.name;
       item.addEventListener('click', () => showAchievementGallery({ unlockedNames, highlightName: ach.name, showHiddenHints }));
@@ -518,13 +574,13 @@ export class EndingScene extends Phaser.Scene {
     eventProgBg.style.cssText = 'width: 200px; height: 4px; background: var(--color-bg-border); border-radius: 2px; margin: 0 auto;';
     const eventProgFill = document.createElement('div');
     const eventPct = totalRandomEvents > 0 ? (seenEventCount / totalRandomEvents * 100) : 0;
-    eventProgFill.style.cssText = `width: 0%; height: 100%; background: linear-gradient(90deg, #2a8a8a, #40c0c0); border-radius: 2px; transition: width 1s ease;`;
+    eventProgFill.style.cssText = `width: 0%; height: 100%; background: linear-gradient(90deg, var(--color-trust-dark), var(--color-trust)); border-radius: 2px; transition: width 1s ease;`;
     eventProgBg.appendChild(eventProgFill);
     eventGalleryEl.appendChild(eventProgBg);
 
     achievementsEl.appendChild(eventGalleryEl);
-    // 延迟触发进度条动画
-    setTimeout(() => { eventProgFill.style.width = `${eventPct}%`; }, 600);
+    // 延迟触发进度条动画（R24 P1-1：改用 time.delayedCall，统一清理）
+    this.time.delayedCall(600, () => { eventProgFill.style.width = `${eventPct}%`; });
 
     // === 调试模式：显示结局触发统计 ===
     try {
@@ -540,12 +596,12 @@ export class EndingScene extends Phaser.Scene {
         const totalRecorded = entries.reduce((s, e) => s + e.count, 0);
 
         const debugEl = document.createElement('div');
-        debugEl.style.cssText = 'margin-top: 10px; text-align: center; padding: 6px 8px; border: 1px dashed #ff5555; background: rgba(255,85,85,0.06); border-radius: 4px;';
+        debugEl.style.cssText = 'margin-top: 10px; text-align: center; padding: 6px 8px; border: 1px dashed var(--color-danger); background: rgba(var(--color-danger-rgb), 0.06); border-radius: 4px;';
 
         const debugHeader = document.createElement('div');
         debugHeader.style.cssText = 'display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 6px;';
         const debugTitle = document.createElement('span');
-        debugTitle.style.cssText = 'font-size: 11px; color: #ff5555; font-weight: 700; letter-spacing: 2px;';
+        debugTitle.style.cssText = 'font-size: 11px; color: var(--color-danger); font-weight: 700; letter-spacing: 2px;';
         debugTitle.textContent = 'DEBUG 结局触发统计';
         const debugCount = document.createElement('span');
         debugCount.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); font-weight: 400;';
@@ -556,7 +612,7 @@ export class EndingScene extends Phaser.Scene {
 
         // 列表显示各结局触发次数（最多展示前 12 项，避免过长）
         const listEl = document.createElement('div');
-        listEl.style.cssText = 'max-height: 120px; overflow-y: auto; font-size: 10px; color: #c8a0a0; padding: 2px 4px;';
+        listEl.style.cssText = 'max-height: 120px; overflow-y: auto; font-size: 10px; color: var(--color-text-muted); padding: 2px 4px;';
         if (entries.length === 0) {
           const empty = document.createElement('div');
           empty.style.cssText = 'font-size: 10px; color: var(--color-text-muted); text-align: center; padding: 4px;';
@@ -571,13 +627,13 @@ export class EndingScene extends Phaser.Scene {
               ? endingDef.title.replace(/罗远/g, '老罗').substring(0, 24)
               : e.key;
             const row = document.createElement('div');
-            row.style.cssText = `display: flex; justify-content: space-between; padding: 2px 6px; ${i === 0 ? 'background: rgba(255,85,85,0.08);' : ''}`;
+            row.style.cssText = `display: flex; justify-content: space-between; padding: 2px 6px; ${i === 0 ? 'background: rgba(var(--color-danger-rgb), 0.08);' : ''}`;
             const isCurrent = e.key === this.endingKey;
             const nameSpan = document.createElement('span');
-            nameSpan.style.cssText = `color: ${isCurrent ? '#ff8855' : '#c8a0a0'}; ${isCurrent ? 'font-weight: 700;' : ''}`;
+            nameSpan.style.cssText = `color: ${isCurrent ? 'var(--color-warning)' : 'var(--color-text-muted)'}; ${isCurrent ? 'font-weight: 700;' : ''}`;
             nameSpan.textContent = `${isCurrent ? '▶ ' : ''}${title}`;
             const countSpan = document.createElement('span');
-            countSpan.style.cssText = `color: ${isCurrent ? '#ff8855' : 'var(--color-text-secondary)'};`;
+            countSpan.style.cssText = `color: ${isCurrent ? 'var(--color-warning)' : 'var(--color-text-secondary)'};`;
             countSpan.textContent = `× ${e.count}`;
             row.appendChild(nameSpan);
             row.appendChild(countSpan);
@@ -719,6 +775,62 @@ export class EndingScene extends Phaser.Scene {
     buttonsEl.appendChild(moreMenu);
 
     overlay.classList.add('visible');
+
+    // === R38: 新结局解锁仪式感动画 ===
+    // 评委第一次通关（或解锁新结局）时，在结局页顶部显示金色横幅+粒子爆发
+    // 强化"收集感"与"成就感"，是留存设计的关键反馈
+    if (this._isNewEnding) {
+      this._showNewEndingCeremony();
+    }
+  }
+
+  /**
+   * R38: 新结局解锁仪式感动画
+   * 顶部金色横幅滑入 + 光晕脉动 + 粒子爆发 + 2.5s 后淡出
+   * 仅在 _isNewEnding === true 时触发（首次解锁该结局）
+   */
+  _showNewEndingCeremony() {
+    const overlay = document.getElementById('ui-ending-overlay');
+    if (!overlay) return;
+
+    // 横幅容器
+    const banner = document.createElement('div');
+    banner.className = 'ui-ending-new-ending-banner';
+    banner.setAttribute('role', 'status');
+    banner.setAttribute('aria-live', 'polite');
+    banner.innerHTML = '<span class="ui-ending-new-ending-icon">★</span><span class="ui-ending-new-ending-text">新结局解锁</span><span class="ui-ending-new-ending-icon">★</span>';
+    overlay.appendChild(banner);
+
+    // 粒子爆发：8 个金色火花从横幅中心向外扩散
+    const sparks = [];
+    const sparkCount = 8;
+    for (let i = 0; i < sparkCount; i++) {
+      const spark = document.createElement('div');
+      spark.className = 'ui-ending-new-ending-spark';
+      // 均匀分布角度 + 轻微随机
+      const angle = (i / sparkCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
+      const distance = 60 + Math.random() * 40;
+      spark.style.setProperty('--spark-tx', `${Math.cos(angle) * distance}px`);
+      spark.style.setProperty('--spark-ty', `${Math.sin(angle) * distance}px`);
+      spark.style.setProperty('--spark-delay', `${i * 30}ms`);
+      banner.appendChild(spark);
+      sparks.push(spark);
+    }
+
+    // 触发入场动画
+    requestAnimationFrame(() => banner.classList.add('visible'));
+
+    // 2.5s 后淡出并移除（用 time.delayedCall 纳入场景定时器跟踪）
+    this.time.delayedCall(2500, () => {
+      banner.classList.remove('visible');
+      banner.classList.add('leaving');
+      this.time.delayedCall(400, () => {
+        if (banner.parentNode) banner.parentNode.removeChild(banner);
+      });
+    });
+
+    // 播放解锁音效（复用成就音效）
+    try { this.audio.playAchievement(); } catch(e) {}
   }
 
   /**
@@ -730,11 +842,11 @@ export class EndingScene extends Phaser.Scene {
   _renderEndingRadar(container) {
     const axes = [
       { label: '理想', value: this.state.pride || 0, color: 'var(--color-gold)' },
-      { label: '财富', value: this.state.wealth || 0, color: '#40c060' },
-      { label: '名声', value: this.state.reputation || 0, color: '#4090e0' },
-      { label: '信任', value: this.state.trust || 0, color: '#40c0c0' },
-      { label: '压力', value: this.state.pressure || 0, color: '#8040c0' },
-      { label: '翻车', value: this.state.failures || 0, color: '#e04040' }
+      { label: '财富', value: this.state.wealth || 0, color: 'var(--color-wealth)' },
+      { label: '名声', value: this.state.reputation || 0, color: 'var(--color-reputation)' },
+      { label: '信任', value: this.state.trust || 0, color: 'var(--color-trust)' },
+      { label: '压力', value: this.state.pressure || 0, color: 'var(--color-pressure)' },
+      { label: '翻车', value: this.state.failures || 0, color: 'var(--color-failures)' }
     ];
 
     // SVG viewBox 200x200，中心 (100,100)，半径 72
@@ -980,7 +1092,7 @@ export class EndingScene extends Phaser.Scene {
 
     const panelContent = document.createElement('div');
     panelContent.style.cssText = `
-      background: #0d0d1a; border: 2px solid var(--color-gold); padding: 20px;
+      background: var(--color-bg-elevated); border: 2px solid var(--color-gold); padding: 20px;
       width: 700px; max-height: 380px; overflow-y: auto;
     `;
 
@@ -1039,7 +1151,7 @@ export class EndingScene extends Phaser.Scene {
 
     // Footer
     const footer = document.createElement('div');
-    footer.style.cssText = 'font-size: 9px; color: #5a5a6a; text-align: center; margin-top: 8px;';
+    footer.style.cssText = 'font-size: 9px; color: var(--color-text-dim); text-align: center; margin-top: 8px;';
     footer.textContent = `共 ${history.length} 次关键选择`;
     panelContent.appendChild(footer);
 
@@ -1073,7 +1185,7 @@ export class EndingScene extends Phaser.Scene {
 
     const panelContent = document.createElement('div');
     panelContent.style.cssText = `
-      background: #0d0d1a; border: 2px solid var(--color-gold); padding: 20px;
+      background: var(--color-bg-elevated); border: 2px solid var(--color-gold); padding: 20px;
       width: min(720px, 92vw); max-height: 80vh; overflow-y: auto;
       position: relative;
     `;
@@ -1103,9 +1215,9 @@ export class EndingScene extends Phaser.Scene {
         const row = document.createElement('div');
         row.style.cssText = `
           padding: 10px 12px; margin-bottom: 8px; font-size: 11px; line-height: 1.6;
-          border: 1px solid ${isRead ? '#333' : 'var(--color-gold)'};
+          border: 1px solid ${isRead ? 'var(--color-bg-border)' : 'var(--color-gold)'};
           background: ${isRead ? 'rgba(18,18,42,0.5)' : 'rgba(240,192,64,0.08)'};
-          color: ${isRead ? 'var(--color-text-secondary)' : '#e8d5a3'};
+          color: ${isRead ? 'var(--color-text-secondary)' : 'var(--color-text-cream)'};
           ${!isRead ? 'box-shadow: 0 0 8px rgba(240,192,64,0.2);' : ''}
         `;
 
@@ -1121,14 +1233,14 @@ export class EndingScene extends Phaser.Scene {
           tag.style.cssText = 'font-size: 9px; color: var(--color-gold); border: 1px solid var(--color-gold); padding: 1px 6px; animation: ending-history-pulse 1.5s ease-in-out infinite;';
           tag.textContent = '★ 未读';
         } else {
-          tag.style.cssText = 'font-size: 9px; color: #5a5a6a;';
+          tag.style.cssText = 'font-size: 9px; color: var(--color-text-dim);';
           tag.textContent = '已读';
         }
         header.appendChild(tag);
         row.appendChild(header);
 
         const body = document.createElement('div');
-        body.style.cssText = 'font-size: 11px; line-height: 1.7; color: ' + (isRead ? 'var(--color-text-secondary)' : '#e8d5a3');
+        body.style.cssText = 'font-size: 11px; line-height: 1.7; color: ' + (isRead ? 'var(--color-text-secondary)' : 'var(--color-text-cream)');
         body.textContent = item.note;
         row.appendChild(body);
 
@@ -1662,20 +1774,29 @@ export class EndingScene extends Phaser.Scene {
     // DOM 遮罩层
     const mask = document.createElement('div');
     mask.id = 'share-card-mask';
-    mask.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;';
+    mask.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;opacity:0;transition:opacity 0.3s ease;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);';
 
     // 分享卡图片（DOM img：移动端长按可原生保存）
     const imgEl = document.createElement('img');
     imgEl.src = dataURL;
     imgEl.alt = '分享卡';
-    imgEl.style.cssText = 'max-height:76vh;max-width:88vw;border:1px solid rgba(240,192,64,0.4);box-shadow:0 8px 40px rgba(0,0,0,0.6);';
+    // R29-T4: 分享卡入场动画——从 scale(0.9)+opacity:0 弹入到 scale(1)+opacity:1
+    imgEl.style.cssText = 'max-height:76vh;max-width:88vw;border:1px solid rgba(240,192,64,0.4);box-shadow:0 8px 40px rgba(0,0,0,0.6);opacity:0;transform:scale(0.9);transition:opacity 0.45s cubic-bezier(0.22,1,0.36,1) 0.1s,transform 0.45s cubic-bezier(0.22,1,0.36,1) 0.1s;';
     mask.appendChild(imgEl);
 
     // 提示文字
     const tip = document.createElement('div');
     tip.textContent = '长按图片保存 | 点击空白处关闭';
-    tip.style.cssText = 'color:#9a8a6a;font-size:12px;';
+    tip.style.cssText = 'color:var(--color-text-muted);font-size:12px;opacity:0;transition:opacity 0.3s ease 0.4s;';
     mask.appendChild(tip);
+
+    // R29-T4: 触发入场动画（下一帧设置目标状态）
+    requestAnimationFrame(() => {
+      mask.style.opacity = '1';
+      imgEl.style.opacity = '1';
+      imgEl.style.transform = 'scale(1)';
+      tip.style.opacity = '1';
+    });
 
     // 点击空白关闭（点图片不关闭，便于长按保存）
     mask.addEventListener('click', (e) => {
@@ -1683,15 +1804,18 @@ export class EndingScene extends Phaser.Scene {
     });
 
     // 长按 800ms 主动下载（桌面端右键另存之外的补充）
+    // T102：改用 this.time.delayedCall，纳入场景定时器跟踪体系，由 time.removeAllEvents() 统一清理
     let pressTimer = null;
     const startPress = () => {
-      pressTimer = setTimeout(() => {
+      pressTimer = this.time.delayedCall(800, () => {
+        // 场景已关闭时不再触发下载（防御 _closeShareCard 后回调）
+        if (!this._shareCardEl) return;
         this._downloadDataURL(dataURL, 'share-card.png');
         this.showToast('分享卡已保存');
-      }, 800);
+      });
     };
     const cancelPress = () => {
-      if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+      if (pressTimer) { pressTimer.remove(); pressTimer = null; }
     };
     mask.addEventListener('mousedown', startPress);
     mask.addEventListener('touchstart', startPress, { passive: true });
@@ -1861,8 +1985,22 @@ export class EndingScene extends Phaser.Scene {
 
   /**
    * 场景关闭时清理资源，防止内存泄漏
+   * P0-2 修复：Phaser 3 不会自动调用名为 shutdown() 的方法，只会 emit 'shutdown' 事件。
+   * 已在 create() 中通过 this.events.on('shutdown', this._onShutdown, this) 注册。
    */
-  shutdown() {
+  _onShutdown() {
+    // P1-4：清理闪回监听器（如果场景在闪回过程中被关闭）
+    if (this._flashbackAbort) {
+      this._flashbackAbort.abort();
+      this._flashbackAbort = null;
+    }
+
+    // P1-1：清理"人生结算中..."过渡文案
+    const calculatingEl = document.getElementById('ui-ending-calculating');
+    if (calculatingEl && calculatingEl.parentNode) {
+      calculatingEl.parentNode.removeChild(calculatingEl);
+    }
+
     // 清理音频系统
     if (this.audio) {
       this.audio.destroy();
@@ -1905,6 +2043,14 @@ export class EndingScene extends Phaser.Scene {
       if (buttonsEl) buttonsEl.innerHTML = '';
     }
 
+    // P1-4：清理闪回 overlay 状态
+    const flashback = document.getElementById('ui-ending-flashback');
+    if (flashback) flashback.classList.remove('visible');
+    const flashbackLabel = document.getElementById('ui-ending-flashback-label');
+    if (flashbackLabel) flashbackLabel.classList.remove('show');
+    const flashbackChoices = document.getElementById('ui-ending-flashback-choices');
+    if (flashbackChoices) flashbackChoices.innerHTML = '';
+
     // 移除决策回顾面板（如果存在）
     const reviewPanel = document.getElementById('ui-review-panel');
     if (reviewPanel && reviewPanel.parentNode) {
@@ -1916,6 +2062,23 @@ export class EndingScene extends Phaser.Scene {
     if (historyReviewPanel && historyReviewPanel.parentNode) {
       historyReviewPanel.parentNode.removeChild(historyReviewPanel);
     }
+
+    // R38：清理新结局解锁仪式横幅（如果场景在仪式过程中被关闭）
+    const newEndingBanner = document.querySelector('#ui-ending-overlay .ui-ending-new-ending-banner');
+    if (newEndingBanner && newEndingBanner.parentNode) {
+      newEndingBanner.parentNode.removeChild(newEndingBanner);
+    }
+
+    // P0-1：移除 ending-hidden class，让 GameScene 重玩时 UI 正常显示
+    const hiddenIds = [
+      'ui-dialog', 'ui-choices', 'ui-stats', 'ui-hidden-stats', 'ui-chapter',
+      'ui-random-event-overlay', 'ui-history-note-area', 'ui-history-note-overlay',
+      'dialog-touch-layer'
+    ];
+    hiddenIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('ending-hidden');
+    });
   }
 
   // === 技能树面板 ===
@@ -1948,7 +2111,7 @@ export class EndingScene extends Phaser.Scene {
     // 经验获取提示
     if (this._expGained > 0) {
       const gain = document.createElement('span');
-      gain.style.cssText = 'color: #40c040; font-size: 12px;';
+      gain.style.cssText = 'color: var(--color-success); font-size: 12px;';
       gain.textContent = `+${this._expGained} EXP${this._isNewEnding ? ' (新结局奖励!)' : ''}`;
       header.appendChild(gain);
     }
@@ -1973,7 +2136,7 @@ export class EndingScene extends Phaser.Scene {
       treeEl.appendChild(treeTitle);
 
       const treeDesc = document.createElement('div');
-      treeDesc.style.cssText = 'color: #6a6a8a; font-size: 10px; margin-bottom: 10px;';
+      treeDesc.style.cssText = 'color: var(--color-text-dim); font-size: 10px; margin-bottom: 10px;';
       treeDesc.textContent = tree.desc;
       treeEl.appendChild(treeDesc);
 
@@ -1985,7 +2148,7 @@ export class EndingScene extends Phaser.Scene {
         const prereqsMet = this.meta.arePrerequisitesMet(skill.id);
         const isAvailable = prereqsMet && !isUnlocked && !isExcluded && this.meta.getExp() >= skill.cost;
         const node = document.createElement('div');
-        node.style.cssText = `padding: 6px 8px; margin: 0; border-radius: 4px; cursor: ${isAvailable ? 'pointer' : 'default'}; border: 1px solid ${isUnlocked ? tree.color : isExcluded ? '#444455' : prereqsMet ? tree.color + '44' : '#333344'}; background: ${isUnlocked ? tree.color + '22' : 'rgba(10,10,20,0.6)'}; opacity: ${isExcluded ? 0.3 : (prereqsMet || isUnlocked) ? 1 : 0.4}; transition: all 0.2s; flex: 1; min-width: 0;`;
+        node.style.cssText = `padding: 6px 8px; margin: 0; border-radius: 4px; cursor: ${isAvailable ? 'pointer' : 'default'}; border: 1px solid ${isUnlocked ? tree.color : isExcluded ? 'var(--color-text-gray-cool)' : prereqsMet ? tree.color + '44' : 'var(--color-bg-border)'}; background: ${isUnlocked ? tree.color + '22' : 'rgba(10,10,20,0.6)'}; opacity: ${isExcluded ? 0.3 : (prereqsMet || isUnlocked) ? 1 : 0.4}; transition: all 0.2s; flex: 1; min-width: 0;`;
         if (isAvailable) {
           node.addEventListener('mouseenter', () => { node.style.borderColor = tree.color; node.style.background = tree.color + '33'; });
           node.addEventListener('mouseleave', () => { node.style.borderColor = isUnlocked ? tree.color : (tree.color + '44'); node.style.background = isUnlocked ? (tree.color + '22') : 'rgba(10,10,20,0.6)'; });
@@ -1994,7 +2157,7 @@ export class EndingScene extends Phaser.Scene {
         if (isUnlocked) icon = '✓';
         else if (isExcluded) icon = '✗';
         else if (prereqsMet) icon = '○';
-        node.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center;"><span style="color: ${isUnlocked ? tree.color : isExcluded ? '#666677' : '#aaaabb'}; font-size: 11px; font-weight: 600;">${icon} ${skill.name}</span><span style="color: ${isUnlocked ? '#40c040' : isExcluded ? '#666677' : 'var(--color-gold)'}; font-size: 9px;">${isUnlocked ? '已解锁' : isExcluded ? '已排斥' : `${skill.cost} EXP`}</span></div><div style="color: #8a8aaa; font-size: 9px; margin-top: 3px;">${skill.desc}</div>`;
+        node.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center;"><span style="color: ${isUnlocked ? tree.color : isExcluded ? 'var(--color-text-dim)' : 'var(--color-text-gray)'}; font-size: 11px; font-weight: 600;">${icon} ${skill.name}</span><span style="color: ${isUnlocked ? 'var(--color-success-text)' : isExcluded ? 'var(--color-text-dim)' : 'var(--color-gold)'}; font-size: 9px;">${isUnlocked ? '已解锁' : isExcluded ? '已排斥' : `${skill.cost} EXP`}</span></div><div style="color: var(--color-text-dim); font-size: 9px; margin-top: 3px;">${skill.desc}</div>`;
         if (isAvailable) {
           node.addEventListener('click', () => {
             if (this.meta.spendExp(skill.cost)) {
@@ -2013,7 +2176,7 @@ export class EndingScene extends Phaser.Scene {
           const branchWrap = document.createElement('div');
           branchWrap.style.cssText = 'margin: 4px 0;';
           const branchLabel = document.createElement('div');
-          branchLabel.style.cssText = 'color: #f0a040; font-size: 9px; text-align: center; margin-bottom: 2px; font-weight: 600;';
+          branchLabel.style.cssText = 'color: var(--color-gold); font-size: 9px; text-align: center; margin-bottom: 2px; font-weight: 600;';
           branchLabel.textContent = '⚠ Lv4 二选一';
           branchWrap.appendChild(branchLabel);
           const branchRow = document.createElement('div');
@@ -2039,8 +2202,8 @@ export class EndingScene extends Phaser.Scene {
     // 关闭按钮
     const closeBtn = document.createElement('button');
     closeBtn.style.cssText = `
-      margin-top: 16px; padding: 8px 24px; background: var(--color-bg-border); color: #aaaabb;
-      border: 1px solid #333344; border-radius: 4px; cursor: pointer; font-size: 13px;
+      margin-top: 16px; padding: 8px 24px; background: var(--color-bg-border); color: var(--color-text-gray);
+      border: 1px solid var(--color-bg-border); border-radius: 4px; cursor: pointer; font-size: 13px;
     `;
     closeBtn.textContent = '关闭';
     closeBtn.addEventListener('click', () => overlay.remove());

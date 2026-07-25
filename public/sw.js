@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v5-network-first';
+const CACHE_VERSION = 'v8-prod';
 const CACHE_NAME = `luohammer-${CACHE_VERSION}`;
 
 // 预缓存核心 HTML + 首屏关键图（标题背景，避免首屏白屏等待）
@@ -7,6 +7,8 @@ const PRECACHE_ASSETS = [
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
+  './og-image.png',
+  './share-image.png',
   './assets/characters/scene-stage-v2.webp'
 ];
 
@@ -33,6 +35,21 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  // 开发环境绕行：Vite dev server 使用未 hash 的 ESM 模块 + HMR 查询参数，
+  // SW 缓存这些请求会导致模块加载失败（net::ERR_ABORTED）和 HMR 失效。
+  // 命中以下任一特征即放行给网络，不拦截、不缓存：
+  //   1. 路径含 /src/            — Vite 源码模块（如 /src/systems/Foo.js）
+  //   2. 路径含 /@vite/ 或 /@fs/ — Vite 内部虚拟模块
+  //   3. 查询含 ?t= 或 ?import   — Vite HMR / 依赖优化标记
+  if (url.pathname.includes('/src/') ||
+      url.pathname.includes('/@vite/') ||
+      url.pathname.includes('/@fs/') ||
+      url.search.includes('?t=') ||
+      url.search.includes('?import') ||
+      url.search.includes('&t=')) {
+    return;
+  }
 
   // HTML 导航必须优先联网。旧版 cache-first 会让回访评委永久停留在旧构建，
   // 即使新版本已经部署；离线时再退回预缓存首页。

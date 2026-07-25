@@ -121,6 +121,12 @@ export class RandomEventSystem {
   }
 
   _showEvent(event) {
+    // R20 P2-003：DOM 元素防御性 null 检查，避免 index.html 结构变更时静默崩溃
+    if (!this._overlay || !this._titleEl || !this._bodyEl || !this._choicesEl) {
+      console.warn('[RandomEvent] DOM elements not ready, skipping event');
+      return;
+    }
+
     this._previousFocus = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
@@ -166,7 +172,7 @@ export class RandomEventSystem {
 
       // 原样式为像素风主动关闭 outline，这里为键盘焦点补回高对比指示。
       btn.addEventListener('focus', () => {
-        btn.style.outline = '2px solid #f0c040';
+        btn.style.outline = '2px solid var(--color-gold)';
         btn.style.outlineOffset = '2px';
       });
       btn.addEventListener('blur', () => {

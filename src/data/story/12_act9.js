@@ -61,7 +61,7 @@ export const NODES = {
       { label: `"生命不息，折腾不止——下一章继续！"`, next: 'ending_comeback', effects: { pride: 3, wealth: 0, reputation: 3, achievement: '永不言弃', icon: '▲' }, flag: 'final_comeback', requires: { pride: 6 }, requiresFlags: ['honest_repay'] },
       { label: `"终于可以休息了。谢谢陪我走到这里的每一个人。"`, next: 'ending_peace', effects: { pride: 2, wealth: 2, reputation: 3, achievement: '与世界和解', icon: '~', pressure: -2 }, requires: { pride: 3, reputation: 3 } },
       { label: `"折腾和休息之间，也许还有第三条路——带着经历重新出发，不赌身家，也不躺平。"`, next: 'ending_peace', effects: { pride: 1, wealth: 1, reputation: 1 }, requires: { pride: 3, wealth: 3 } },
-      { label: `"不是折腾也不是休息——是传承。把我走过的路告诉后来人，让他们少走弯路。"`, next: 'ending_mentor', effects: { pride: 1, wealth: 1, reputation: 2 }, requires: { trust: 5 } },
+      { label: `"不是折腾也不是休息——是传承。把我走过的路告诉后来人，让他们少走弯路。"`, next: 'ending_mentor', effects: { pride: 1, wealth: 1, reputation: 2 }, requires: { reputation: 5 } },
       { label: `"让这一路的选择自己说话——不管结局如何，我接受。"`, next: null, effects: {} }
     ],
     historyNote: `真还传仍在继续。罗远的下一章，取决于你在游戏中做出的每一个选择。为什么这件事重要：因为他的故事告诉每一个普通人——结局从来不是终点，选择才是；而每一个选择都通向一种活法，没有哪种活法比另一种更高贵，只有哪种更像是你自己。在中国互联网的商业叙事里，老罗是一个特殊的存在：他不是最成功的，但一定是最让人忘不掉的——因为忘不掉的从来不是成功，是一个人摔了那么多次还愿意站起来的姿态。后来怎样了：无论他走向何方——是继续做AR、是回到播客、是退入安静——都已经有人因为他的故事而选择了不放弃。这种"还在走"本身，就是对这个时代最好的回答——不是成功，不是失败，而是不停止。而"不停止"这三个字，比任何奖杯都重，也比任何墓志铭都暖。每一条路都有意义，每一步都算数——这就是罗远的十字路口留给每一个人的启示：你走过的路，就是你最好的答案。而最好的答案，从来都不是别人给的，是你自己一步一步走出来的。`,

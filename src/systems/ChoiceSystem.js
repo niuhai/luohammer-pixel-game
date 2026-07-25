@@ -300,6 +300,7 @@ export class ChoiceSystem {
           if (this._choiceLock) return;
           this._choiceLock = true;
           this.el.querySelectorAll('.ui-choice-btn').forEach(b => b.disabled = true);
+          this._markSelected(btn);
           this._createRipple(btn, event);
           if (this.scene && typeof this.scene.vibrate === 'function') this.scene.vibrate(20);
           this._triggerChoiceFlash();
@@ -369,6 +370,8 @@ export class ChoiceSystem {
         if (!locked && onChoice) {
           this._choiceLock = true;
           this.el.querySelectorAll('.ui-choice-btn').forEach(b => b.disabled = true);
+          const _selectedBtn = this.el.querySelectorAll('.ui-choice-btn')[idx];
+          if (_selectedBtn) this._markSelected(_selectedBtn);
           this._triggerChoiceFlash();
           if (this.scene && typeof this.scene.vibrate === 'function') this.scene.vibrate(20);
           onChoice(c);
@@ -512,6 +515,23 @@ export class ChoiceSystem {
     flash.classList.remove('flash');
     void flash.offsetWidth;
     flash.classList.add('flash');
+  }
+
+  /**
+   * R41: 标记已选按钮的视觉状态
+   * 选中按钮加 .selected（金色发光+放大），其余加 .unselected（灰暗+缩小）
+   * 创建"你选了这个"的明确锁定瞬间，持续到选项淡出（hide 时 innerHTML 清空自动清理）
+   * @param {HTMLElement} selectedBtn 被选中的按钮元素
+   */
+  _markSelected(selectedBtn) {
+    const allBtns = this.el.querySelectorAll('.ui-choice-btn');
+    allBtns.forEach(b => {
+      if (b === selectedBtn) {
+        b.classList.add('selected');
+      } else {
+        b.classList.add('unselected');
+      }
+    });
   }
 
   hide(immediate = false) {

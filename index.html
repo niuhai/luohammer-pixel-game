@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-title" content="罗的十字路口">
-  <meta name="screen-orientation" content="landscape">
-  <meta name="x5-orientation" content="landscape">
+  <meta name="screen-orientation" content="portrait">
+  <meta name="x5-orientation" content="portrait">
 
   <!-- SEO -->
   <title>真还传 · 人生模拟 — 罗远人生选择游戏</title>
@@ -17,7 +17,7 @@
   <meta property="og:title" content="真还传 · 人生模拟 — 罗远人生选择游戏">
   <meta property="og:description" content="一个以罗远人生经历为背景的像素风互动视觉小说游戏。在关键节点做出不同选择，体验不同的人生结局。">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="">
+  <meta property="og:url" content="https://niuhai.github.io/luohammer-pixel-game/">
   <meta property="og:site_name" content="罗的十字路口">
   <meta property="og:locale" content="zh_CN">
   <meta property="og:image" content="./share-image.png">
@@ -53,6 +53,7 @@
       /* 主色调 */
       --color-gold: #f0c040;
       --color-gold-dark: #c49a2a;
+      --color-gold-light: #ffd860;
       --color-gold-rgb: 240, 192, 64;
 
       /* 背景色 */
@@ -70,6 +71,7 @@
       --color-text-gray: #9a9aaa;
       --color-text-dim: #77778c;
       --color-hidden: #ff88cc;
+      --color-hidden-rgb: 255, 136, 204;
 
       /* 属性色 */
       --color-pride: #f0c040;
@@ -78,10 +80,18 @@
       --color-failures: #e04040;
       --color-pressure: #8040C0;
       --color-trust: #40C0C0;
+      --color-trust-rgb: 64, 192, 192;
+      /* 属性暗色变体（用于渐变深色端） */
+      --color-wealth-dark: #2a8a4a;
+      --color-reputation-dark: #2070b0;
+      --color-failures-dark: #b03030;
+      --color-pressure-dark: #6030a0;
+      --color-trust-dark: #30a0a0;
 
       /* 状态色 */
       --color-success: #40c060;
       --color-danger: #e04040;
+      --color-danger-rgb: 224, 64, 64;
       --color-warning: #f0c040;
       --color-info: #4090e0;
       /* 状态文字色（用于内联 style 中的浅色文字） */
@@ -110,6 +120,16 @@
       --radius-sharp: 0;      /* 主体面板/按钮/属性条 */
       --radius-soft: 2px;     /* 小标记/徽章 */
       --radius-round: 50%;    /* 仅纯装饰圆点 */
+
+      /* R40: DOM 层文本/背景色变量化补充 */
+      --color-text-cream: #e8d5a3;        /* 奶油色文本（对话/选项/面板主文本） */
+      --color-text-cream-dark: #c8b88a;   /* 暗奶油色文本（次要面板文本） */
+      --color-text-white: #ffffff;        /* 纯白文本（高亮/激活态） */
+      --color-text-gray-cool: #5a5a6a;    /* 冷灰文本（禁用/占位） */
+      --color-text-gray-medium: #6a6a7a;  /* 中灰文本（锁定/次要） */
+      --color-text-muted-dark: #6a5a3a;   /* 暗哑文本（加载提示） */
+      --color-bg-deep: #0d0d1a;           /* 深背景（卡片/面板底色） */
+      --color-border-cool: #3a3a5e;       /* 冷色边框 */
     }
 
     /* === 键盘焦点可见性（无障碍）=== */
@@ -133,8 +153,8 @@
     * { scrollbar-width: thin; scrollbar-color: rgba(240, 192, 64, 0.25) rgba(10, 10, 20, 0.3); }
 
     /* === 文字选中 === */
-    ::selection { background: rgba(240, 192, 64, 0.3); color: #fff; }
-    ::-moz-selection { background: rgba(240, 192, 64, 0.3); color: #fff; }
+    ::selection { background: rgba(240, 192, 64, 0.3); color: var(--color-text-white); }
+    ::-moz-selection { background: rgba(240, 192, 64, 0.3); color: var(--color-text-white); }
 
     /* 移动端字体：优先使用系统本地字体，font-display: swap 避免渲染阻塞 */
     @font-face {
@@ -189,9 +209,24 @@
       background: linear-gradient(90deg, var(--color-gold-dark), var(--color-gold));
       border-radius: var(--radius-soft); transition: width 0.3s ease;
       box-shadow: 0 0 8px rgba(240,192,64,.5);
+      position: relative; overflow: hidden;
+    }
+    /* R29-T2: 加载条流光效果——评委首次加载时的"活感" */
+    .app-loading-fill::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+      animation: loadingShimmer 1.4s ease-in-out infinite;
+    }
+    @keyframes loadingShimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .app-loading-fill::after { animation: none; }
     }
     .app-loading-text {
-      font-size: clamp(10px, 1.4vw, 12px); color: #6a5a3a;
+      font-size: clamp(10px, 1.4vw, 12px); color: var(--color-text-muted-dark);
       letter-spacing: 0.08em;
     }
 
@@ -229,7 +264,7 @@
     #choice-flash {
       position: fixed;
       inset: 0;
-      background: #fff;
+      background: var(--color-text-white);
       pointer-events: none;
       z-index: 99995;
       opacity: 0;
@@ -255,7 +290,9 @@
     #rotate-hint {
       display: none;
       position: fixed;
-      top: 0; left: 0; right: 0;
+      top: 0;
+      left: env(safe-area-inset-left, 0px);
+      right: env(safe-area-inset-right, 0px);
       z-index: 99990;
       background: rgba(10, 10, 26, 0.92);
       backdrop-filter: blur(8px);
@@ -264,7 +301,7 @@
       align-items: center;
       gap: 12px;
       color: var(--color-gold);
-      padding: 8px 16px;
+      padding: calc(8px + env(safe-area-inset-top, 0px)) 16px;
       text-align: center;
       border-bottom: 1px solid rgba(240, 192, 64, 0.2);
     }
@@ -340,7 +377,7 @@
       pointer-events: none;
       z-index: 10;
       font-family: var(--font-pixel);
-      color: #e8d5a3;
+      color: var(--color-text-cream);
       overflow: hidden;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
@@ -366,7 +403,6 @@
       bottom: 0;
       left: 0;
       right: 0;
-      padding-bottom: env(safe-area-inset-bottom, 0px);
       height: auto;
       max-height: 30vh;
       background: linear-gradient(180deg, rgba(10,10,26,.62), rgba(12,12,30,.70), rgba(15,15,34,.78), rgba(18,18,42,.84));
@@ -375,6 +411,7 @@
       border-top: 1px solid rgba(240,192,64,.10);
       box-shadow: inset 0 2px 10px rgba(0,0,0,.30), 0 -4px 24px rgba(0,0,0,.28);
       padding: clamp(8px, 1.5vh, 14px) clamp(12px, 2vw, 24px);
+      padding-bottom: calc(clamp(8px, 1.5vh, 14px) + env(safe-area-inset-bottom, 0px));
       pointer-events: auto;
       min-height: 80px;
       display: none;
@@ -450,7 +487,7 @@
 
     .ui-dialog-text {
       font-size: var(--fs-body);
-      color: #e8d5a3;
+      color: var(--color-text-cream);
       line-height: 1.7;
       word-wrap: break-word;
       overflow-wrap: break-word;
@@ -462,11 +499,28 @@
       user-select: text;
     }
 
+    /* 金句高亮：<b> 标签包裹的句子是情绪高光点，用金色强调 + 淡入上浮动效（与 .keyword-highlight 设计语言一致） */
+    .ui-dialog-text b {
+      color: var(--color-gold);
+      font-weight: 600;
+      text-shadow: 0 0 4px rgba(var(--color-gold-rgb), 0.4), 0 1px 2px rgba(0, 0, 0, 0.8);
+      animation: golden-sentence-in 0.5s ease-out;
+    }
+
+    @keyframes golden-sentence-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ui-dialog-text b { animation: none; }
+    }
+
     /* 关键词高亮：金色加粗，带文字阴影 */
     .keyword-highlight {
-      color: #F0C040;
+      color: var(--color-gold);
       font-weight: bold;
-      text-shadow: 0 0 4px rgba(240, 192, 64, 0.6), 0 1px 2px rgba(0, 0, 0, 0.8);
+      text-shadow: 0 0 4px rgba(var(--color-gold-rgb), 0.6), 0 1px 2px rgba(0, 0, 0, 0.8);
     }
 
     /* 压力可视化暗角层 */
@@ -532,7 +586,7 @@
 
     .ui-dialog-continue {
       font-size: var(--fs-caption);
-      color: #8A7A5A;
+      color: var(--color-text-muted);
       margin-top: clamp(2px, 0.5vh, 6px);
       text-align: right;
       letter-spacing: 1px;
@@ -586,7 +640,7 @@
 
     .ui-dialog-auto:hover {
       border-color: rgba(192, 152, 48, 0.65);
-      color: #e8d5a3;
+      color: var(--color-text-cream);
       background: rgba(22, 33, 62, 0.62);
     }
 
@@ -738,7 +792,7 @@
       transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       position: relative;
       font-family: inherit;
-      color: #e8d5a3;
+      color: var(--color-text-cream);
       -webkit-appearance: none;
       appearance: none;
       outline: none;
@@ -749,6 +803,24 @@
       touch-action: manipulation;
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
+    }
+
+    /* R41: 选择锁定视觉状态——选中按钮金色发光放大，未选按钮灰暗缩小 */
+    /* 创建"你选了这个"的明确锁定瞬间，持续到选项淡出 */
+    .ui-choice-btn.selected {
+      border-color: var(--color-gold);
+      box-shadow: 0 0 16px rgba(240, 192, 64, 0.45), inset 0 0 8px rgba(240, 192, 64, 0.12);
+      transform: scale(1.02);
+      opacity: 1;
+    }
+    .ui-choice-btn.unselected {
+      opacity: 0.3;
+      transform: scale(0.98);
+      filter: grayscale(0.6);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ui-choice-btn.selected { transform: none; }
+      .ui-choice-btn.unselected { transform: none; }
     }
 
     /* 光泽扫过效果 */
@@ -829,7 +901,7 @@
     }
 
     .ui-choice-btn:hover .ui-choice-text,
-    .ui-choice-btn.touch-active .ui-choice-text { color: #ffffff; }
+    .ui-choice-btn.touch-active .ui-choice-text { color: var(--color-text-white); }
 
     .ui-choice-btn:hover .ui-choice-arrow,
     .ui-choice-btn.touch-active .ui-choice-arrow {
@@ -886,7 +958,7 @@
 
     .ui-choice-text {
       font-size: var(--fs-body);
-      color: #e8d5a3;
+      color: var(--color-text-cream);
       line-height: 1.5;
       flex: 1;
       transition: color 0.2s;
@@ -897,7 +969,7 @@
 
     .ui-choice-arrow {
       font-size: clamp(12px, 1.7vw, 16px);
-      color: #5a5a6a;
+      color: var(--color-text-gray-cool);
       opacity: 0.45;
       transition: all 0.2s;
       flex-shrink: 0;
@@ -919,7 +991,7 @@
     }
 
     .ui-choice-btn.locked .ui-choice-text {
-      color: #6a6a7a;
+      color: var(--color-text-gray-medium);
       text-decoration: line-through;
       text-decoration-color: rgba(224, 64, 64, 0.3);
     }
@@ -931,11 +1003,19 @@
 
     .ui-choice-lock-hint {
       font-size: var(--fs-caption);
-      color: #e04040;
-      white-space: nowrap;
-      flex-shrink: 0;
+      color: var(--color-danger);
+      /* 2026-07-24 溢出修复：锁定态提示独占一行右对齐，彻底避免被按钮右缘裁切 */
+      white-space: normal;
+      text-align: right;
+      flex-basis: 100%;
+      max-width: 100%;
+      line-height: 1.35;
+      flex-shrink: 1;
       letter-spacing: 0.5px;
-      opacity: 0.8;
+      opacity: 0.85;
+    }
+    .ui-choice-btn.locked {
+      flex-wrap: wrap;
     }
 
     /* === Stats Bar === */
@@ -969,7 +1049,7 @@
 
     .ui-stat-label {
       font-size: clamp(10px, 1.4vw, 13px);
-      color: #c8b88a;
+      color: var(--color-text-cream-dark);
       white-space: nowrap;
       min-width: clamp(28px, 4vw, 36px);
       text-shadow: 0 1px 2px rgba(0,0,0,0.8);
@@ -979,7 +1059,7 @@
       width: clamp(60px, 10vw, 120px);
       height: clamp(7px, 1.2vh, 11px);
       background: var(--color-bg-border);
-      border: 1px solid #3a3a5e;
+      border: 1px solid var(--color-border-cool);
       overflow: hidden;
       position: relative;
       box-shadow: inset 0 1px 3px rgba(0,0,0,.6), inset 0 -1px 0 rgba(255,255,255,.05), 0 0 4px rgba(0,0,0,.4);
@@ -1000,12 +1080,12 @@
     }
 
     .ui-stat-bar-fill.pulse-up::after {
-      background: #40C040;
+      background: var(--color-success);
       animation: statPulseFlash 0.3s ease;
     }
 
     .ui-stat-bar-fill.pulse-down::after {
-      background: #E04040;
+      background: var(--color-danger);
       animation: statPulseFlash 0.3s ease;
     }
 
@@ -1074,8 +1154,8 @@
       transform: translateY(0);
     }
 
-    .ui-stat-change.up { color: #40c040; }
-    .ui-stat-change.down { color: #e04040; }
+    .ui-stat-change.up { color: var(--color-success); }
+    .ui-stat-change.down { color: var(--color-danger); }
 
     .ui-stat-change.show {
       animation: statChangeFloat 1s ease forwards;
@@ -1095,11 +1175,11 @@
       right: 0;
       top: 100%;
       margin-top: 4px;
-      background: #0d0d1a;
+      background: var(--color-bg-deep);
       border: 1px solid var(--color-gold);
       padding: clamp(4px, 0.8vh, 8px) clamp(8px, 1.2vw, 12px);
       font-size: clamp(9px, 1.2vw, 12px);
-      color: #e8d5a3;
+      color: var(--color-text-cream);
       white-space: nowrap;
       z-index: 100;
       pointer-events: none;
@@ -1113,7 +1193,7 @@
     /* Stats toggle hint */
     .ui-stats-toggle-hint {
       font-size: clamp(8px, 1vw, 10px);
-      color: #6a6a7a;
+      color: var(--color-text-gray-medium);
       text-align: center;
       margin-top: 2px;
       cursor: pointer;
@@ -1131,7 +1211,7 @@
       border: 1px solid var(--color-gold);
       border-radius: var(--radius-sharp);
       font-size: clamp(10px, 1.2vw, 12px);
-      color: #e8d5a3;
+      color: var(--color-text-cream);
       white-space: nowrap;
       z-index: 200;
       pointer-events: none;
@@ -1233,7 +1313,7 @@
     .ui-progress {
       width: 100%;
       height: 4px;
-      background: #0d0d1a;
+      background: var(--color-bg-deep);
       margin-top: 4px;
     }
 
@@ -1353,7 +1433,7 @@
       text-align: center;
     }
     .ui-menu-confirm-text {
-      color: #e0d0b0;
+      color: var(--color-text-primary);
       font-size: clamp(13px, 2vw, 16px);
       margin-bottom: clamp(16px, 3vw, 24px);
       line-height: 1.6;
@@ -1473,7 +1553,7 @@
       border: clamp(1px, 0.25vh, 2px) solid var(--color-bg-border);
       padding: clamp(8px, 1.5vh, 12px) clamp(6px, 1vw, 10px);
       cursor: pointer;
-      transition: all 0.25s;
+      transition: border-color 0.25s, background 0.25s, box-shadow 0.25s, transform 0.25s;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -1484,10 +1564,32 @@
       text-align: inherit;
       border-radius: var(--radius-sharp);
       min-height: 44px;
+      /* R28-T1: 抽卡仪式感——翻牌入场动画（stagger 由 JS 设置 animationDelay） */
+      animation: talentCardReveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+      transform-origin: center center;
+      perspective: 600px;
+    }
+
+    /* R28-T1: 翻牌入场——从 90° 翻转 + 上浮 + 缩放 进入到正面 */
+    @keyframes talentCardReveal {
+      0% {
+        opacity: 0;
+        transform: translateY(24px) rotateY(85deg) scale(0.85);
+        filter: brightness(1.8);
+      }
+      60% {
+        opacity: 1;
+        filter: brightness(1.3);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) rotateY(0deg) scale(1);
+        filter: brightness(1);
+      }
     }
 
     .ui-talent-card:hover {
-      border-color: #c09830;
+      border-color: var(--color-gold-border);
       box-shadow: 0 0 16px rgba(240, 192, 64, 0.15);
       transform: translateY(-3px);
     }
@@ -1496,6 +1598,21 @@
       border-color: var(--color-gold);
       background: linear-gradient(180deg, rgba(34, 31, 52, 0.98), rgba(16, 18, 38, 0.98));
       box-shadow: 0 0 20px rgba(240, 192, 64, 0.25), inset 0 0 0 1px rgba(240, 192, 64, 0.12);
+    }
+
+    /* R28-T1: 选中瞬间光波扫过（卡牌游戏仪式感） */
+    .ui-talent-card.selected::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, transparent 30%, rgba(240, 192, 64, 0.35) 50%, transparent 70%);
+      animation: talentSelectedSweep 0.6s ease-out;
+      pointer-events: none;
+      border-radius: inherit;
+    }
+    @keyframes talentSelectedSweep {
+      from { transform: translateX(-100%); }
+      to { transform: translateX(100%); }
     }
 
     .ui-talent-card.selected::after {
@@ -1518,17 +1635,45 @@
       70% { transform: translateX(5px); border-color: var(--color-danger); }
     }
 
+    /* R28-T1: 稀有度持续光晕呼吸（入场动画结束后启动，延迟 0.6s 避免与翻牌冲突） */
     .ui-talent-card[data-rarity="common"] { border-color: #4a4a5a; }
     .ui-talent-card[data-rarity="common"]:hover { border-color: #8a8a9a; }
-    .ui-talent-card[data-rarity="common"].selected { border-color: #9a9aaa; box-shadow: 0 0 16px rgba(106, 106, 122, 0.3); }
+    .ui-talent-card[data-rarity="common"].selected { border-color: var(--color-text-gray); box-shadow: 0 0 16px rgba(106, 106, 122, 0.3); }
 
-    .ui-talent-card[data-rarity="rare"] { border-color: #4080F0; }
+    .ui-talent-card[data-rarity="rare"] {
+      border-color: #4080F0;
+      animation: talentCardReveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) both, rareGlow 3.2s ease-in-out infinite 0.6s;
+    }
     .ui-talent-card[data-rarity="rare"]:hover { border-color: #6aa0ff; box-shadow: 0 0 16px rgba(74, 138, 255, 0.25); }
     .ui-talent-card[data-rarity="rare"].selected { border-color: #4080F0; box-shadow: 0 0 20px rgba(74, 138, 255, 0.35); }
+    @keyframes rareGlow {
+      0%, 100% { box-shadow: 0 0 4px rgba(74, 138, 255, 0.1); }
+      50% { box-shadow: 0 0 14px rgba(74, 138, 255, 0.3), 0 0 24px rgba(74, 138, 255, 0.08); }
+    }
 
-    .ui-talent-card[data-rarity="legendary"] { border-color: #F0C040; box-shadow: 0 0 8px rgba(240, 192, 64, 0.15); }
-    .ui-talent-card[data-rarity="legendary"]:hover { border-color: #ffd860; box-shadow: 0 0 20px rgba(240, 192, 64, 0.3); }
-    .ui-talent-card[data-rarity="legendary"].selected { border-color: #ffd860; box-shadow: 0 0 24px rgba(240, 192, 64, 0.4); }
+    .ui-talent-card[data-rarity="legendary"] {
+      border-color: var(--color-gold);
+      box-shadow: 0 0 8px rgba(240, 192, 64, 0.15);
+      animation: talentCardReveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) both, legendaryGlow 2.4s ease-in-out infinite 0.6s;
+    }
+    .ui-talent-card[data-rarity="legendary"]:hover { border-color: var(--color-gold-light); box-shadow: 0 0 20px rgba(240, 192, 64, 0.3); }
+    .ui-talent-card[data-rarity="legendary"].selected { border-color: var(--color-gold-light); box-shadow: 0 0 24px rgba(240, 192, 64, 0.4); }
+    @keyframes legendaryGlow {
+      0%, 100% { box-shadow: 0 0 6px rgba(240, 192, 64, 0.15), 0 0 0 0 rgba(240, 192, 64, 0); }
+      50% { box-shadow: 0 0 18px rgba(240, 192, 64, 0.45), 0 0 32px 4px rgba(240, 192, 64, 0.15); }
+    }
+
+    /* 尊重 reduced-motion 偏好：禁用翻牌与光晕动画，仅保留淡入 */
+    @media (prefers-reduced-motion: reduce) {
+      .ui-talent-card,
+      .ui-talent-card[data-rarity="rare"],
+      .ui-talent-card[data-rarity="legendary"] {
+        animation: none;
+        opacity: 1;
+        transform: none;
+      }
+      .ui-talent-card.selected::before { animation: none; opacity: 0; }
+    }
 
     .ui-talent-rarity {
       font-size: 10px;
@@ -1538,12 +1683,12 @@
       letter-spacing: 1px;
     }
 
-    .ui-talent-rarity.common { background: rgba(106, 106, 122, 0.3); color: #9a9aaa; }
+    .ui-talent-rarity.common { background: rgba(106, 106, 122, 0.3); color: var(--color-text-gray); }
     .ui-talent-rarity.rare { background: rgba(74, 138, 255, 0.15); color: #6aa0ff; }
     .ui-talent-rarity.legendary { background: rgba(240, 192, 64, 0.15); color: var(--color-gold); }
 
     .ui-talent-icon { font-size: clamp(22px, 3.5vw, 32px); margin-bottom: 4px; }
-    .ui-talent-name { font-size: clamp(12px, 1.8vw, 15px); font-weight: 700; color: #E8D5A3; margin-bottom: 3px; text-align: center; }
+    .ui-talent-name { font-size: clamp(12px, 1.8vw, 15px); font-weight: 700; color: var(--color-text-cream); margin-bottom: 3px; text-align: center; }
     .ui-talent-desc { font-size: clamp(11px, 1.3vw, 13px); color: var(--color-text-secondary); text-align: center; line-height: 1.5; margin-bottom: 6px; }
 
     .ui-talent-effects {
@@ -1555,14 +1700,14 @@
 
     .ui-talent-effect {
       font-size: clamp(11px, 1.3vw, 13px);
-      color: #c09830;
+      color: var(--color-gold-border);
       padding: 1px 4px;
       background: rgba(240, 192, 64, 0.05);
       text-align: center;
     }
 
-    .ui-talent-effect.positive { color: #40C040; }
-    .ui-talent-effect.negative { color: #E04040; }
+    .ui-talent-effect.positive { color: var(--color-success); }
+    .ui-talent-effect.negative { color: var(--color-danger); }
 
     .ui-talent-special {
       font-size: clamp(11px, 1.3vw, 13px);
@@ -1633,7 +1778,7 @@
     .ui-talent-confirm:hover {
       border-color: var(--color-gold);
       background: var(--color-bg-hover);
-      color: #ffffff;
+      color: var(--color-text-white);
     }
 
     @media (orientation: portrait) and (max-width: 768px) {
@@ -1641,6 +1786,7 @@
         justify-content: flex-start;
         padding: max(72px, calc(env(safe-area-inset-top, 0px) + 64px)) 14px
           max(16px, env(safe-area-inset-bottom, 0px));
+        overflow: hidden;
       }
 
       .ui-talent-title {
@@ -1661,13 +1807,19 @@
         padding: 0;
         flex-direction: column;
         flex-wrap: nowrap;
-        gap: 10px;
+        gap: 8px;
+        flex: 1;
+        overflow-y: auto;
+        min-height: 0;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
       }
 
       .ui-talent-card {
         width: 100%;
         min-width: 0;
-        min-height: 132px;
+        min-height: 116px;
+        flex-shrink: 0;
         display: grid;
         grid-template-columns: 46px minmax(0, 1fr);
         grid-template-areas:
@@ -1743,12 +1895,11 @@
       }
 
       .ui-talent-footer {
-        position: sticky;
-        bottom: -1px;
+        flex-shrink: 0;
         z-index: 4;
         width: calc(100% + 28px);
-        margin-top: 14px;
-        padding: 12px 14px max(12px, env(safe-area-inset-bottom, 0px));
+        margin-top: 10px;
+        padding: 10px 14px max(10px, env(safe-area-inset-bottom, 0px));
         background: linear-gradient(180deg, rgba(5, 5, 12, 0), rgba(5, 5, 12, 0.96) 24%);
       }
 
@@ -1783,7 +1934,7 @@
       transition: opacity 0.2s ease;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 12px rgba(240, 192, 64, 0.15);
       font-family: var(--font-pixel);
-      color: #e8d5a3;
+      color: var(--color-text-cream);
     }
 
     .ui-talent-tooltip.visible {
@@ -1817,7 +1968,7 @@
     .ui-talent-tooltip-name {
       font-size: clamp(13px, 1.8vw, 16px);
       font-weight: 700;
-      color: #E8D5A3;
+      color: var(--color-text-cream);
       letter-spacing: 1px;
     }
 
@@ -1830,13 +1981,13 @@
       letter-spacing: 1px;
     }
 
-    .ui-talent-tooltip-rarity.common { background: rgba(106, 106, 122, 0.3); color: #9a9aaa; }
+    .ui-talent-tooltip-rarity.common { background: rgba(106, 106, 122, 0.3); color: var(--color-text-gray); }
     .ui-talent-tooltip-rarity.rare { background: rgba(74, 138, 255, 0.15); color: #6aa0ff; }
     .ui-talent-tooltip-rarity.legendary { background: rgba(240, 192, 64, 0.15); color: var(--color-gold); }
 
     .ui-talent-tooltip-desc {
       font-size: clamp(10px, 1.3vw, 12px);
-      color: #8a7a5a;
+      color: var(--color-text-muted);
       line-height: 1.5;
       margin-bottom: 6px;
       font-style: italic;
@@ -1844,7 +1995,7 @@
 
     .ui-talent-tooltip-effects {
       font-size: clamp(10px, 1.3vw, 12px);
-      color: #c09830;
+      color: var(--color-gold-border);
       line-height: 1.5;
       padding: 4px 6px;
       background: rgba(240, 192, 64, 0.06);
@@ -1962,7 +2113,7 @@
     .ui-life-map-close:hover {
       border-color: var(--color-gold);
       background: var(--color-bg-hover);
-      color: #ffffff;
+      color: var(--color-text-white);
     }
 
     .ui-life-map-canvas {
@@ -1991,7 +2142,7 @@
       left: 50%;
       transform: translateX(-50%);
       font-size: clamp(9px, 1.2vw, 11px);
-      color: #5a5a6a;
+      color: var(--color-text-gray-cool);
       letter-spacing: 1px;
       pointer-events: none;
       background: rgba(10, 10, 26, 0.7);
@@ -2027,7 +2178,7 @@
     }
 
     .life-map-node-ending {
-      fill: #e04040;
+      fill: var(--color-danger);
       stroke: var(--color-gold);
       stroke-width: 2;
       filter: drop-shadow(0 0 8px rgba(224, 64, 64, 0.6));
@@ -2046,7 +2197,7 @@
     }
 
     .life-map-node-key {
-      fill: #ffd860;
+      fill: var(--color-gold-light);
       stroke: var(--color-gold);
       stroke-width: 2.5;
       filter: drop-shadow(0 0 6px rgba(255, 216, 96, 0.6));
@@ -2062,7 +2213,7 @@
     }
 
     .life-map-label-visited {
-      fill: #e8d5a3;
+      fill: var(--color-text-cream);
       font-weight: 600;
     }
 
@@ -2073,7 +2224,7 @@
     }
 
     .life-map-label-key {
-      fill: #ffd860;
+      fill: var(--color-gold-light);
       font-weight: 600;
     }
 
@@ -2107,6 +2258,39 @@
     }
 
     /* === Ending Scene Overlay === */
+    /* P0-1: ending-hidden 用于 EndingScene 隐藏游戏 UI，重玩时移除该 class 恢复显示
+       使用 !important 确保覆盖 .visible 等显示类，避免重玩时 UI 残留/缺失 */
+    .ending-hidden { display: none !important; }
+
+    /* P1-1: "人生结算中..." 过渡文案，避免闪回期间画面空白 */
+    .ui-ending-calculating {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 55; /* 低于闪回(60)和结局overlay(50)之上的过渡层 */
+      background: rgba(5, 5, 10, 0.6);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .ui-ending-calculating.visible {
+      display: flex;
+      opacity: 1;
+    }
+    .ui-ending-calculating-text {
+      color: var(--color-gold);
+      font-size: clamp(14px, 2vw, 20px);
+      letter-spacing: 4px;
+      font-weight: 600;
+      animation: endingCalculatingPulse 1.4s ease-in-out infinite;
+    }
+    @keyframes endingCalculatingPulse {
+      0%, 100% { opacity: 0.5; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.04); }
+    }
+
     /* === 结局闪回走马灯 === */
     .ui-ending-flashback {
       position: fixed;
@@ -2259,6 +2443,45 @@
       animation: endingTitleIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
 
+    /* R43: 结局标题按结局类型视觉差异化（legendary 金光脉冲/tragic 灰暗无光/peaceful 柔绿光） */
+    .ui-ending-title.legendary {
+      color: var(--color-gold);
+      text-shadow:
+        0 0 16px rgba(240, 192, 64, 0.42),
+        0 0 32px rgba(240, 192, 64, 0.22),
+        0 2px 8px rgba(0, 0, 0, 0.6);
+      animation: endingTitleIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) both,
+                 endingLegendaryPulse 2.6s ease-in-out 1.2s infinite;
+    }
+    .ui-ending-title.tragic {
+      color: var(--color-text-muted);
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+      letter-spacing: 3px;
+    }
+    .ui-ending-title.peaceful {
+      color: var(--color-success);
+      text-shadow:
+        0 0 16px rgba(64, 192, 96, 0.32),
+        0 2px 8px rgba(0, 0, 0, 0.6);
+    }
+    @keyframes endingLegendaryPulse {
+      0%, 100% {
+        text-shadow:
+          0 0 16px rgba(240, 192, 64, 0.42),
+          0 0 32px rgba(240, 192, 64, 0.22),
+          0 2px 8px rgba(0, 0, 0, 0.6);
+      }
+      50% {
+        text-shadow:
+          0 0 24px rgba(240, 192, 64, 0.58),
+          0 0 48px rgba(240, 192, 64, 0.30),
+          0 2px 8px rgba(0, 0, 0, 0.6);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ui-ending-title.legendary { animation: endingTitleIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+    }
+
     .ui-ending-desc {
       max-width: 720px;
       font-size: clamp(14px, 1.5vw, 16px);
@@ -2369,7 +2592,7 @@
     .ui-ending-stat-bar-bg {
       flex: 1;
       height: clamp(7px, 1.2vh, 10px);
-      background: #0d0d1a;
+      background: var(--color-bg-deep);
       border: 1px solid rgba(255, 255, 255, 0.08);
       overflow: hidden;
     }
@@ -2535,7 +2758,7 @@
     .ui-ending-btn:hover {
       border-color: var(--color-gold);
       background: var(--color-bg-hover);
-      color: #ffffff;
+      color: var(--color-text-white);
       box-shadow: 0 0 12px rgba(240, 192, 64, 0.2);
     }
 
@@ -2629,7 +2852,7 @@
       animation: none;
       box-shadow: 0 0 16px rgba(240, 192, 64, 0.35);
       background: var(--color-bg-hover);
-      color: #ffffff;
+      color: var(--color-text-white);
     }
 
     /* === History Note Button & Overlay === */
@@ -2700,7 +2923,7 @@
 
     .ui-history-note-skip {
       font-size: clamp(9px, 1.2vw, 12px);
-      color: #8a7a5a;
+      color: var(--color-text-muted);
       cursor: pointer;
       padding: clamp(4px, 0.8vh, 8px) clamp(8px, 1.2vw, 12px);
       transition: color 0.2s;
@@ -2708,7 +2931,7 @@
     }
 
     .ui-history-note-skip:hover {
-      color: #e8d5a3;
+      color: var(--color-text-cream);
     }
 
     /* 历史真相按钮3秒自动消失淡出动画 */
@@ -2796,7 +3019,7 @@
     .ui-history-note-body {
       padding: clamp(12px, 1.8vh, 18px) clamp(14px, 2vw, 22px);
       font-size: var(--fs-body);
-      color: #e8d5a3;
+      color: var(--color-text-cream);
       line-height: 1.8;
       overflow-y: auto;
       max-height: 55vh;
@@ -2838,7 +3061,7 @@
     .ui-history-note-close:hover {
       border-color: var(--color-gold);
       background: var(--color-bg-hover);
-      color: #ffffff;
+      color: var(--color-text-white);
     }
 
     /* === Random Event Overlay === */
@@ -3032,7 +3255,7 @@
     .ui-random-event-body {
       padding: 0 clamp(14px, 2vw, 22px) clamp(12px, 1.8vh, 18px) clamp(14px, 2vw, 22px);
       font-size: clamp(13px, 1.8vw, 16px);
-      color: #e8d5a3;
+      color: var(--color-text-cream);
       line-height: 1.8;
     }
 
@@ -3059,7 +3282,7 @@
       transition: all 0.18s ease;
       position: relative;
       font-family: inherit;
-      color: #e8d5a3;
+      color: var(--color-text-cream);
       -webkit-appearance: none;
       appearance: none;
       outline: none;
@@ -3099,7 +3322,7 @@
 
     .ui-random-event-choice-btn:hover .ui-random-event-choice-text,
     .ui-random-event-choice-btn.touch-active .ui-random-event-choice-text {
-      color: #ffffff;
+      color: var(--color-text-white);
     }
 
     .ui-random-event-choice-btn:hover .ui-random-event-choice-arrow,
@@ -3146,7 +3369,7 @@
 
     .ui-random-event-choice-text {
       font-size: clamp(12px, 1.7vw, 15px);
-      color: #e8d5a3;
+      color: var(--color-text-cream);
       line-height: 1.5;
       flex: 1;
       transition: color 0.2s;
@@ -3156,7 +3379,7 @@
 
     .ui-random-event-choice-arrow {
       font-size: clamp(12px, 1.7vw, 16px);
-      color: #5a5a6a;
+      color: var(--color-text-gray-cool);
       opacity: 0.4;
       transition: all 0.2s;
       flex-shrink: 0;
@@ -3216,8 +3439,8 @@
       border-radius: var(--radius-sharp);
     }
 
-    .ui-random-event-feedback-item.positive { color: #40C040; }
-    .ui-random-event-feedback-item.negative { color: #E04040; }
+    .ui-random-event-feedback-item.positive { color: var(--color-success); }
+    .ui-random-event-feedback-item.negative { color: var(--color-danger); }
 
     @keyframes feedbackItemPop {
       0% { transform: translateY(30px) scale(0.5); opacity: 0; }
@@ -3318,7 +3541,7 @@
 
     .ui-settlement-label {
       font-size: clamp(10px, 1.3vw, 13px);
-      color: #8a7a5a;
+      color: var(--color-text-muted);
       letter-spacing: clamp(3px, 0.6vw, 6px);
       text-transform: uppercase;
       margin-bottom: clamp(4px, 0.8vh, 8px);
@@ -3343,7 +3566,7 @@
     .ui-settlement-stage-num {
       display: inline-block;
       font-size: clamp(14px, 2vw, 20px);
-      color: #c09830;
+      color: var(--color-gold-border);
       margin-right: clamp(6px, 1vw, 10px);
       font-weight: 400;
       letter-spacing: 2px;
@@ -3368,7 +3591,7 @@
 
     .ui-settlement-text {
       font-size: clamp(12px, 1.7vw, 15px);
-      color: #e8d5a3;
+      color: var(--color-text-cream);
       line-height: 1.8;
       margin-bottom: clamp(8px, 1.5vh, 14px);
       text-align: center;
@@ -3383,7 +3606,7 @@
 
     .ui-settlement-result-item {
       font-size: clamp(11px, 1.5vw, 14px);
-      color: #c09830;
+      color: var(--color-gold-border);
       padding: clamp(3px, 0.5vh, 6px) clamp(8px, 1.2vw, 14px);
       background: rgba(240, 192, 64, 0.05);
       border-left: 2px solid rgba(240, 192, 64, 0.3);
@@ -3429,7 +3652,7 @@
     .ui-settlement-attr-bar-bg {
       flex: 1;
       height: clamp(8px, 1.4vh, 12px);
-      background: #0d0d1a;
+      background: var(--color-bg-deep);
       border: 1px solid rgba(255, 255, 255, 0.06);
       overflow: hidden;
       position: relative;
@@ -3463,7 +3686,7 @@
 
     .ui-settlement-attr-values {
       font-size: clamp(9px, 1.2vw, 11px);
-      color: #5a5a6a;
+      color: var(--color-text-gray-cool);
       width: clamp(50px, 8vw, 70px);
       text-align: center;
       flex-shrink: 0;
@@ -3480,7 +3703,7 @@
 
     .ui-settlement-countdown {
       font-size: clamp(9px, 1.2vw, 12px);
-      color: #5a5a6a;
+      color: var(--color-text-gray-cool);
       letter-spacing: 1px;
     }
 
@@ -3502,8 +3725,8 @@
 
     .ui-settlement-continue:hover {
       background: rgba(240, 192, 64, 0.12);
-      border-color: #ffd860;
-      color: #ffffff;
+      border-color: var(--color-gold-light);
+      color: var(--color-text-white);
       box-shadow: 0 0 16px rgba(240, 192, 64, 0.25);
     }
 
@@ -3600,7 +3823,7 @@
 
     .ui-settlement-achievement-label {
       font-size: clamp(9px, 1.2vw, 11px);
-      color: #c09830;
+      color: var(--color-gold-border);
       letter-spacing: clamp(2px, 0.5vw, 4px);
       text-transform: uppercase;
       font-weight: 600;
@@ -3700,10 +3923,13 @@
     }
 
     .ui-intro-text-layer {
-      position: relative;
+      position: absolute;
+      left: 0;
+      right: 0;
+      /* 文案置底，把上半屏留给星图；叠加安全区防止刘海屏遮挡 */
+      bottom: calc(13vh + env(safe-area-inset-bottom, 0px));
       z-index: 3;
       text-align: center;
-      margin-top: 18vh;
       min-height: 160px;
     }
 
@@ -3711,7 +3937,7 @@
       font-size: clamp(22px, 3vw, 38px);
       font-weight: 300;
       letter-spacing: 0.15em;
-      line-height: 2;
+      line-height: 1.9;
       white-space: nowrap;
       opacity: 0;
       transition: opacity 0.8s ease;
@@ -3719,6 +3945,13 @@
       text-shadow:
         0 0 20px rgba(240, 192, 64, 0.35),
         0 2px 8px rgba(0, 0, 0, 0.6);
+    }
+
+    @media (max-width: 360px) {
+      .ui-intro-line {
+        font-size: clamp(18px, 3vw, 38px);
+        letter-spacing: 0.08em;
+      }
     }
 
     .ui-intro-line.visible { opacity: 1; }
@@ -3738,6 +3971,22 @@
       opacity: 1;
       transform: translateY(0) scale(1);
       filter: blur(0);
+    }
+
+    /* 高亮字（如"他"）：金色加粗，暗扣主角 */
+    .ui-intro-char-hl {
+      color: var(--color-gold);
+      font-weight: 700;
+      text-shadow:
+        0 0 24px rgba(240, 192, 64, 0.7),
+        0 2px 8px rgba(0, 0, 0, 0.6);
+    }
+
+    /* 无障碍：尊重 prefers-reduced-motion，关闭背景脉冲 */
+    @media (prefers-reduced-motion: reduce) {
+      .ui-intro-overlay::before { animation: none; }
+      .ui-intro-char { transition: none; transform: none; filter: none; }
+      .ui-intro-skip-hint.visible { animation: none; }
     }
 
     .ui-intro-skip-hint {
@@ -3845,7 +4094,7 @@
       text-shadow:
         0 0 14px rgba(240, 192, 64, 0.55),
         0 0 44px rgba(240, 192, 64, 0.2),
-        0 2px 0 #c09830,
+        0 2px 0 var(--color-gold-border),
         0 4px 24px rgba(0, 0, 0, 0.85);
       line-height: 1.15;
       position: relative;
@@ -3868,7 +4117,7 @@
 
     .ui-boot-subtitle {
       font-size: clamp(13px, 2.4vw, 22px);
-      color: #e8d5a3;
+      color: var(--color-text-cream);
       margin-top: clamp(6px, 1.5vh, 14px);
       letter-spacing: clamp(4px, 1vw, 12px);
       text-shadow: 0 0 8px rgba(240, 192, 64, 0.18), 0 2px 8px rgba(0,0,0,0.7);
@@ -3948,7 +4197,8 @@
     }
     .ui-boot-guide-toggle {
       display: flex; align-items: center; justify-content: flex-start; gap: 8px;
-      padding: 8px 12px; cursor: pointer;
+      width: 100%; min-height: 44px; padding: 8px 12px; cursor: pointer;
+      border: 0; background: transparent; text-align: left; font-family: inherit;
       font-size: clamp(11px, 1.5vw, 13px); color: var(--color-text-secondary);
       letter-spacing: 0.06em; transition: color 0.2s;
       user-select: none;
@@ -3987,7 +4237,7 @@
       color: var(--color-bg-dark); background: var(--color-gold); border-radius: var(--radius-round);
     }
     .ui-boot-guide-text {
-      font-size: clamp(11px, 1.5vw, 13px); color: #c8b88a; line-height: 1.6;
+      font-size: clamp(11px, 1.5vw, 13px); color: var(--color-text-cream-dark); line-height: 1.6;
     }
     .ui-boot-guide-text b { color: var(--color-gold); font-weight: 600; }
 
@@ -4039,7 +4289,7 @@
       display: flex; flex-direction: column; gap: 4px;
       margin-top: 10px; padding-top: 10px;
       border-top: 1px solid rgba(240, 192, 64, 0.1);
-      font-size: clamp(10px, 1.3vw, 11px); color: #8a7a5a;
+      font-size: clamp(10px, 1.3vw, 11px); color: var(--color-text-muted);
     }
     .ui-boot-guide-kbd-tip { display: none; }
     @media (hover: hover) and (pointer: fine) {
@@ -4065,7 +4315,7 @@
       font-family: inherit;
       font-size: clamp(13px, 1.8vw, 17px);
       cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: background 0.3s, border-image 0.3s, box-shadow 0.3s, color 0.3s, transform 0.3s;
       position: relative;
       font-weight: 700;
       touch-action: manipulation;
@@ -4073,6 +4323,26 @@
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       overflow: hidden;
+      /* R28-T2: 按钮入场动画（stagger 由 JS 设置 animationDelay） */
+      animation: bootBtnIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    /* R28-T2: 标题按钮入场——上浮 + 淡入 + 轻微缩放 */
+    @keyframes bootBtnIn {
+      from {
+        opacity: 0;
+        transform: translateY(14px) scale(0.94);
+        filter: brightness(1.4);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: brightness(1);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ui-boot-btn { animation: none; opacity: 1; transform: none; }
     }
 
     .ui-boot-btn::before {
@@ -4091,7 +4361,7 @@
         0 0 20px rgba(240, 192, 64, 0.35),
         0 4px 20px rgba(240, 192, 64, 0.15),
         inset 0 0 12px rgba(240, 192, 64, 0.08);
-      color: #ffffff;
+      color: var(--color-text-white);
       transform: translateY(-2px) scale(1.02);
     }
     .ui-boot-btn:hover::before { opacity: 1; }
@@ -4105,8 +4375,9 @@
     }
 
     /* 呼吸灯效果 - 应用在主按钮上 */
+    /* R28-T2: 入场动画 + 呼吸灯（入场 0.5s 后呼吸灯接管） */
     .ui-boot-btn-primary {
-      animation: bootBtnBreath 3s ease-in-out infinite;
+      animation: bootBtnIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both, bootBtnBreath 3s ease-in-out infinite 0.5s;
       border-color: var(--color-gold);
     }
     @keyframes bootBtnBreath {
@@ -4314,7 +4585,7 @@
     }
     .ui-achievement-gallery-progress-fill {
       height: 100%;
-      background: linear-gradient(90deg, #c09830, var(--color-gold));
+      background: linear-gradient(90deg, var(--color-gold-border), var(--color-gold));
       border-radius: var(--radius-soft);
       transition: width 1s ease;
     }
@@ -4408,7 +4679,7 @@
     .ui-achievement-gallery-intro-row {
       display: flex; align-items: center; gap: 6px;
       padding: 2px 0;
-      font-size: clamp(10px, 1.2vw, 11px); color: #8a7a5a; line-height: 1.5;
+      font-size: clamp(10px, 1.2vw, 11px); color: var(--color-text-muted); line-height: 1.5;
     }
     .ui-achievement-gallery-intro-row b { color: #c8a040; font-weight: 600; }
     .ui-achievement-gallery-intro-icon { font-size: 12px; flex-shrink: 0; }
@@ -4786,7 +5057,7 @@
     }
     .ui-ending-gallery-progress-fill {
       height: 100%;
-      background: linear-gradient(90deg, #c09830, var(--color-gold));
+      background: linear-gradient(90deg, var(--color-gold-border), var(--color-gold));
       border-radius: var(--radius-soft);
       transition: width 1s ease;
     }
@@ -4794,7 +5065,7 @@
       padding: 8px 16px 10px;
       border-bottom: 1px solid rgba(240, 192, 64, 0.1);
       font-size: clamp(10px, 1.2vw, 12px);
-      color: #8a7a5a;
+      color: var(--color-text-muted);
       line-height: 1.6;
       text-align: center;
     }
@@ -4827,6 +5098,21 @@
       text-align: center;
       gap: 3px;
       transition: all 0.15s ease;
+      /* R38: stagger 入场动画 */
+      opacity: 0;
+      transform: translateY(8px);
+      animation: ending-gallery-card-in 0.4s ease-out forwards;
+      animation-delay: calc(var(--card-index, 0) * 40ms);
+    }
+    @keyframes ending-gallery-card-in {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ui-ending-gallery-card-item {
+        animation: none;
+        opacity: 1;
+        transform: none;
+      }
     }
     .ui-ending-gallery-card-unlocked {
       border-color: rgba(240, 192, 64, 0.35);
@@ -4876,6 +5162,172 @@
       font-style: italic;
     }
 
+    /* === R38: 新结局解锁仪式横幅 === */
+    .ui-ending-new-ending-banner {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translate(-50%, -100%);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 28px;
+      background: linear-gradient(135deg, rgba(240, 192, 64, 0.18), rgba(240, 192, 64, 0.08));
+      border: 1px solid var(--color-gold);
+      border-radius: 0 0 var(--radius-sharp) var(--radius-sharp);
+      border-top: none;
+      box-shadow: 0 4px 24px rgba(240, 192, 64, 0.4), inset 0 0 12px rgba(240, 192, 64, 0.15);
+      opacity: 0;
+      z-index: 50;
+      pointer-events: none;
+      transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease;
+    }
+    .ui-ending-new-ending-banner.visible {
+      transform: translate(-50%, 0);
+      opacity: 1;
+      animation: new-ending-glow-pulse 1.2s ease-in-out infinite alternate;
+    }
+    .ui-ending-new-ending-banner.leaving {
+      transform: translate(-50%, -100%);
+      opacity: 0;
+      transition: transform 0.4s cubic-bezier(0.55, 0, 0.85, 0), opacity 0.4s ease;
+    }
+    .ui-ending-new-ending-icon {
+      font-size: 14px;
+      color: var(--color-gold);
+      text-shadow: 0 0 8px rgba(240, 192, 64, 0.8);
+      animation: new-ending-icon-spin 2s ease-in-out infinite;
+    }
+    .ui-ending-new-ending-text {
+      font-size: clamp(13px, 2vw, 16px);
+      font-weight: 700;
+      color: var(--color-gold);
+      letter-spacing: 3px;
+      text-shadow: 0 0 6px rgba(240, 192, 64, 0.6), 0 1px 2px rgba(0, 0, 0, 0.8);
+    }
+    @keyframes new-ending-glow-pulse {
+      from { box-shadow: 0 4px 24px rgba(240, 192, 64, 0.4), inset 0 0 12px rgba(240, 192, 64, 0.15); }
+      to { box-shadow: 0 4px 36px rgba(240, 192, 64, 0.7), inset 0 0 20px rgba(240, 192, 64, 0.3); }
+    }
+    @keyframes new-ending-icon-spin {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      50% { transform: scale(1.2) rotate(180deg); }
+    }
+    /* 粒子爆发火花 */
+    .ui-ending-new-ending-spark {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 4px;
+      height: 4px;
+      margin: -2px 0 0 -2px;
+      background: var(--color-gold);
+      border-radius: 50%;
+      box-shadow: 0 0 6px rgba(240, 192, 64, 0.9);
+      opacity: 0;
+      transform: translate(0, 0) scale(0);
+    }
+    .ui-ending-new-ending-banner.visible .ui-ending-new-ending-spark {
+      animation: new-ending-spark-burst 0.9s ease-out var(--spark-delay, 0ms) forwards;
+    }
+    @keyframes new-ending-spark-burst {
+      0% {
+        opacity: 1;
+        transform: translate(0, 0) scale(0);
+      }
+      40% {
+        opacity: 1;
+        transform: translate(calc(var(--spark-tx) * 0.6), calc(var(--spark-ty) * 0.6)) scale(1.5);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(var(--spark-tx), var(--spark-ty)) scale(0.3);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ui-ending-new-ending-banner,
+      .ui-ending-new-ending-banner.visible,
+      .ui-ending-new-ending-banner.leaving,
+      .ui-ending-new-ending-icon,
+      .ui-ending-new-ending-banner.visible .ui-ending-new-ending-spark {
+        animation: none;
+        transition: opacity 0.3s ease;
+      }
+      .ui-ending-new-ending-banner.visible {
+        transform: translate(-50%, 0);
+      }
+    }
+
+    /* === R39: 章节转场动画 === */
+    /* 章号变化时全屏显示章节卡片：淡入→停留→淡出，纯视觉不阻断点击 */
+    .ui-chapter-transition {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(ellipse at center, rgba(10,10,15,0.55) 0%, rgba(10,10,15,0.82) 100%);
+      opacity: 0;
+      z-index: 240;
+      pointer-events: none;
+      transition: opacity 0.32s ease-out;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+    .ui-chapter-transition.visible {
+      opacity: 1;
+    }
+    .ui-chapter-transition.leaving {
+      opacity: 0;
+      transition: opacity 0.3s ease-in;
+    }
+    .ui-chapter-transition-card {
+      text-align: center;
+      padding: 28px 48px;
+      background: rgba(13, 13, 28, 0.92);
+      border: 1px solid var(--color-gold);
+      border-radius: var(--radius-sharp, 2px);
+      box-shadow: 0 0 32px rgba(240, 192, 64, 0.25), inset 0 0 16px rgba(240, 192, 64, 0.08);
+      transform: translateY(10px) scale(0.98);
+      transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .ui-chapter-transition.visible .ui-chapter-transition-card {
+      transform: translateY(0) scale(1);
+    }
+    .ui-chapter-transition-divider {
+      color: var(--color-gold);
+      font-size: 12px;
+      letter-spacing: 6px;
+      opacity: 0.7;
+      margin: 4px 0;
+    }
+    .ui-chapter-transition-act {
+      font-family: var(--font-pixel, "Press Start 2P", monospace);
+      color: var(--color-gold);
+      font-size: 22px;
+      letter-spacing: 3px;
+      margin: 8px 0 6px;
+      text-shadow: 0 0 12px rgba(240, 192, 64, 0.5);
+    }
+    .ui-chapter-transition-sub {
+      color: var(--color-text-secondary, #b8b8c8);
+      font-size: 12px;
+      letter-spacing: 1px;
+      line-height: 1.6;
+      max-width: min(70vw, 420px);
+      margin: 0 auto;
+    }
+    @media (max-width: 480px) {
+      .ui-chapter-transition-card { padding: 22px 28px; }
+      .ui-chapter-transition-act { font-size: 18px; letter-spacing: 2px; }
+      .ui-chapter-transition-sub { font-size: 11px; }
+      .ui-chapter-transition-divider { font-size: 10px; letter-spacing: 4px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ui-chapter-transition { transition: opacity 0.15s ease; }
+      .ui-chapter-transition-card { transition: none; transform: none; }
+      .ui-chapter-transition.visible .ui-chapter-transition-card { transform: none; }
+    }
+
     /* === 选择天平动画（默认隐藏，仅在hover时微调显示） === */
     .choice-balance {
       display: none;
@@ -4914,6 +5366,7 @@
 
     /* === 杀手级时刻 AI 动态点评（复赛创新性记忆点）=== */
     /* 比普通 life-echo 更强的视觉权重：红色危险色 + 更大字号 + 5 秒仪式感 */
+    /* 2026-07-24 可读性修复：加半透明 scrim 背板，避免文字直接压在复杂场景上（如直播环形灯/白板） */
     .life-echo.killer {
       font-size: 1.45rem;
       font-weight: 600;
@@ -4926,6 +5379,13 @@
       font-style: normal;
       max-width: 86vw;
       line-height: 1.6;
+      padding: 0.45em 0.95em;
+      background: rgba(8, 8, 18, 0.62);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border: 1px solid rgba(224, 64, 64, 0.28);
+      border-radius: 6px;
+      box-shadow: 0 6px 32px rgba(0, 0, 0, 0.55);
       animation: killerEcho 5s ease forwards;
     }
     @keyframes killerEcho {
@@ -5064,6 +5524,7 @@
       .ui-dialog {
         max-height: 35vh;
         padding: 6px 10px;
+        padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
         min-height: 60px;
       }
       .ui-dialog-name {
@@ -5241,6 +5702,7 @@
       .ui-dialog {
         max-height: 30vh;
         padding: 4px 8px;
+        padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
         min-height: 48px;
       }
       .ui-dialog-text {
@@ -5429,11 +5891,12 @@
 
         <!-- 玩法指引卡片：默认折叠，点击展开（避免遮挡按钮） -->
         <div class="ui-boot-guide collapsed" id="ui-boot-guide">
-          <div class="ui-boot-guide-toggle" id="ui-boot-guide-toggle">
+          <button class="ui-boot-guide-toggle" id="ui-boot-guide-toggle" type="button"
+            aria-expanded="false" aria-controls="ui-boot-guide-body">
             <span class="ui-boot-guide-icon">?</span>
             <span class="ui-boot-guide-label">怎么玩</span>
             <span class="ui-boot-guide-arrow" id="ui-boot-guide-arrow">▾</span>
-          </div>
+          </button>
           <div class="ui-boot-guide-body" id="ui-boot-guide-body">
             <div class="ui-boot-guide-item">
               <span class="ui-boot-guide-step">1</span>
@@ -5456,28 +5919,28 @@
                 <span class="ui-boot-guide-stat-desc">信念与坚持，越高越不妥协。达标可解锁<b>理想主义选项</b></span>
               </div>
               <div class="ui-boot-guide-stat-row">
-                <span class="ui-boot-guide-stat-icon" style="color:#40c060;">¥</span>
+                <span class="ui-boot-guide-stat-icon" style="color:var(--color-wealth);">¥</span>
                 <span class="ui-boot-guide-stat-label">财富</span>
                 <span class="ui-boot-guide-stat-desc">经济实力，影响商业决策底气</span>
               </div>
               <div class="ui-boot-guide-stat-row">
-                <span class="ui-boot-guide-stat-icon" style="color:#4090e0;">★</span>
+                <span class="ui-boot-guide-stat-icon" style="color:var(--color-reputation);">★</span>
                 <span class="ui-boot-guide-stat-label">名声</span>
                 <span class="ui-boot-guide-stat-desc">社会影响力，达标可当<b>维权斗士</b></span>
               </div>
               <div class="ui-boot-guide-stat-row">
-                <span class="ui-boot-guide-stat-icon" style="color:#e04040;">✕</span>
+                <span class="ui-boot-guide-stat-icon" style="color:var(--color-failures);">✕</span>
                 <span class="ui-boot-guide-stat-label">翻车</span>
                 <span class="ui-boot-guide-stat-desc">失败次数，越多越容易触发负面事件</span>
               </div>
               <div class="ui-boot-guide-stat-row">
-                <span class="ui-boot-guide-stat-icon" style="color:#8040c0;">◈</span>
+                <span class="ui-boot-guide-stat-icon" style="color:var(--color-pressure);">◈</span>
                 <span class="ui-boot-guide-stat-label">压力</span>
                 <span class="ui-boot-guide-stat-desc">心理负担，过高会<b>崩溃</b>。找朋友倾诉可减压</span>
                 <span class="ui-boot-guide-hidden-tag">隐藏</span>
               </div>
               <div class="ui-boot-guide-stat-row">
-                <span class="ui-boot-guide-stat-icon" style="color:#40c0c0;">◇</span>
+                <span class="ui-boot-guide-stat-icon" style="color:var(--color-trust);">◇</span>
                 <span class="ui-boot-guide-stat-label">信任</span>
                 <span class="ui-boot-guide-stat-desc">公众信赖，守信增加，违约降低。达标可做<b>公益</b></span>
                 <span class="ui-boot-guide-hidden-tag">隐藏</span>
@@ -5609,12 +6072,38 @@
       window.luohammerDeferredPrompt = null;
     });
   </script>
+  <script type="module" src="/src/main.js"></script>
   <script>
     (function() {
       if (!('serviceWorker' in navigator)) return;
       // 开发环境（src/main.js）不注册 Service Worker，避免干扰 Vite HMR
       var mainScript = document.querySelector('script[src*="/src/main.js"]');
-      if (mainScript) return;
+      if (mainScript) {
+        var clearRegistration = navigator.serviceWorker.getRegistration('./')
+          .then(function(reg) { return reg ? reg.unregister() : false; });
+        var clearCaches = 'caches' in window
+          ? window.caches.keys().then(function(keys) {
+              return Promise.all(
+                keys
+                  .filter(function(key) { return key.indexOf('luohammer-') === 0; })
+                  .map(function(key) { return window.caches.delete(key); })
+              );
+            })
+          : Promise.resolve();
+
+        Promise.all([clearRegistration, clearCaches])
+          .then(function() {
+            var reloadKey = 'luohammer-dev-cache-cleared';
+            if (navigator.serviceWorker.controller && !sessionStorage.getItem(reloadKey)) {
+              sessionStorage.setItem(reloadKey, '1');
+              window.location.reload();
+            }
+          })
+          .catch(function(err) {
+            console.warn('[PWA] Development cache cleanup failed:', err);
+          });
+        return;
+      }
 
       window.addEventListener('load', function() {
         var hadController = Boolean(navigator.serviceWorker.controller);
@@ -5638,7 +6127,6 @@
       });
     })();
   </script>
-  <script type="module" src="/src/main.js"></script>
 
   <!-- DOM Overlay 使用 fixed inset:0 铺满视口，不再需要同步 Canvas 位置 -->
 </body>

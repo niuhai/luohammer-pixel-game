@@ -833,8 +833,10 @@ export class PixelRenderer {
    * 销毁所有 Graphics 对象和 Sprite，释放资源（场景切换时调用）
    */
   destroy() {
-    // 任务2：停止心跳振动
+    // 任务2：停止心跳振动 + 清理递归 setTimeout（R20 P1-001）
     this._heartbeatActive = false;
+    if (this._heartbeatTimer1) { clearTimeout(this._heartbeatTimer1); this._heartbeatTimer1 = null; }
+    if (this._heartbeatTimer2) { clearTimeout(this._heartbeatTimer2); this._heartbeatTimer2 = null; }
 
     // 清理粒子
     this.particles.length = 0;
@@ -1202,11 +1204,15 @@ export class PixelRenderer {
    */
   _startHeartbeat(ratio) {
     if (!this._heartbeatActive) return;
+    // R24 P1-4：重入防御，清理旧 timer 引用（避免外部错误两次调用时第一次引用被覆盖）
+    if (this._heartbeatTimer1) { clearTimeout(this._heartbeatTimer1); this._heartbeatTimer1 = null; }
+    if (this._heartbeatTimer2) { clearTimeout(this._heartbeatTimer2); this._heartbeatTimer2 = null; }
     // 振动100ms（咚）
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
       try { navigator.vibrate(100); } catch (e) {}
     }
-    setTimeout(() => {
+    // R20 P1-001：保存 timer ID 到实例，destroy 时可 clearTimeout
+    this._heartbeatTimer1 = setTimeout(() => {
       if (!this._heartbeatActive) return;
       // 振动100ms（咚）
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -1214,7 +1220,7 @@ export class PixelRenderer {
       }
       // 停顿时间随压力增加而缩短
       const interval = Math.max(400, 1200 - ratio * 600);
-      setTimeout(() => this._startHeartbeat(ratio), interval);
+      this._heartbeatTimer2 = setTimeout(() => this._startHeartbeat(ratio), interval);
     }, 200);
   }
 

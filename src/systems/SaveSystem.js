@@ -273,8 +273,18 @@ export class SaveSystem {
   _migrate(state) {
     if (!state || typeof state !== 'object') return state;
     const ver = typeof state._version === 'number' ? state._version : 0;
-    // 未来如需 v1 → v2 迁移，可在此分支：
-    // if (ver < 2) { state.flags = state.flags || []; ... }
+    // v0 → v1：确保 flags/triggeredEvents 为数组
+    if (ver < 1) {
+      state.flags = Array.isArray(state.flags) ? state.flags : [];
+      state.triggeredEvents = Array.isArray(state.triggeredEvents) ? state.triggeredEvents : [];
+    }
+    // v1 → v2：补全可选属性默认值（旧存档可能缺失 trust/pressure/failures）
+    // 默认值与 ATTRIBUTES 的 min 对齐：trust=5（玩家初始信任），pressure=0，failures=0
+    if (ver < 2) {
+      if (typeof state.trust !== 'number' || !Number.isFinite(state.trust)) state.trust = 5;
+      if (typeof state.pressure !== 'number' || !Number.isFinite(state.pressure)) state.pressure = 0;
+      if (typeof state.failures !== 'number' || !Number.isFinite(state.failures)) state.failures = 0;
+    }
     // 兜底：确保最新版本号
     if (ver < SAVE_VERSION) {
       state._version = SAVE_VERSION;
