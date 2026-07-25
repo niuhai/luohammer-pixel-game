@@ -678,6 +678,28 @@
       100% { opacity: 0; transform: translateY(8px); }
     }
 
+    /* R45: "还有更多选项"吸底提示——sticky 吸住可视区底部，负 margin 覆盖末项下缘 */
+    /* 仅当容器可滚动且未滚到底时（.has-more）显示，滚到底自动淡出 */
+    .ui-choices-more {
+      position: sticky;
+      bottom: 0;
+      order: 999;
+      height: 26px;
+      margin: -26px calc(-1 * clamp(12px, 2vw, 20px)) calc(-1 * clamp(8px, 1.2vh, 12px));
+      flex-shrink: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      background: linear-gradient(180deg, rgba(10, 10, 26, 0), rgba(10, 10, 26, 0.92));
+      color: var(--color-gold);
+      font-size: 12px;
+      line-height: 1;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+    .ui-choices.has-more .ui-choices-more { opacity: 1; }
+
     /* --- 2选项：底部居中，横向并排（竖屏自动堆叠） --- */
     .ui-choices.layout-bottom {
       bottom: calc(var(--dialog-height, 30vh) + 14px);
@@ -782,6 +804,9 @@
     .ui-choice-btn {
       display: flex;
       align-items: flex-start;
+      /* R45: 禁止 flex 压缩——锁定选项的解锁提示（独占一行）曾被压到 overflow 裁掉 */
+      /* 容器本身 overflow-y:auto 兜底滚动，按钮按内容自然撑高 */
+      flex-shrink: 0;
       gap: clamp(8px, 1.2vw, 12px);
       padding: clamp(10px, 1.4vh, 14px) clamp(12px, 1.8vw, 18px);
       min-height: 48px;
@@ -1350,7 +1375,7 @@
     .ui-menu-toggle {
       position: fixed;
       top: calc(0.5vh + env(safe-area-inset-top, 0px));
-      right: calc(2vw + 50px);
+      right: calc(2vw + 52px); /* R73: 按钮间距 6px→8px（防误触阈值） */
       width: 44px;
       height: 44px;
       background: var(--color-bg-panel);
@@ -1392,7 +1417,7 @@
     .ui-narration-toggle {
       position: fixed;
       top: calc(env(safe-area-inset-top, 0px) + 0.5vh);
-      right: calc(2vw + 100px);
+      right: calc(2vw + 104px); /* R73: 按钮间距 6px→8px（44+8+52） */
       min-width: 52px;
       height: 44px;
       padding: 0 clamp(6px, 1vw, 10px);
@@ -1472,7 +1497,7 @@
     .ui-voice-toggle {
       position: fixed;
       top: calc(env(safe-area-inset-top, 0px) + 0.5vh);
-      right: calc(2vw + 158px);
+      right: calc(2vw + 164px); /* R73: 按钮间距 6px→8px（52+8+52） */
       min-width: 52px;
       height: 44px;
       padding: 0 clamp(6px, 1vw, 10px);
@@ -4004,13 +4029,57 @@
       filter: blur(0);
     }
 
-    /* 高亮字（如"他"）：金色加粗，暗扣主角 */
+    /* 高亮字（如"他"）：金色加粗 + 呼吸脉冲（2.4s，与中心心跳同频），暗扣主角 */
     .ui-intro-char-hl {
       color: var(--color-gold);
       font-weight: 700;
       text-shadow:
-        0 0 24px rgba(240, 192, 64, 0.7),
+        0 0 24px rgba(var(--color-gold-rgb), 0.7),
         0 2px 8px rgba(0, 0, 0, 0.6);
+    }
+
+    .ui-intro-char-hl.revealed {
+      animation: introHlPulse 2.4s ease-in-out 0.9s infinite;
+    }
+
+    @keyframes introHlPulse {
+      0%, 100% {
+        text-shadow:
+          0 0 24px rgba(var(--color-gold-rgb), 0.7),
+          0 2px 8px rgba(0, 0, 0, 0.6);
+      }
+      50% {
+        text-shadow:
+          0 0 38px rgba(255, 224, 128, 0.95),
+          0 0 14px rgba(var(--color-gold-rgb), 0.85),
+          0 2px 8px rgba(0, 0, 0, 0.6);
+      }
+    }
+
+    /* L3 金线下划：终局句落定时，一条金线从中心展开托住"他的路" */
+    .ui-intro-line { position: relative; }
+
+    .ui-intro-text-layer.finale .ui-intro-line.visible:last-child::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: 0.08em;
+      width: 58%;
+      height: 2px;
+      background: linear-gradient(90deg,
+        transparent,
+        var(--color-gold) 28%,
+        var(--color-gold) 72%,
+        transparent);
+      box-shadow: 0 0 10px rgba(var(--color-gold-rgb), 0.55);
+      transform: translateX(-50%) scaleX(0);
+      transform-origin: center;
+      animation: introUnderlineSweep 1.1s cubic-bezier(0.25, 0.46, 0.45, 0.94) 1.05s forwards;
+      pointer-events: none;
+    }
+
+    @keyframes introUnderlineSweep {
+      to { transform: translateX(-50%) scaleX(1); }
     }
 
     /* 无障碍：尊重 prefers-reduced-motion，关闭背景脉冲 */
@@ -4018,6 +4087,11 @@
       .ui-intro-overlay::before { animation: none; }
       .ui-intro-char { transition: none; transform: none; filter: none; }
       .ui-intro-skip-hint.visible { animation: none; }
+      .ui-intro-char-hl.revealed { animation: none; }
+      .ui-intro-text-layer.finale .ui-intro-line.visible:last-child::after {
+        animation: none;
+        transform: translateX(-50%) scaleX(1);
+      }
     }
 
     .ui-intro-skip-hint {
@@ -4066,6 +4140,18 @@
     }
 
     .ui-intro-fade.active { opacity: 1; }
+
+    /* 收场白闪层：星光回流中心后的白金爆发，白场顶点切入游戏。
+       body 级 fixed：scene.start 后不随 intro overlay 隐藏，
+       新场景首帧后由 IntroScene 淡出，完成跨场景"白光溶解"衔接 */
+    .ui-scene-flash {
+      position: fixed;
+      inset: 0;
+      background: var(--color-text-white);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 99989;
+    }
 
     /* === Boot Scene Overlay === */
     .ui-boot-overlay {
@@ -5560,6 +5646,14 @@
         padding-top: 40px; /* 给顶部提示条留空间 */
       }
 
+      /* R73: 竖屏 canvas 从垂直居中改为顶部对齐——
+         此前 Phaser FIT 居中使 canvas(234px) 落在 y≈328，被选项面板(340起)覆盖仅露 12px，
+         场景叙事全丢；顶部对齐后 canvas 44~278 完整可见，与选项面板(340起)零重叠。
+         !important 覆盖 Phaser Scale autoCenter 设置的内联 margin-top（横屏/桌面不命中此媒体查询） */
+      canvas {
+        margin-top: calc(env(safe-area-inset-top, 0px) + 44px) !important;
+      }
+
       /* 对话框缩小，避免遮挡过多场景 */
       .ui-dialog {
         max-height: 35vh;
@@ -5635,12 +5729,12 @@
         height: 44px;
       }
       .ui-menu-toggle {
-        right: calc(2vw + 50px);
+        right: calc(2vw + 52px); /* R73: 与桌面一致间距 8px */
         font-size: 9px;
       }
       .ui-narration-toggle {
         top: calc(env(safe-area-inset-top, 0px) + 52px);
-        right: calc(2vw + 100px);
+        right: calc(2vw + 104px); /* R73: 与桌面一致间距 8px */
         min-width: 52px;
         height: 44px;
         padding: 0 6px;
@@ -5648,7 +5742,7 @@
       }
       .ui-voice-toggle {
         top: calc(env(safe-area-inset-top, 0px) + 52px);
-        right: calc(2vw + 158px);
+        right: calc(2vw + 164px); /* R73: 与桌面一致间距 8px */
         min-width: 52px;
         height: 44px;
         padding: 0 6px;
@@ -5778,9 +5872,9 @@
       .scene-transition { animation: none !important; opacity: 1 !important; transform: none !important; }
     }
   </style>
-  <script type="module" crossorigin src="/luohammer-pixel-game/assets/index-Di2UOspr.js"></script>
+  <script type="module" crossorigin src="/luohammer-pixel-game/assets/index-C-mPHos4.js"></script>
   <link rel="modulepreload" crossorigin href="/luohammer-pixel-game/assets/phaser-DzVrRZrn.js">
-  <link rel="modulepreload" crossorigin href="/luohammer-pixel-game/assets/story-aSXmg4g3.js">
+  <link rel="modulepreload" crossorigin href="/luohammer-pixel-game/assets/story-DVRdcQSm.js">
 </head>
 <body>
 
@@ -5905,6 +5999,9 @@
       <div class="ui-intro-skip-hint" id="ui-intro-skip-hint">点击任意处或按空格跳过</div>
       <div class="ui-intro-fade" id="ui-intro-fade"></div>
     </div>
+
+    <!-- 跨场景白闪溶解层：开场收场白金爆发点亮，新场景首帧后淡出 -->
+    <div class="ui-scene-flash" id="ui-scene-flash" aria-hidden="true"></div>
 
     <!-- Boot Scene -->
     <div class="ui-boot-overlay" id="ui-boot-overlay">
