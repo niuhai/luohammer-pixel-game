@@ -3905,6 +3905,16 @@
 
     .ui-intro-overlay.visible { display: flex; }
 
+    /* 四角压暗 vignette：视线收束到星图中心（z-index 2：压在星图上、文案下） */
+    .ui-intro-overlay::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(ellipse at 50% 42%, transparent 52%, rgba(0, 0, 0, 0.44) 100%);
+      z-index: 2;
+    }
+
     /* 背景流动光晕 */
     .ui-intro-overlay::before {
       content: '';
@@ -5754,7 +5764,7 @@
       .scene-transition { animation: none !important; opacity: 1 !important; transform: none !important; }
     }
   </style>
-  <script type="module" crossorigin src="/luohammer-pixel-game/assets/index-CPpPsOZo.js"></script>
+  <script type="module" crossorigin src="/luohammer-pixel-game/assets/index-PhLVy4fj.js"></script>
   <link rel="modulepreload" crossorigin href="/luohammer-pixel-game/assets/phaser-DzVrRZrn.js">
   <link rel="modulepreload" crossorigin href="/luohammer-pixel-game/assets/story-B3j2t4Da.js">
 </head>
