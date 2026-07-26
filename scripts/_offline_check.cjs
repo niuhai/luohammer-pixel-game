@@ -37,12 +37,18 @@ const waitPort = (url, timeout = 30000) => new Promise((resolve, reject) => {
       }
       return counts;
     });
-    // 模拟断网方案B：路由级 abort（网络层全断，但 SW 缓存拦截仍在渲染进程内生效）。
-    // 注：Playwright ctx.setOffline 与 SW 子资源加载存在已知兼容问题（ERR_FAILED 假阳性），
-    // route.abort 更接近真实"服务器挂了/现场断网但 SW 健全"场景。
-    await ctx.route('**/*', (route) => route.abort());
+    // R84 终局判据：CDP setOffline/route.abort 都会误伤 SW 对 module script(cors) 的缓存响应
+    // （ERR_FAILED 假阳性：fetch() API 走同一 SW 缓存却 200）。改用**真实杀服务器**——
+    // TCP 拒绝连接，SW respondWith 是浏览器内纯内存操作，不受网络栈影响，等价评委现场服务器挂掉。
+    // Windows: shell:true 的 spawn 需 taskkill /T /F 杀进程树，否则 node 子进程残留端口未释放=假离线。
+    try { require('child_process').execSync(`taskkill /pid ${preview.pid} /T /F`, { stdio: 'ignore' }); } catch {}
+    await new Promise((r) => setTimeout(r, 1200)); // 等端口真正释放
+    const navLog = [];
+    page.on('framenavigated', (f) => { if (f === page.mainFrame()) navLog.push(f.url().slice(-60)); });
+    page.on('crash', () => navLog.push('PAGE_CRASHED'));
     const failedReqs = [];
     const consoleErrs = [];
+    page.on('requestfailed', (r) => failedReqs.push(r.url().slice(-70) + ' | ' + (r.failure() && r.failure().errorText)));
     page.on('console', (m) => { if (m.type() === 'error') consoleErrs.push(m.text().slice(0, 150)); });
     page.on('pageerror', (e) => consoleErrs.push('PAGEERROR: ' + String(e).slice(0, 150)));
     let offlineOK = false; let bootVisible = false; let errText = null;
@@ -51,45 +57,85 @@ const waitPort = (url, timeout = 30000) => new Promise((resolve, reject) => {
       bootVisible = await page.locator('#ui-boot-overlay').isVisible({ timeout: 10000 });
       offlineOK = true;
     } catch (e) { errText = String(e).slice(0, 200); }
+    // R84 关键链路：离线状态下点"开始游戏"→ 动态 import GameScene chunk → 天赋 overlay
+    // 验证 SW 预缓存是否覆盖懒加载 chunk（v9 起 precacheAppShell 提取 __vite__mapDeps 全量 chunk）
+    let offlineGameplay = null;
+    if (bootVisible) {
+      try {
+        await page.locator('#ui-boot-buttons button', { hasText: '开始游戏' }).click({ timeout: 5000 });
+        // IntroScene 空格推进 → 天赋 overlay 出现即证明 GameScene 链路 chunk 全部离线可达
+        let talentOk = false;
+        for (let i = 0; i < 12; i++) {
+          talentOk = await page.evaluate(() => {
+            const el = document.querySelector('.ui-talent-overlay');
+            return !!(el && getComputedStyle(el).display !== 'none' && el.offsetHeight > 0);
+          });
+          if (talentOk) break;
+          await page.keyboard.press('Space');
+          await page.waitForTimeout(700);
+        }
+        offlineGameplay = { talentOverlayReached: talentOk };
+      } catch (e) { offlineGameplay = { err: String(e).slice(0, 150) }; }
+    }
     // 离线状态下深挖：SW 控制状态 + cache.match 直连测试
-    const deep = await page.evaluate(async () => {
+    let deep = null;
+    try {
+      deep = await page.evaluate(async () => {
       const out = { controller: Boolean(navigator.serviceWorker && navigator.serviceWorker.controller) };
       try {
-        const c = await caches.open('luohammer-v8-prod');
-        const m1 = await c.match('/luohammer-pixel-game/assets/index-PhLVy4fj.js');
-        const m2 = await c.match('./assets/index-PhLVy4fj.js');
-        const m3 = await c.match('assets/index-PhLVy4fj.js');
-        out.matchAbs = Boolean(m1); out.matchDot = Boolean(m2); out.matchRel = Boolean(m3);
-        if (m1) { out.cachedType = m1.type; out.cachedStatus = m1.status; }
-        const keys = (await c.keys()).map((r) => ({ url: r.url.slice(-50), mode: r.mode }));
-        out.keyModes = keys;
+        const cacheNames = await caches.keys();
+        out.cacheNames = cacheNames;
+        const prodName = cacheNames.find((n) => n.startsWith('luohammer-'));
+        const c = await caches.open(prodName);
+        const allKeys = await c.keys();
+        // R84：hash 随构建变化，改为从缓存 keys 动态选取，避免硬编码 hash 失效
+        const indexKey = allKeys.find((r) => /\/assets\/index-[^/]+\.js$/.test(r.url));
+        const phaserKey = allKeys.find((r) => /\/assets\/phaser-[^/]+\.js$/.test(r.url));
+        const chunkKey = allKeys.find((r) => /\/assets\/GameScene-[^/]+\.js$/.test(r.url));
+        const endingKey = allKeys.find((r) => /\/assets\/EndingScene-[^/]+\.js$/.test(r.url));
+        const eventsKey = allKeys.find((r) => /\/assets\/events-random-[^/]+\.js$/.test(r.url));
+        out.lazyChunksCached = { gameScene: Boolean(chunkKey), endingScene: Boolean(endingKey), eventsRandom: Boolean(eventsKey) };
+        const probe = indexKey ? indexKey.url.replace(/^https?:\/\/[^/]+/, '') : null;
+        out.probedIndex = probe ? probe.slice(-40) : 'NOT_FOUND';
+        if (probe) {
+          const m1 = await c.match(probe);
+          const m2 = await c.match('.' + probe.replace('/luohammer-pixel-game', ''));
+          const m3 = await c.match(probe.replace('/luohammer-pixel-game/', ''));
+          out.matchAbs = Boolean(m1); out.matchDot = Boolean(m2); out.matchRel = Boolean(m3);
+          if (m1) { out.cachedType = m1.type; out.cachedStatus = m1.status; }
+        }
         // 通过 SW 发一次真实 fetch
         try {
-          const f = await fetch('/luohammer-pixel-game/assets/phaser-DzVrRZrn.js');
+          const f = await fetch(phaserKey ? phaserKey.url.replace(/^https?:\/\/[^/]+/, '') : '/luohammer-pixel-game/assets/phaser-DzVrRZrn.js');
           out.swFetchStatus = f.status;
           out.swFetchType = f.headers.get('content-type');
         } catch (e) { out.swFetchErr = String(e).slice(0, 120); }
         // 动态 import（模块加载路径，等同 <script type=module>）
-        try {
-          await import('/luohammer-pixel-game/assets/story-B3j2t4Da.js');
-          out.dynamicImport = 'OK';
-        } catch (e) { out.dynamicImport = String(e).slice(0, 150); }
-        // 动态插入 script 标签
-        try {
-          await new Promise((res, rej) => {
-            const s = document.createElement('script');
-            s.type = 'module';
-            s.src = '/luohammer-pixel-game/assets/story-B3j2t4Da.js';
-            s.onload = () => res();
-            s.onerror = () => rej(new Error('script tag load error'));
-            document.head.appendChild(s);
-          });
-          out.scriptTag = 'OK';
-        } catch (e) { out.scriptTag = String(e).slice(0, 150); }
+        const chunkPath = chunkKey ? chunkKey.url.replace(/^https?:\/\/[^/]+/, '') : null;
+        out.probedChunk = chunkPath ? chunkPath.slice(-40) : 'NOT_FOUND';
+        if (chunkPath) {
+          try {
+            await import(/* @vite-ignore */ chunkPath);
+            out.dynamicImport = 'OK';
+          } catch (e) { out.dynamicImport = String(e).slice(0, 150); }
+          // 动态插入 script 标签
+          try {
+            await new Promise((res, rej) => {
+              const s = document.createElement('script');
+              s.type = 'module';
+              s.src = chunkPath;
+              s.onload = () => res();
+              s.onerror = () => rej(new Error('script tag load error'));
+              document.head.appendChild(s);
+            });
+            out.scriptTag = 'OK';
+          } catch (e) { out.scriptTag = String(e).slice(0, 150); }
+        }
       } catch (e) { out.err = String(e).slice(0, 150); }
       return out;
     });
-    console.log(JSON.stringify({ cacheInfo, offlineOK, bootVisible, errText, deep, failedReqs: failedReqs.slice(0, 12), consoleErrs: consoleErrs.slice(0, 8) }, null, 2));
+    } catch (e) { deep = { evalErr: String(e).slice(0, 200) }; }
+    console.log(JSON.stringify({ cacheInfo, offlineOK, bootVisible, offlineGameplay, navLog, errText, deep, failedReqs: failedReqs.slice(0, 12), consoleErrs: consoleErrs.slice(0, 8) }, null, 2));
     await browser.close();
-  } finally { preview.kill(); }
+  } finally { try { require('child_process').execSync(`taskkill /pid ${preview.pid} /T /F`, { stdio: 'ignore' }); } catch {} }
 })();

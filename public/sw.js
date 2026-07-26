@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v8-prod';
+const CACHE_VERSION = 'v9-prod';
 const CACHE_NAME = `luohammer-${CACHE_VERSION}`;
 
 // 预缓存核心 HTML + 首屏关键图（标题背景，避免首屏白屏等待）
@@ -84,13 +84,49 @@ async function precacheAppShell() {
   const html = await indexResponse.clone().text();
   const revisionedAssets = [...html.matchAll(/(?:src|href)=["']([^"']*\/assets\/[^"']+\.(?:js|css))["']/g)]
     .map((match) => match[1]);
+
+  // R84：入口 chunk 内 __vite__mapDeps 持有全部懒加载 chunk（GameScene/EndingScene/
+  // events-random）的 hash 路径。仅预缓存 HTML 引用会让"离线点开始游戏"时动态 import
+  // 失败——评委现场断网只能停在标题屏。抓取入口 JS 文本，提取全部 chunk 一并预缓存。
+  const entryScripts = revisionedAssets.filter((asset) => asset.endsWith('.js'));
+  const chunkAssets = [];
+  for (const scriptUrl of entryScripts) {
+    try {
+      const scriptResponse = await fetch(scriptUrl, { cache: 'reload' });
+      if (!scriptResponse || !scriptResponse.ok) continue;
+      const scriptText = await scriptResponse.text();
+      const matches = scriptText.matchAll(/["'](assets\/[^"']+-[A-Za-z0-9_-]+\.js)["']/g);
+      for (const match of matches) {
+        // 统一为 ./ 相对路径，与 PRECACHE_ASSETS 键形式一致
+        chunkAssets.push('./' + match[1]);
+      }
+    } catch (error) {
+      // 单个入口抓取失败不阻塞安装；运行时 cacheFirst 仍可兜底
+    }
+  }
+
   const appShell = [...new Set([
     ...PRECACHE_ASSETS.filter((asset) => asset !== './index.html'),
-    ...revisionedAssets
+    ...revisionedAssets,
+    ...chunkAssets
   ])];
 
   await cache.put('./index.html', indexResponse);
-  await cache.addAll(appShell);
+  // R84：逐项缓存取代原子 addAll——任一单项 404/网络抖动不再摧毁整个 install
+  // （addAll 原子性 = 一个图标失败，全部 12 项核心 chunk 陪葬，离线能力归零）。
+  // 失败项写入调试键，线下诊断脚本可读取定位。
+  const results = await Promise.all(appShell.map(async (asset) => {
+    try {
+      await cache.add(asset);
+      return null;
+    } catch (error) {
+      return asset + ' :: ' + String((error && error.message) || error).slice(0, 80);
+    }
+  }));
+  const failures = results.filter(Boolean);
+  if (failures.length > 0) {
+    await cache.put('./__precache_failures__', new Response(JSON.stringify(failures)));
+  }
 }
 
 async function networkFirstNavigation(request) {

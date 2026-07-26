@@ -164,6 +164,32 @@ export class PixelRenderer {
     });
   }
 
+  /**
+   * 等比 cover 铺满目标区域，避免把 16:9 或其他比例的背景强行拉伸。
+   * 裁切基于纹理原始尺寸；setScale 则基于裁切尺寸计算最终可见区域。
+   */
+  _fitImageCover(image, targetWidth, targetHeight) {
+    const sourceWidth = image.frame.realWidth;
+    const sourceHeight = image.frame.realHeight;
+    const targetRatio = targetWidth / targetHeight;
+    const sourceRatio = sourceWidth / sourceHeight;
+    let cropX = 0;
+    let cropY = 0;
+    let cropWidth = sourceWidth;
+    let cropHeight = sourceHeight;
+
+    if (sourceRatio > targetRatio) {
+      cropWidth = Math.round(sourceHeight * targetRatio);
+      cropX = Math.floor((sourceWidth - cropWidth) / 2);
+    } else if (sourceRatio < targetRatio) {
+      cropHeight = Math.round(sourceWidth / targetRatio);
+      cropY = Math.floor((sourceHeight - cropHeight) / 2);
+    }
+
+    image.setCrop(cropX, cropY, cropWidth, cropHeight);
+    image.setScale(targetWidth / cropWidth, targetHeight / cropHeight);
+  }
+
   _createBgParticle(fromBottom = false) {
     const size = BG_PARTICLE_MIN_SIZE + Math.random() * (BG_PARTICLE_MAX_SIZE - BG_PARTICLE_MIN_SIZE);
     const speed = BG_PARTICLE_MIN_SPEED + Math.random() * (BG_PARTICLE_MAX_SPEED - BG_PARTICLE_MIN_SPEED);
@@ -491,7 +517,10 @@ export class PixelRenderer {
       ctx.font = '11px ' + fontFamily;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('— 天赋 —', W / 2, 506);
+      const comboTitle = state.talentCombo && state.talentCombo.title
+        ? `— 人生底色 · ${state.talentCombo.title} —`
+        : '— 天赋 —';
+      ctx.fillText(comboTitle, W / 2, 506);
       const cardW = 150;
       const cardH = 70;
       const cardGap = 15;
@@ -535,9 +564,15 @@ export class PixelRenderer {
 
         // 稀有度标签
         const rarityLabel = t.rarity === 'legendary' ? '传说' : t.rarity === 'rare' ? '稀有' : '普通';
+        const triggerKey = t.special || t.id;
+        const triggerCount = (state.talentTriggerCounts && state.talentTriggerCounts[triggerKey]) || 0;
         ctx.fillStyle = color;
         ctx.font = '9px ' + fontFamily;
-        ctx.fillText(rarityLabel, x + cardW / 2, cardY + 62);
+        ctx.fillText(
+          triggerCount > 0 ? `${rarityLabel} · 触发${triggerCount}次` : rarityLabel,
+          x + cardW / 2,
+          cardY + 62
+        );
       });
     }
     // 无天赋时整块留白（真实玩家开局必选 2 个天赋，此分支仅兜底注入存档等异常态）
@@ -743,8 +778,11 @@ export class PixelRenderer {
       // 程序化像素缓存纹理（cacheKey）保持默认采样不受影响。
       if (hasPreloadedTexture) {
         this.bgSprite.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+        this._fitImageCover(this.bgSprite, GAME_WIDTH, GAME_HEIGHT);
+      } else {
+        this.bgSprite.resetCrop();
+        this.bgSprite.setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
       }
-      this.bgSprite.setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
       this.bgSprite.setPosition(GAME_WIDTH / 2, GAME_HEIGHT / 2);
       this._fadeInBackground();
     } else {

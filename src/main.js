@@ -1,42 +1,60 @@
 import Phaser from 'phaser';
-import {
-  GAME_WIDTH,
-  GAME_HEIGHT,
-  ENDING_PRESENTATION_MAP,
-  SCENE_ASSETS
-} from './config.js';
+import { GAME_WIDTH, GAME_HEIGHT } from './config.js';
 import { IntroScene } from './scenes/IntroScene.js';
 import { BootScene } from './scenes/BootScene.js';
-import { GameScene } from './scenes/GameScene.js';
-import { EndingScene } from './scenes/EndingScene.js';
-import { ENDINGS } from './data/endings.js';
 
+// === 结局数据一致性检查（仅开发期）===
+// 生产首屏不应为了开发期校验同步下载结局数据。
+if (import.meta.env.DEV) {
+  Promise.all([import('./config.js'), import('./data/endings.js')]).then(([
+    { ENDING_PRESENTATION_MAP, SCENE_ASSETS },
+    { ENDINGS }
+  ]) => {
+    const endingIds = ENDINGS.map(e => e.id);
+    const validSceneTypes = new Set(SCENE_ASSETS.map(asset => asset.type));
+    const validBgmTypes = new Set(['ending_legendary', 'ending_tragic', 'ending_peaceful']);
+    const validParticleStyles = new Set(['legendary', 'tragic', 'peaceful', 'neutral']);
+    const missing = endingIds.filter(id => !ENDING_PRESENTATION_MAP[id]);
+    const invalid = endingIds.filter(id => {
+      const presentation = ENDING_PRESENTATION_MAP[id];
+      return presentation && (
+        !validSceneTypes.has(presentation.sceneType) ||
+        !validBgmTypes.has(presentation.bgmType) ||
+        !validParticleStyles.has(presentation.particleStyle)
+      );
+    });
+    if (missing.length) {
+      console.error('[Endings] 以下结局缺少完整呈现配置:', missing);
+    }
+    if (invalid.length) {
+      console.error('[Endings] 以下结局的呈现配置无效:', invalid);
+    }
+    if (!missing.length && !invalid.length && typeof console !== 'undefined' && console.debug) {
+      console.debug(`[Endings] ${endingIds.length} 个结局呈现配置校验通过`);
+    }
+  }).catch(error => console.warn('[Endings] 开发期一致性检查未完成:', error));
+}
 
-// === 结局数据一致性检查（开发期运行时防御）===
-(function validateEndingsConsistency() {
-  const endingIds = ENDINGS.map(e => e.id);
-  const validSceneTypes = new Set(SCENE_ASSETS.map(asset => asset.type));
-  const validBgmTypes = new Set(['ending_legendary', 'ending_tragic', 'ending_peaceful']);
-  const validParticleStyles = new Set(['legendary', 'tragic', 'peaceful', 'neutral']);
-  const missing = endingIds.filter(id => !ENDING_PRESENTATION_MAP[id]);
-  const invalid = endingIds.filter(id => {
-    const presentation = ENDING_PRESENTATION_MAP[id];
-    return presentation && (
-      !validSceneTypes.has(presentation.sceneType) ||
-      !validBgmTypes.has(presentation.bgmType) ||
-      !validParticleStyles.has(presentation.particleStyle)
-    );
-  });
-  if (missing.length) {
-    console.error('[Endings] 以下结局缺少完整呈现配置:', missing);
+// 主游戏与结局场景不阻塞标题首屏；标题可操作后在空闲时后台加载。
+let gameplayScenesPromise = null;
+function ensureGameplayScenes(game) {
+  if (game.scene.keys.GameScene && game.scene.keys.EndingScene) {
+    return Promise.resolve();
   }
-  if (invalid.length) {
-    console.error('[Endings] 以下结局的呈现配置无效:', invalid);
+  if (!gameplayScenesPromise) {
+    gameplayScenesPromise = Promise.all([
+      import('./scenes/GameScene.js'),
+      import('./scenes/EndingScene.js')
+    ]).then(([{ GameScene }, { EndingScene }]) => {
+      if (!game.scene.keys.GameScene) game.scene.add('GameScene', GameScene, false);
+      if (!game.scene.keys.EndingScene) game.scene.add('EndingScene', EndingScene, false);
+    }).catch(error => {
+      gameplayScenesPromise = null;
+      throw error;
+    });
   }
-  if (!missing.length && !invalid.length && typeof console !== 'undefined' && console.debug) {
-    console.debug(`[Endings] ${endingIds.length} 个结局呈现配置校验通过`);
-  }
-})();
+  return gameplayScenesPromise;
+}
 
 // === 全局错误捕获 ===
 // 捕获未处理的同步错误和 Promise 拒绝，防止白屏且便于生产排查
@@ -67,11 +85,12 @@ function getResponsiveConfig() {
       autoCenter: Phaser.Scale.CENTER_BOTH,
       resolution: 1 // Fixed at 1 for performance — avoids high-DPI buffer scaling issues
     },
-    scene: [BootScene, IntroScene, GameScene, EndingScene],
+    scene: [BootScene, IntroScene],
     // 竖屏标记，供 scene 读取
     callbacks: {
       preBoot: (game) => {
         game.registry.set('isPortraitMobile', mobilePortrait);
+        game.registry.set('ensureGameplayScenes', () => ensureGameplayScenes(game));
       }
     }
   };
@@ -104,28 +123,52 @@ const _loadingTimer = setInterval(() => {
   if (_loadingFill) _loadingFill.style.width = _loadingProgress + '%';
 }, 220);
 
+let _loadingHidden = false;
 function _hideLoading() {
+  if (_loadingHidden) return;
+  _loadingHidden = true;
   clearInterval(_loadingTimer);
   if (_loadingFill) _loadingFill.style.width = '100%';
   if (_loadingText) _loadingText.textContent = '准备好了。';
-  setTimeout(() => {
+  // 标题 DOM 已可操作，不再人为停留 250ms；下一帧立即让出交互，
+  // 仅保留一段很短的视觉淡出。
+  requestAnimationFrame(() => {
     if (_loadingEl) {
       _loadingEl.classList.add('hidden');
-      setTimeout(() => { if (_loadingEl) _loadingEl.remove(); }, 700);
+      setTimeout(() => { if (_loadingEl) _loadingEl.remove(); }, 300);
     }
-  }, 250);
+  });
 }
 
-// BootScene.create 执行完毕 = 标题画面 DOM 已就绪，可安全移除 loading
-game.events.once('ready', () => {
-  // 给标题画面一点渲染时间再淡出
-  setTimeout(_hideLoading, 150);
+function _warmGameplayScenes() {
+  const warm = () => ensureGameplayScenes(game).catch(error => {
+    console.warn('[Loading] 主游戏资源后台加载失败，将在进入游戏时重试:', error);
+  });
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(warm, { timeout: 1200 });
+  } else {
+    setTimeout(warm, 0);
+  }
+}
+
+// BootScene 完整建立标题 DOM 后立即让出首屏，并在浏览器空闲时加载剧情与主游戏。
+game.events.once('boot-ui-ready', () => {
+  _hideLoading();
+  _warmGameplayScenes();
 });
 
-// 早期兜底：3 秒后若 loading 仍在，强制移除（不等 6 秒，避免评委等待）
+// 生命周期兜底：若自定义就绪信号未触发，Phaser ready 后仍可快速进入标题。
+game.events.once('ready', () => {
+  setTimeout(() => {
+    _hideLoading();
+    _warmGameplayScenes();
+  }, 300);
+});
+
+// 早期兜底：2.5 秒后若 loading 仍在，强制让出交互。
 setTimeout(() => {
   if (_loadingEl && !_loadingEl.classList.contains('hidden')) _hideLoading();
-}, 3000);
+}, 2500);
 
 // Service Worker 注册已由 index.html 负责（含开发环境判断），此处不再重复注册
 

@@ -31,6 +31,9 @@ export class RandomEventSystem {
     this._choicesEl = document.getElementById('ui-random-event-choices');
     this._feedbackEl = document.getElementById('ui-random-event-feedback');
     this._feedbackListEl = document.getElementById('ui-random-event-feedback-list');
+    // R82 F2：标签/图标引用——隐藏事件时改写为"✦ 隐藏事件"金签名
+    this._labelEl = this._overlay ? this._overlay.querySelector('.ui-random-event-label') : null;
+    this._iconEl = this._overlay ? this._overlay.querySelector('.ui-random-event-header-icon') : null;
 
     // 键盘快捷键
     this._keyHandler = null;
@@ -217,9 +220,21 @@ export class RandomEventSystem {
     this.scene.input.keyboard.on('keydown', this._keyHandler);
 
     // 根据稀有度设置视觉风格
-    this._overlay.classList.remove('rarity-common', 'rarity-rare', 'rarity-legendary');
+    this._overlay.classList.remove('rarity-common', 'rarity-rare', 'rarity-legendary', 'hidden-event');
     if (event.rarity) {
       this._overlay.classList.add(`rarity-${event.rarity}`);
+    }
+
+    // R82 F2：隐藏事件金色签名——hidden:true 事件（流星→预言→天使投资叙事链）
+    // 此前随 rarity 染蓝/紫，与阈值事件/结局统计的"✦ 隐藏事件"亮橙金身份断裂，
+    // 评委触发签名隐藏链也认不出。覆写稀有度配色 + 标签改写为"✦ 隐藏事件"。
+    if (event.hidden) {
+      this._overlay.classList.add('hidden-event');
+      if (this._labelEl) this._labelEl.textContent = '✦ 隐藏事件';
+      if (this._iconEl) this._iconEl.textContent = '✦';
+    } else {
+      if (this._labelEl) this._labelEl.textContent = '随机事件';
+      if (this._iconEl) this._iconEl.textContent = '!';
     }
 
     // 两阶段显示：先设 visible(display:flex, opacity:0)，下一帧设 active(触发动画)
@@ -400,7 +415,7 @@ export class RandomEventSystem {
       this._overlay.removeEventListener('animationend', this._onShakeEnd);
       this._onShakeEnd = null;
     }
-    this._overlay.classList.remove('visible', 'active', 'closing', 'shake', 'rarity-common', 'rarity-rare', 'rarity-legendary');
+    this._overlay.classList.remove('visible', 'active', 'closing', 'shake', 'rarity-common', 'rarity-rare', 'rarity-legendary', 'hidden-event');
     this._overlay.removeAttribute('aria-busy');
     this._choicesEl.innerHTML = '';
     this._clearTouchHandlers();

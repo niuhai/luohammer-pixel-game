@@ -5,31 +5,42 @@
  * UI：5张语义化天赋卡片，点击选择2个后确认
  */
 
-/** 天赋特殊效果 key → 中文文案（卡片与 tooltip 共用；新增天赋 special 时必须同步补充，否则玩家会看到英文 key） */
-export const SPECIAL_LABELS = {
-  random_events_bias_positive: '随机事件更偏向好结果',
-  failure_heals_pride: '每次跌倒让理想主义更坚定',
-  fans_loyalty_bonus: '公众信任和名声双倍增长',
-  low_stats_bonus: '劣势状态下获得额外加成',
-  debt_reduction_bonus: '还债效率提升',
-  pressure_never_max: '压力永远不会爆表',
-  stage_events_bonus: '舞台表现事件奖励加倍',
-  product_events_bonus: '产品相关事件奖励加倍',
-  reality_distortion_field: '现实扭曲力场：极低概率的选择反而更稳',
-  high_risk_high_reward: '高风险选择收益翻倍，代价也翻倍',
-  late_game_bonus: '后半生阶段属性加成额外+1',
-  reputation_gain_doubled: '名声增长翻倍',
-  pressure_recovery: '每个阶段结束自动降低2点压力',
-  failure_wealth_bonus: '每次失败后获得额外财富加成',
-  trust_gain_bonus: '公众信任增长额外+1',
-  replay_bonus: '多周目游戏初始属性额外+1',
-  all_choices_bonus: '所有选项的正面效果+1',
-  titan_heart_effect: '压力越高，理想主义加成越大',
-  pressure_crash_halved: '压力崩溃时属性损失减半',
-  pressure_gain_halved: '压力增长减半',
-  trust_check_bonus: '信任≥5时检定自动加成',
-  achievement_hunter_bonus: '每解锁一个成就，当前最低基础属性 +1（每局最多5次）'
-};
+import {
+  TALENT_OFFER_COUNT,
+  TALENT_PICK_COUNT,
+  TALENT_SPECIAL_LABELS,
+  getTalentCombination
+} from '../data/talents.js';
+
+// 保留旧导出名，兼容数据完整性测试与外部调用；单一事实源在 talents.js。
+export const SPECIAL_LABELS = TALENT_SPECIAL_LABELS;
+
+const ATTR_NAMES = Object.freeze({
+  pride: '理想主义',
+  wealth: '财富',
+  reputation: '名声',
+  pressure: '压力',
+  trust: '公众信任',
+  pressureMax: '压力上限',
+  failurePenalty: '翻车记录',
+  successBonus: '正面收益'
+});
+
+export function formatTalentEffect(key, value) {
+  const name = ATTR_NAMES[key] || key;
+  if (key === 'failurePenalty' || key === 'successBonus') {
+    return `${name} ×${value}`;
+  }
+  const sign = value > 0 ? '+' : '';
+  return `${name}${sign}${value}`;
+}
+
+function getTalentEffectTone(key, value) {
+  if (key === 'pressure') return value > 0 ? 'negative' : 'positive';
+  if (key === 'failurePenalty') return value > 1 ? 'negative' : 'positive';
+  if (key === 'successBonus') return value > 1 ? 'positive' : 'negative';
+  return value > 0 ? 'positive' : 'negative';
+}
 
 export class TalentSystem {
   constructor(scene) {
@@ -38,9 +49,12 @@ export class TalentSystem {
     this.cardsEl = document.getElementById('ui-talent-cards');
     this.confirmBtn = document.getElementById('ui-talent-confirm');
     this.hintEl = this.overlay.querySelector('.ui-talent-hint');
+    this.subtitleEl = this.overlay.querySelector('.ui-talent-subtitle');
+    this.comboEl = this.overlay.querySelector('.ui-talent-combo');
     this.selectedTalents = [];
     this.onSelect = null;
-    this.maxSelection = 2;
+    this.maxSelection = TALENT_PICK_COUNT;
+    this.offerCount = TALENT_OFFER_COUNT;
     this._clickHandler = null;
     this._rerollBtn = null;
     this._confirmTimer = null;  // 确认淡出定时器（destroy 时清理）
@@ -76,21 +90,17 @@ export class TalentSystem {
     this.confirmBtn.textContent = `请选择 ${this.maxSelection} 个天赋`;
     this._onReroll = opts.onReroll || null;
     this._rerollCount = opts.rerollCount || 0;
+    this.offerCount = talents.length;
 
-    // 更新提示文字
-    if (this.hintEl) {
-      this.hintEl.innerHTML = `选择 <span>${this.maxSelection}</span> 个天赋开始游戏`;
+    if (this.subtitleEl) {
+      this.subtitleEl.textContent = `本局获得 ${this.offerCount} 个天赋，选择 ${this.maxSelection} 个组合你的人生底色`;
     }
+    this._updateSelectionSummary();
 
     // === 里程碑奖励：刷新按钮 ===
     this._updateRerollButton();
 
     const rarityLabels = { common: '普通', rare: '稀有', legendary: '传说' };
-    const attrNames = {
-      pride: '理想主义', wealth: '财富', reputation: '名声',
-      pressure: '压力', trust: '公众信任', pressureMax: '压力上限',
-      failurePenalty: '翻车惩罚', successBonus: '成功奖励'
-    };
     const specialLabels = SPECIAL_LABELS;
 
     talents.forEach((talent, _i) => {
@@ -98,6 +108,7 @@ export class TalentSystem {
       card.type = 'button';
       card.className = 'ui-talent-card';
       card.setAttribute('data-rarity', talent.rarity);
+      card.setAttribute('data-position', `${_i + 1}/${talents.length}`);
       card.setAttribute('aria-pressed', 'false');
       card.setAttribute('aria-label', `${talent.name}，${rarityLabels[talent.rarity]}天赋`);
       // R28-T1: stagger 入场——每张卡延迟 100ms 出现，营造抽卡仪式感
@@ -107,9 +118,8 @@ export class TalentSystem {
       const effectEntries = Object.entries(talent.effects).filter(([_k, v]) => v !== 0);
       let effectsHtml = '';
       for (const [key, val] of effectEntries) {
-        const sign = val > 0 ? '+' : '';
-        const cls = val > 0 ? 'positive' : 'negative';
-        effectsHtml += `<div class="ui-talent-effect ${cls}">${attrNames[key] || key}${sign}${val}</div>`;
+        const cls = getTalentEffectTone(key, val);
+        effectsHtml += `<div class="ui-talent-effect ${cls}">${formatTalentEffect(key, val)}</div>`;
       }
 
       // Special effect
@@ -120,6 +130,7 @@ export class TalentSystem {
 
       card.innerHTML = `
         <span class="ui-talent-rarity ${talent.rarity}">${rarityLabels[talent.rarity]}</span>
+        <span class="ui-talent-position">${_i + 1}/${talents.length}</span>
         <div class="ui-talent-icon">${talent.icon}</div>
         <div class="ui-talent-name">${talent.name}</div>
         <div class="ui-talent-desc">${talent.desc}</div>
@@ -207,6 +218,26 @@ export class TalentSystem {
     });
   }
 
+  _updateSelectionSummary() {
+    const selectedCount = this.selectedTalents.length;
+    if (this.hintEl) {
+      this.hintEl.innerHTML =
+        `本局 ${this.offerCount} 选 ${this.maxSelection} · 已选 <span>${selectedCount}/${this.maxSelection}</span>`;
+    }
+
+    if (!this.comboEl) return;
+    const combo = getTalentCombination(this.selectedTalents);
+    this.comboEl.classList.toggle('visible', selectedCount > 0);
+    if (combo) {
+      this.comboEl.innerHTML = `<strong>「${combo.title}」</strong><span>${combo.desc}</span>`;
+    } else if (selectedCount === 1) {
+      this.comboEl.innerHTML =
+        `<strong>${this.selectedTalents[0].name}</strong><span>再选择 1 个天赋，完成你的人生组合</span>`;
+    } else {
+      this.comboEl.textContent = '';
+    }
+  }
+
   _toggleTalent(talent, cardEl) {
     const idx = this.selectedTalents.indexOf(talent);
     if (idx >= 0) {
@@ -233,15 +264,7 @@ export class TalentSystem {
     this.confirmBtn.disabled = !complete;
     this.confirmBtn.classList.toggle('visible', complete);
     this.confirmBtn.textContent = complete ? '带着这 2 个天赋出发' : `还需选择 ${remaining} 个`;
-
-    // 更新提示文字
-    if (this.hintEl) {
-      if (remaining > 0) {
-        this.hintEl.innerHTML = `还需选择 <span>${remaining}</span> 个天赋`;
-      } else {
-        this.hintEl.innerHTML = `已选择 <span>${this.maxSelection}</span> 个天赋，点击确认`;
-      }
-    }
+    this._updateSelectionSummary();
   }
 
   _confirmSelection() {
@@ -274,6 +297,10 @@ export class TalentSystem {
     this.confirmBtn.disabled = true;
     this.confirmBtn.textContent = `请选择 ${this.maxSelection} 个天赋`;
     this.selectedTalents = [];
+    if (this.comboEl) {
+      this.comboEl.textContent = '';
+      this.comboEl.classList.remove('visible');
+    }
     if (this._rerollBtn) this._rerollBtn.style.display = 'none';
   }
 

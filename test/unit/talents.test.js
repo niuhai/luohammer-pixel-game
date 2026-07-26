@@ -1,8 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ACHIEVEMENT_HUNTER_MAX_BONUSES,
-  applyAchievementHunterBonus
+  TALENTS,
+  applyAchievementHunterBonus,
+  drawTalents,
+  getTalentCombination
 } from '../../src/data/talents.js';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 function createState(overrides = {}) {
   return {
@@ -67,5 +74,49 @@ describe('成就猎人天赋', () => {
     expect(result.applied).toBe(false);
     expect(result.state).toBe(state);
     expect(result.state.pride).toBe(4);
+  });
+});
+
+describe('五选二抽取规则', () => {
+  it('默认抽取 5 张、卡牌唯一并保底至少 1 张稀有', () => {
+    const hand = drawTalents(undefined, { guaranteeRare: true });
+    expect(hand).toHaveLength(5);
+    expect(new Set(hand.map(talent => talent.id)).size).toBe(5);
+    expect(hand.some(talent => talent.rarity === 'rare')).toBe(true);
+  });
+
+  it('成就猎人在解锁前不进入池，解锁后才进入', () => {
+    const lockedPool = drawTalents(TALENTS.length, {
+      unlockedTalentIds: []
+    });
+    const unlockedPool = drawTalents(TALENTS.length, {
+      unlockedTalentIds: ['achievement_hunter']
+    });
+
+    expect(lockedPool.some(talent => talent.id === 'achievement_hunter')).toBe(false);
+    expect(unlockedPool.some(talent => talent.id === 'achievement_hunter')).toBe(true);
+  });
+
+  it('60/30/10 权重按稀有度分类选择', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.7);
+    expect(drawTalents(1)[0].rarity).toBe('rare');
+  });
+
+  it('同一手牌避免重复 special 家族', () => {
+    for (let i = 0; i < 100; i++) {
+      const specials = drawTalents(5, { guaranteeRare: true })
+        .map(talent => talent.special)
+        .filter(Boolean);
+      expect(new Set(specials).size).toBe(specials.length);
+    }
+  });
+
+  it('两张天赋生成可分享的人生底色', () => {
+    const business = TALENTS.find(talent => talent.id === 'business_sense');
+    const ideal = TALENTS.find(talent => talent.id === 'dreamer');
+    const combo = getTalentCombination([business, ideal]);
+
+    expect(combo.title).toBe('理想与面包');
+    expect(combo.desc).toContain('商业嗅觉 × 理想主义者');
   });
 });

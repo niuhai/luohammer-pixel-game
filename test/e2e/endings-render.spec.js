@@ -102,7 +102,16 @@ test.describe('结局场景渲染', () => {
       if (message.type() === 'error') pageErrors.push(message.text());
     });
 
+    const waitForEndingSceneReady = () => page.waitForFunction(() => {
+      const bootScene = window.game?.scene?.getScene('BootScene');
+      return Boolean(
+        bootScene?.scene?.isActive() &&
+        window.game?.scene?.keys?.EndingScene
+      );
+    }, null, { timeout: 30_000 });
+
     await expect(page.locator('#ui-boot-overlay')).toBeVisible({ timeout: 15_000 });
+    await waitForEndingSceneReady();
 
     const cases = [
       {
@@ -161,6 +170,7 @@ test.describe('结局场景渲染', () => {
       if (index > 0) {
         await page.reload();
         await expect(page.locator('#ui-boot-overlay')).toBeVisible({ timeout: 15_000 });
+        await waitForEndingSceneReady();
       }
 
       await page.evaluate(({ ending, state: endingState }) => {
@@ -174,7 +184,7 @@ test.describe('结局场景渲染', () => {
         const scene = window.game.scene.getScene('EndingScene');
         return scene?.scene.isActive() && scene.endingKey === ending &&
           scene.audio && scene._endingParticles;
-      }, expected.ending);
+      }, expected.ending, { timeout: 30_000 });
 
       const actual = await page.evaluate(() => {
         const scene = window.game.scene.getScene('EndingScene');
@@ -202,7 +212,7 @@ test.describe('结局场景渲染', () => {
         particleCount: expected.particleCount,
         textureLoaded: true,
         backgroundVisible: true,
-        safeCropBottom: 24
+        safeCropBottom: 0
       });
     }
 

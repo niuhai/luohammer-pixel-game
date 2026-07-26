@@ -216,22 +216,66 @@ describe('applyEffects - 天赋倍率 getMultiplier', () => {
     expect(state.wealth).toBe(3);
   });
 
-  it('reality_distortion_field: 正面效果 +15%', () => {
-    const { state } = applyEffects(
+  it('reality_distortion_field: 单项正收益达到 +2 时额外 +1', () => {
+    const { state, talentTriggers } = applyEffects(
       makeState({ talentSpecials: ['reality_distortion_field'] }),
-      { pride: 10 }
+      { pride: 2 }
     );
-    // 5 + round(10 * 1.15) = 5 + 12 = 17 → 钳到 10
-    expect(state.pride).toBe(10);
+    expect(state.pride).toBe(8);
+    expect(talentTriggers).toContain('reality_distortion_field');
   });
 
-  it('all_choices_bonus: 所有正向 +1 倍率', () => {
+  it('reality_distortion_field: +1 时不会产生取整伪加成', () => {
+    const { state, talentTriggers } = applyEffects(
+      makeState({ talentSpecials: ['reality_distortion_field'] }),
+      { pride: 1 }
+    );
+    expect(state.pride).toBe(6);
+    expect(talentTriggers).not.toContain('reality_distortion_field');
+  });
+
+  it('all_choices_bonus: 每项正面属性变化精确额外 +1', () => {
     const { state } = applyEffects(
       makeState({ talentSpecials: ['all_choices_bonus'] }),
       { pride: 2 }
     );
-    // 5 + 2*(1+1) = 9
-    expect(state.pride).toBe(9);
+    expect(state.pride).toBe(8);
+  });
+
+  it('trust_gain_bonus: 信任正收益精确额外 +1', () => {
+    const { state } = applyEffects(
+      makeState({ talentSpecials: ['trust_gain_bonus'] }),
+      { trust: 2 }
+    );
+    expect(state.trust).toBe(8);
+  });
+
+  it('stage_events_bonus: 公开舞台阶段的名声收益额外 +1', () => {
+    const { state, talentTriggers } = applyEffects(
+      makeState({ currentStageId: 'teacher', talentSpecials: ['stage_events_bonus'] }),
+      { reputation: 1 }
+    );
+    expect(state.reputation).toBe(7);
+    expect(talentTriggers).toContain('stage_events_bonus');
+  });
+
+  it('product_events_bonus: 产品创业阶段的信任收益额外 +1', () => {
+    const { state, talentTriggers } = applyEffects(
+      makeState({ currentStageId: 'startup', talentSpecials: ['product_events_bonus'] }),
+      { trust: 1 }
+    );
+    expect(state.trust).toBe(7);
+    expect(talentTriggers).toContain('product_events_bonus');
+  });
+
+  it('孤注一掷: 正面收益与翻车记录同时翻倍', () => {
+    const { state, talentTriggers } = applyEffects(
+      makeState({ successBonus: 2, failurePenalty: 2 }),
+      { pride: 1, failures: 1 }
+    );
+    expect(state.pride).toBe(7);
+    expect(state.failures).toBe(2);
+    expect(talentTriggers).toEqual(['all_in']);
   });
 
   it('titan_heart_effect: 压力>=6 时 pride 正向加成', () => {
@@ -259,6 +303,25 @@ describe('applyEffects - 天赋倍率 getMultiplier', () => {
     );
     // 0 + 4*0.5 = 2
     expect(state.pressure).toBe(2);
+  });
+
+  it('pressure_gain_halved: +1 压力不会被四舍五入回 +1', () => {
+    const { state, talentTriggers } = applyEffects(
+      makeState({ pressure: 0, talentSpecials: ['pressure_gain_halved'] }),
+      { pressure: 1 }
+    );
+    expect(state.pressure).toBe(0);
+    expect(talentTriggers).toEqual(['pressure_gain_halved']);
+    expect(state.talentTriggerCounts.pressure_gain_halved).toBe(1);
+  });
+
+  it('属性已达上限时不把无效修饰计作触发', () => {
+    const { talentTriggers, state } = applyEffects(
+      makeState({ reputation: 10, talentSpecials: ['reputation_gain_doubled'] }),
+      { reputation: 2 }
+    );
+    expect(talentTriggers).toEqual([]);
+    expect(state.talentTriggerCounts).toBeUndefined();
   });
 
   it('pressure_gain_halved: 不影响压力负向 delta（恢复不翻倍）', () => {

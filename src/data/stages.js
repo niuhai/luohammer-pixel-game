@@ -22,7 +22,7 @@ export const STAGES = [
   {
     id: 'youth',
     name: '延边少年',
-    period: '1972-1989',
+    period: '1972-2000',
     sceneType: 'classroom',
     nodes: ['intro', 'act0_childhood', 'act0_b', 'act0_street', 'act0_korea', 'act0_gre', 'act0_dad', 'act0_rebel', 'act0_bookstore', 'act0_fail1', 'act0_fail2', 'act0_fail3', 'act0_korea_life', 'act0_grandma', 'act0_mother', 'act0_neighbor', 'act0_confusion', 'act0_reading', 'act0_identity', 'act0_grandma_story', 'act0_first_love', 'act0_night_reading'],
     randomEventChance: 0.2,
@@ -58,7 +58,7 @@ export const STAGES = [
   {
     id: 'startup',
     name: '锤子科技',
-    period: '2012-2018',
+    period: '2006-2018',
     sceneType: 'office',
     nodes: ['act2_a', 'act2_censor1', 'act2_fight', 'act2_launch', 'act2_writer', 'act2_b', 'act2_down', 'act2_censor2', 'act2_gone', 'act2_school', 'act2_student', 'act2_poster', 'act2_dream', 'act_fridge_start', 'act_fridge_plan', 'act_fridge_discover', 'act_fridge_smash', 'act_fridge_fight', 'act_fridge_theater', 'act_fridge_media', 'act_fridge_hammer', 'act_fridge_weibo', 'act_fang_start', 'act_fang_tweet', 'act_fang_report', 'act_fang_attack', 'act_fang_evidence', 'act_fang_court', 'act3_a', 'act3_lei', 'act3_lei_chat', 'act3_register', 'act3_investor', 'act3_tangyan', 'act3_b', 'act3_os_night', 'act3_rom', 'act3_team', 'act3_crossroads', 'act3_review', 'act4_a', 'act4_launch', 'act4_wangziru', 'act4_price', 'act4_yield', 'act4_if', 'act4_songri', 'act4_factory', 'act4_zhongtian', 'act4_b', 'act4_wait', 'act4_rival', 'act4_rescue', 'act5_a', 'act5_alibaba', 'act5_people', 'act5_m1', 'act5_abandon', 'act5_qianchen', 'act5_nutpro', 'act5_chengdu', 'act5_b', 'act6_a', 'act6_bird', 'act6_tnt_dev', 'act6_cashflow', 'act6_debt_grow', 'act6_layoff', 'act6_crash'],
     randomEventChance: 0.35,
@@ -95,7 +95,7 @@ export const STAGES = [
   {
     id: 'repay',
     name: '真还传',
-    period: '2020-2022',
+    period: '2019-2022',
     sceneType: 'livestream',
     nodes: ['act7_sign', 'act7_lamp', 'act7_first_live', 'act7_contract', 'act7_first_stream', 'act7_b', 'act7_jimi', 'act7_stream_daily', 'act7_apologize', 'act7_talkshow', 'act7_debt_first', 'act7_debt_half', 'act7_debt_interest', 'act7_debt_progress', 'act7_payback', 'act7_retire_reason', 'act7_retire_post', 'act7_retire_day1', 'act7_retire', 'act7_low_viewers', 'act7_quality_issue', 'act7_first_100m', 'act7_reunion', 'act7_warm_moment', 'act7_health', 'act7_first_paycheck', 'act7_haters', 'act7_milestone_100m'],
     randomEventChance: 0.25,

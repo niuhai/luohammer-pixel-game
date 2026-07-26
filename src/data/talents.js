@@ -22,6 +22,43 @@
  * }
  */
 
+export const TALENT_OFFER_COUNT = 5;
+export const TALENT_PICK_COUNT = 2;
+
+/** 稀有度权重按“稀有度分类”计算，而不是给池中每一张卡重复加权。 */
+export const TALENT_RARITY_WEIGHTS = Object.freeze({
+  common: 60,
+  rare: 30,
+  legendary: 10
+});
+
+/** 天赋特殊效果 key → 玩家可见文案。效果实现与 UI 共用此处，避免口径漂移。 */
+export const TALENT_SPECIAL_LABELS = Object.freeze({
+  all_in: '正面收益与翻车记录同时翻倍',
+  random_events_bias_positive: '随机事件更容易出现好结果',
+  failure_heals_pride: '每次翻车后理想主义 +1',
+  fans_loyalty_bonus: '公众信任和名声的正收益翻倍',
+  low_stats_bonus: '属性不高于 3 时，该属性的正收益翻倍',
+  debt_reduction_bonus: '财富损失减半',
+  pressure_never_max: '压力永远不会爆表',
+  stage_events_bonus: '公开舞台阶段获得名声或信任时额外 +1',
+  product_events_bonus: '产品创业阶段获得公众信任时额外 +1',
+  reality_distortion_field: '单项正收益达到 +2 时，再额外 +1',
+  high_risk_high_reward: '绝对值达到 2 的收益与代价翻倍',
+  late_game_bonus: '后半生阶段的正收益额外 +1',
+  reputation_gain_doubled: '名声正收益翻倍',
+  pressure_recovery: '每个阶段结束自动降低 2 点压力',
+  failure_wealth_bonus: '每次翻车后财富 +1',
+  trust_gain_bonus: '公众信任正收益额外 +1',
+  replay_bonus: '多周目游戏初始基础属性额外 +1',
+  all_choices_bonus: '每项正面属性变化额外 +1',
+  titan_heart_effect: '压力越高，理想主义正收益越强',
+  pressure_crash_halved: '压力崩溃时属性损失减半',
+  pressure_gain_halved: '压力增长减半',
+  trust_check_bonus: '信任不低于 5 时，属性检定 +1',
+  achievement_hunter_bonus: '每解锁一个成就，当前最低基础属性 +1（每局最多 5 次）'
+});
+
 export const TALENTS = [
   // ===== 普通 (common) =====
   {
@@ -113,7 +150,7 @@ export const TALENTS = [
     desc: '"all in！"',
     icon: '◊',
     rarity: 'rare',
-    effects: { failurePenalty: 0.5, successBonus: 2 }
+    effects: { failurePenalty: 2, successBonus: 2 }
   },
   {
     id: 'phoenix',
@@ -453,7 +490,8 @@ export const TALENTS = [
     icon: '★',
     rarity: 'legendary',
     effects: { pride: 1, wealth: 1, reputation: 1, trust: 1 },
-    special: 'achievement_hunter_bonus'
+    special: 'achievement_hunter_bonus',
+    unlockId: 'achievement_hunter'
   }
 ];
 
@@ -462,47 +500,162 @@ export const TALENTS = [
  * @param {number} count - 抽取数量
  * @param {object} options - 选项
  * @param {boolean} options.guaranteeRare - 是否保底至少一个稀有
+ * @param {string[]} options.unlockedTalentIds - 已解锁的特殊天赋 ID
  * @returns {array} 天赋对象数组
  */
-export function drawTalents(count = 3, options = {}) {
-  const pool = [...TALENTS];
+export function drawTalents(count = TALENT_OFFER_COUNT, options = {}) {
+  const unlockedTalentIds = new Set(options.unlockedTalentIds || []);
+  const pool = TALENTS.filter(talent => !talent.unlockId || unlockedTalentIds.has(talent.unlockId));
   const result = [];
+  const usedSpecials = new Set();
 
-  // 稀有度权重：common 60%, rare 30%, legendary 10%
-  const rarityWeights = { common: 60, rare: 30, legendary: 10 };
+  const takeTalent = (talent) => {
+    if (!talent) return;
+    result.push(talent);
+    if (talent.special) usedSpecials.add(talent.special);
+    const index = pool.indexOf(talent);
+    if (index >= 0) pool.splice(index, 1);
+  };
 
-  // 如果保底稀有，先抽一个稀有/传说
-  if (options.guaranteeRare && count > 1) {
-    const rarePool = pool.filter(t => t.rarity !== 'common');
-    const rareWeights = rarePool.map(t => rarityWeights[t.rarity]);
-    const totalW = rareWeights.reduce((a, b) => a + b, 0);
-    let roll = Math.random() * totalW;
-    for (let i = 0; i < rarePool.length; i++) {
-      roll -= rareWeights[i];
+  const pickFrom = (candidates) => {
+    if (!candidates.length) return null;
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  };
+
+  const pickByRarity = () => {
+    // 同一手牌尽量避免出现相同 special 家族，防止两个选择不叠加却没有提示。
+    let candidates = pool.filter(talent => !talent.special || !usedSpecials.has(talent.special));
+    if (candidates.length === 0) candidates = pool;
+
+    const availableRarities = Object.keys(TALENT_RARITY_WEIGHTS)
+      .filter(rarity => candidates.some(talent => talent.rarity === rarity));
+    if (availableRarities.length === 0) return null;
+
+    const totalWeight = availableRarities.reduce(
+      (total, rarity) => total + TALENT_RARITY_WEIGHTS[rarity],
+      0
+    );
+    let roll = Math.random() * totalWeight;
+    let selectedRarity = availableRarities[availableRarities.length - 1];
+    for (const rarity of availableRarities) {
+      roll -= TALENT_RARITY_WEIGHTS[rarity];
       if (roll <= 0) {
-        result.push(rarePool[i]);
-        pool.splice(pool.indexOf(rarePool[i]), 1);
+        selectedRarity = rarity;
         break;
       }
     }
+    return pickFrom(candidates.filter(talent => talent.rarity === selectedRarity));
+  };
+
+  // 保底槽固定从 rare 抽取；传说仍走正常 10% 权重，避免保底反而让传说泛滥。
+  if (options.guaranteeRare && count > 1) {
+    const rarePool = pool.filter(talent => talent.rarity === 'rare');
+    const fallbackPool = pool.filter(talent => talent.rarity === 'legendary');
+    takeTalent(pickFrom(rarePool.length > 0 ? rarePool : fallbackPool));
   }
 
-  // 剩余按权重抽取
+  // 剩余槽位先按稀有度分类加权，再在对应分类内均匀抽卡。
   while (result.length < count && pool.length > 0) {
-    const weights = pool.map(t => rarityWeights[t.rarity]);
-    const totalW = weights.reduce((a, b) => a + b, 0);
-    let roll = Math.random() * totalW;
-    for (let i = 0; i < pool.length; i++) {
-      roll -= weights[i];
-      if (roll <= 0) {
-        result.push(pool[i]);
-        pool.splice(i, 1);
-        break;
-      }
-    }
+    takeTalent(pickByRarity());
+  }
+
+  // 保底只保证内容，不暴露固定卡位；否则玩家会很快学会“第一张必稀有”并跳过阅读。
+  for (let index = result.length - 1; index > 0; index--) {
+    const target = Math.floor(Math.random() * (index + 1));
+    [result[index], result[target]] = [result[target], result[index]];
   }
 
   return result;
+}
+
+const SPECIAL_ARCHETYPES = Object.freeze({
+  random_events_bias_positive: 'fortune',
+  failure_heals_pride: 'resilience',
+  fans_loyalty_bonus: 'influence',
+  low_stats_bonus: 'resilience',
+  debt_reduction_bonus: 'business',
+  stage_events_bonus: 'influence',
+  product_events_bonus: 'craft',
+  trust_check_bonus: 'trust',
+  pressure_gain_halved: 'resilience',
+  pressure_crash_halved: 'resilience',
+  pressure_recovery: 'resilience',
+  reality_distortion_field: 'vision',
+  high_risk_high_reward: 'risk',
+  late_game_bonus: 'growth',
+  reputation_gain_doubled: 'influence',
+  failure_wealth_bonus: 'business',
+  trust_gain_bonus: 'trust',
+  replay_bonus: 'growth',
+  all_choices_bonus: 'vision',
+  titan_heart_effect: 'resilience',
+  achievement_hunter_bonus: 'growth'
+});
+
+const ARCHETYPE_INFO = Object.freeze({
+  vision: { name: '理想', same: '理想过载' },
+  business: { name: '生存', same: '生存本能' },
+  influence: { name: '表达', same: '舞台中心' },
+  trust: { name: '信用', same: '信用同盟' },
+  resilience: { name: '韧性', same: '不倒之身' },
+  risk: { name: '冒险', same: '命运赌徒' },
+  craft: { name: '产品', same: '产品信仰' },
+  fortune: { name: '机运', same: '命运眷顾' },
+  growth: { name: '成长', same: '越战越强' }
+});
+
+const COMBINATION_TITLES = Object.freeze({
+  'business:trust': '信用生意',
+  'business:vision': '理想与面包',
+  'craft:vision': '产品原教旨',
+  'influence:resilience': '越挫越红',
+  'influence:vision': '理想布道者',
+  'resilience:risk': '绝境赌徒',
+  'resilience:vision': '不灭理想',
+  'trust:vision': '有原则的理想家',
+  'business:influence': '流量生意',
+  'craft:trust': '用户信徒'
+});
+
+/**
+ * 获取天赋的主要玩法倾向。未声明 special 的数值天赋按最高正向初始属性归类。
+ */
+export function getTalentArchetype(talent) {
+  if (!talent) return 'growth';
+  if (talent.special && SPECIAL_ARCHETYPES[talent.special]) {
+    return SPECIAL_ARCHETYPES[talent.special];
+  }
+  const candidates = [
+    ['resilience', talent.effects.pressureMax || 0],
+    ['trust', talent.effects.trust || 0],
+    ['influence', talent.effects.reputation || 0],
+    ['business', talent.effects.wealth || 0],
+    ['vision', talent.effects.pride || 0]
+  ];
+  candidates.sort((a, b) => b[1] - a[1]);
+  return candidates[0][1] > 0 ? candidates[0][0] : 'growth';
+}
+
+/**
+ * 将两张天赋组合成一个玩家可记忆、可分享的人生底色。
+ */
+export function getTalentCombination(talents) {
+  if (!Array.isArray(talents) || talents.length < TALENT_PICK_COUNT) return null;
+  const selected = talents.slice(0, TALENT_PICK_COUNT);
+  const archetypes = selected.map(getTalentArchetype).sort();
+  const [first, second] = archetypes;
+  const firstInfo = ARCHETYPE_INFO[first] || ARCHETYPE_INFO.growth;
+  const secondInfo = ARCHETYPE_INFO[second] || ARCHETYPE_INFO.growth;
+  const key = `${first}:${second}`;
+  const title = first === second
+    ? firstInfo.same
+    : (COMBINATION_TITLES[key] || `${firstInfo.name}与${secondInfo.name}`);
+  return {
+    id: key,
+    title,
+    desc: `${selected[0].name} × ${selected[1].name}，共同塑造这一局的人生底色。`,
+    archetypes
+  };
 }
 
 /**
@@ -514,15 +667,16 @@ export function drawTalents(count = 3, options = {}) {
 export function applyTalentEffects(baseState, talents) {
   const state = { ...baseState };
   // 存储天赋 special 列表，供效果引擎读取
-  state.talentSpecials = talents.map(t => t.special).filter(Boolean);
+  state.talentSpecials = [...new Set(talents.map(t => t.special).filter(Boolean))];
+  state.talentCombo = getTalentCombination(talents);
   for (const talent of talents) {
     const e = talent.effects;
-    if (e.pride) state.pride = (state.pride || 5) + e.pride;
-    if (e.wealth) state.wealth = (state.wealth || 5) + e.wealth;
-    if (e.reputation) state.reputation = (state.reputation || 5) + e.reputation;
-    if (e.pressure) state.pressure = (state.pressure || 0) + e.pressure;
-    if (e.trust) state.trust = (state.trust || 5) + e.trust;
-    if (e.pressureMax) state.pressureMax = (state.pressureMax || 10) + e.pressureMax;
+    if (e.pride) state.pride = (state.pride ?? 5) + e.pride;
+    if (e.wealth) state.wealth = (state.wealth ?? 5) + e.wealth;
+    if (e.reputation) state.reputation = (state.reputation ?? 5) + e.reputation;
+    if (e.pressure) state.pressure = (state.pressure ?? 0) + e.pressure;
+    if (e.trust) state.trust = (state.trust ?? 5) + e.trust;
+    if (e.pressureMax) state.pressureMax = (state.pressureMax ?? 10) + e.pressureMax;
     if (e.failurePenalty) state.failurePenalty = e.failurePenalty;
     if (e.successBonus) state.successBonus = e.successBonus;
   }

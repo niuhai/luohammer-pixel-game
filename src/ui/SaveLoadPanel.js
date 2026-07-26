@@ -422,11 +422,13 @@ export function showSaveLoadPanel(options = {}) {
     card.className = 'ui-saveload-slot' + (isAuto ? ' is-auto' : '') + (info.empty ? ' is-empty' : '');
 
     const attrs = info.attributes || {};
+    // R82 F3：属性名与 HUD/结局屏统一（理想/财富/名声/信任）——
+    // 此前"骄傲/名望"与 HUD"理想/名声"同数据两套命名，评委读档对不上号
     const attrRow = `
       <div class="ui-saveload-slot-attrs">
-        <span class="ui-saveload-attr pride">骄傲<b>${attrs.pride ?? 0}</b></span>
+        <span class="ui-saveload-attr pride">理想<b>${attrs.pride ?? 0}</b></span>
         <span class="ui-saveload-attr wealth">财富<b>${attrs.wealth ?? 0}</b></span>
-        <span class="ui-saveload-attr reputation">名望<b>${attrs.reputation ?? 0}</b></span>
+        <span class="ui-saveload-attr reputation">名声<b>${attrs.reputation ?? 0}</b></span>
         <span class="ui-saveload-attr trust">信任<b>${attrs.trust ?? 0}</b></span>
       </div>`;
 

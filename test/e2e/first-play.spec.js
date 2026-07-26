@@ -42,11 +42,15 @@ test.describe('首次游玩流程', () => {
     const talentCards = page.locator('#ui-talent-cards .ui-talent-card');
     await expect(talentCards.first()).toBeVisible({ timeout: 5_000 });
     const cardCount = await talentCards.count();
-    expect(cardCount).toBeGreaterThanOrEqual(3);
+    expect(cardCount).toBe(5);
+    await expect(page.locator('.ui-talent-hint')).toContainText('5 选 2');
+    await expect(page.locator('.ui-talent-position')).toHaveCount(5);
 
     // 点击前两个天赋
     await talentCards.nth(0).click();
     await talentCards.nth(1).click();
+    await expect(page.locator('.ui-talent-combo')).toHaveClass(/visible/);
+    await expect(page.locator('.ui-talent-combo strong')).not.toBeEmpty();
 
     // 确认按钮启用后点击
     const confirmBtn = page.locator('#ui-talent-confirm');
@@ -114,6 +118,78 @@ test.describe('首次游玩流程', () => {
     await page.screenshot({ path: 'test/e2e/screenshots/first-play-after-choice.png', fullPage: false });
   });
 
+  for (const viewport of [
+    { name: '竖屏', width: 390, height: 844 },
+    { name: '横屏', width: 812, height: 375 }
+  ]) {
+    test(`${viewport.name}下 5 张天赋与确认区同时可见且可选择`, async ({ page }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.locator('#rotate-hint-dismiss').click({ force: true }).catch(() => {});
+      await page.locator('#ui-boot-buttons button', { hasText: '开始游戏' }).click();
+      await expect(page.locator('#ui-intro-overlay')).toBeVisible({ timeout: 10_000 });
+      await page.waitForTimeout(1500);
+      await page.locator('#ui-intro-overlay').click({ force: true });
+      await expect(page.locator('#ui-talent-overlay')).toBeVisible({ timeout: 25_000 });
+      await page.waitForTimeout(1500); // 等五张卡的交错翻牌动画进入稳定态
+
+      const cards = page.locator('#ui-talent-cards .ui-talent-card');
+      await expect(cards).toHaveCount(5);
+      const layout = await page.evaluate(() => {
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+        const confirm = document.querySelector('#ui-talent-confirm').getBoundingClientRect();
+        const cardRects = [...document.querySelectorAll('#ui-talent-cards .ui-talent-card')]
+          .map(card => {
+            const rect = card.getBoundingClientRect();
+            return {
+              left: rect.left,
+              right: rect.right,
+              top: rect.top,
+              bottom: rect.bottom
+            };
+          });
+        return { viewportHeight, viewportWidth, confirm, cardRects };
+      });
+      expect(layout.confirm.top).toBeGreaterThanOrEqual(0);
+      expect(layout.confirm.bottom).toBeLessThanOrEqual(layout.viewportHeight);
+      expect(layout.confirm.width).toBeGreaterThanOrEqual(100);
+      expect(layout.confirm.height).toBeGreaterThanOrEqual(36);
+      for (const rect of layout.cardRects) {
+        expect(rect.left).toBeGreaterThanOrEqual(0);
+        expect(rect.right).toBeLessThanOrEqual(layout.viewportWidth);
+        expect(rect.top).toBeGreaterThanOrEqual(0);
+        expect(rect.bottom).toBeLessThanOrEqual(layout.viewportHeight);
+        expect(rect.right - rect.left).toBeGreaterThanOrEqual(100);
+        expect(rect.bottom - rect.top).toBeGreaterThanOrEqual(44);
+      }
+
+      await cards.first().click();
+      await cards.last().click();
+      await expect(page.locator('.ui-talent-hint')).toContainText('已选 2/2');
+      await expect(page.locator('.ui-talent-combo')).toHaveClass(/visible/);
+      await expect(page.locator('#ui-talent-confirm')).toBeEnabled();
+      const footerLayout = await page.evaluate(() => {
+        const getRect = selector => {
+          const rect = document.querySelector(selector).getBoundingClientRect();
+          return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width };
+        };
+        return {
+          viewportHeight: window.innerHeight,
+          viewportWidth: window.innerWidth,
+          combo: getRect('.ui-talent-combo'),
+          confirm: getRect('#ui-talent-confirm')
+        };
+      });
+      for (const rect of [footerLayout.combo, footerLayout.confirm]) {
+        expect(rect.left).toBeGreaterThanOrEqual(0);
+        expect(rect.right).toBeLessThanOrEqual(footerLayout.viewportWidth);
+        expect(rect.top).toBeGreaterThanOrEqual(0);
+        expect(rect.bottom).toBeLessThanOrEqual(footerLayout.viewportHeight);
+        expect(rect.width).toBeGreaterThanOrEqual(120);
+      }
+    });
+  }
+
   test('标题页"成就图鉴"按钮可打开图鉴', async ({ page }) => {
     await expect(page.locator('#ui-boot-overlay')).toBeVisible({ timeout: 15_000 });
     const galleryBtn = page.locator('#ui-boot-buttons button', { hasText: '成就图鉴' });
@@ -133,18 +209,20 @@ test.describe('首次游玩流程', () => {
     await expect(page.locator('#ui-boot-overlay')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('.ui-boot-version')).toHaveText('v1.1.0 · 完整体验版');
 
-    const voiceBtn = page.locator('#ui-boot-buttons button', { hasText: '配音试听' });
-    await expect(voiceBtn).toContainText('沉稳男声·演讲');
+    const voiceBtn = page.locator('#ui-boot-buttons button', { hasText: '朗读设置' });
+    await expect(voiceBtn).toContainText('沉稳演讲');
     await voiceBtn.click();
 
     const panel = page.locator('.ui-voice-panel');
     await expect(panel).toBeVisible();
-    await expect(panel).toContainText('使用当前设备的中文系统语音');
+    await expect(panel).toContainText('完全使用当前设备的中文系统语音');
+    await expect(panel).toContainText('朗读内容');
+    await expect(panel).toContainText('设备语音');
     await expect(panel.locator('.ui-voice-preset-name')).toHaveText([
-      '★ 沉稳男声·演讲',
-      '播音腔·沉稳男声',
-      '温和女声·叙事',
-      '明快女声·日常'
+      '★ 沉稳演讲',
+      '纪录旁白',
+      '温和叙事',
+      '明快讲述'
     ]);
     await expect(panel.locator('button', { hasText: '试听' })).toHaveCount(4);
   });

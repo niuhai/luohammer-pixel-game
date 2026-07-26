@@ -1,3 +1,9 @@
+import {
+  extractSpeechHighlights,
+  normalizeSpeechText,
+  splitSpeechText
+} from './speech/SpeechText.js';
+
 // 模块级共享 AudioContext，避免场景切换时反复创建/关闭 ctx 触发 Chrome 限制（~6 个）
 let _sharedCtx = null;
 let _sharedMasterGain = null;
@@ -5,61 +11,94 @@ let _sharedMasterGain = null;
 let _ctxConstructFailed = false;
 
 /**
- * 配音预设：通过 rate/pitch/voiceFilter 组合模拟不同朗读风格。
+ * 朗读风格：通过克制的 rate/pitch 差异调整节奏，不再把同一系统声音
+ * 包装成四种固定“音色”。实际发声者始终来自用户设备安装的中文语音。
  *
  * 浏览器 TTS 仅能调用系统已安装语音，跨浏览器兼容性策略：
  * 1. 优先匹配原生男女声 voice name（覆盖微软/苹果/谷歌主流语音）
- * 2. 匹配失败时，将中文 voice 列表按名称排序后"前半视为男声、后半视为女声"分桶
- * 3. 若只有 1 个中文 voice，则完全依赖 rate/pitch 差异（差异已加大到 ±0.4）
+ * 2. 用户可直接选择实际系统语音；未选择时按语言、是否本地和已知名称打分
+ * 3. pitch 控制在自然范围内，主要通过分句、语速和停顿形成风格差异
  */
 export const VOICE_PRESETS = {
   luo_style: {
     key: 'luo_style',
-    label: '沉稳男声·演讲',
-    desc: '中低音调、稍慢语速、有节奏停顿，适合关键剧情',
-    rate: 0.85,          // 匹配到语音时的语速
-    pitch: 0.80,         // 匹配到语音时的音调
-    rateNoMatch: 0.78,   // 无匹配时的替代值
-    pitchNoMatch: 0.65,
+    label: '沉稳演讲',
+    desc: '稍慢语速、克制音调，适合人物金句与关键剧情',
+    rate: 0.88,
+    pitch: 0.96,
     gender: 'male',
     voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /kangkang|yunyang|liangliang|^yun$|male|男/i.test(v.name)
   },
   broadcast: {
     key: 'broadcast',
-    label: '播音腔·沉稳男声',
-    desc: '更低音调、更慢语速，类似新闻播报',
-    rate: 0.78,
-    pitch: 0.72,
-    rateNoMatch: 0.72,
-    pitchNoMatch: 0.60,
+    label: '纪录旁白',
+    desc: '稳定、清晰、留有停顿，适合完整剧情叙述',
+    rate: 0.82,
+    pitch: 0.94,
     gender: 'male',
     voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /kangkang|yunyang|liangliang|^yun$|male|男/i.test(v.name)
   },
   warm_female: {
     key: 'warm_female',
-    label: '温和女声·叙事',
-    desc: '中音调、稍慢语速，适合剧情朗读',
+    label: '温和叙事',
+    desc: '自然柔和、稍慢语速，适合平静和低落场景',
     rate: 0.92,
-    pitch: 1.08,
-    rateNoMatch: 0.90,
-    pitchNoMatch: 1.20,
+    pitch: 1.03,
     gender: 'female',
     voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /huihui|yaoyao|tingting|hanhan|xiaoxiao|female|女/i.test(v.name)
   },
   young_female: {
     key: 'young_female',
-    label: '明快女声·日常',
-    desc: '稍高音调、正常语速，适合轻快场景',
-    rate: 1.0,
-    pitch: 1.15,
-    rateNoMatch: 1.0,
-    pitchNoMatch: 1.30,
+    label: '明快讲述',
+    desc: '语速轻快、音调自然，适合日常和高光场景',
+    rate: 1.02,
+    pitch: 1.06,
     gender: 'female',
     voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /huihui|yaoyao|tingting|hanhan|xiaoxiao|female|女/i.test(v.name)
   }
 };
 
 const VOICE_PRESET_KEY = 'luohammer_voice_preset';
+const VOICE_NAME_KEY = 'luohammer_voice_name';
+const NARRATION_MODE_KEY = 'luohammer_narration_mode';
+
+export const NARRATION_MODES = {
+  off: {
+    key: 'off',
+    label: '关闭',
+    shortLabel: '朗读关',
+    desc: '不朗读任何内容'
+  },
+  highlights: {
+    key: 'highlights',
+    label: '金句',
+    shortLabel: '金句',
+    desc: '只朗读剧情中的高亮金句'
+  },
+  full: {
+    key: 'full',
+    label: '完整',
+    shortLabel: '全文',
+    desc: '朗读全部剧情、序章与结局'
+  },
+  accessible: {
+    key: 'accessible',
+    label: '无障碍',
+    shortLabel: '无障碍',
+    desc: '在完整朗读基础上追加选项和系统信息'
+  }
+};
+
+const NARRATION_MODE_ORDER = ['off', 'highlights', 'full', 'accessible'];
+
+const MOOD_SPEECH_ADJUSTMENTS = {
+  angry: { rate: 1.10, pitch: 1.01 },
+  depressed: { rate: 0.84, pitch: 0.97 },
+  happy: { rate: 1.05, pitch: 1.02 },
+  excited: { rate: 1.08, pitch: 1.03 },
+  tense: { rate: 0.94, pitch: 0.98 },
+  reflective: { rate: 0.86, pitch: 0.97 }
+};
 
 export class AudioSystem {
   constructor(scene) {
@@ -81,12 +120,20 @@ export class AudioSystem {
     this._sfxTimers = new Set();   // 多音符 SFX 延迟任务，场景关闭时统一取消
     this._destroyed = false;
     this._lastHoverTime = 0;       // 防止hover音效过于频繁
-    this._narrationEnabled = true; // 剧情朗读默认开启
+    this._narrationMode = 'highlights'; // 新用户默认只听金句，避免长篇剧情拖沓
+    this._lastNarrationMode = 'highlights';
+    this._narrationEnabled = true; // 兼容旧调用，由 narrationMode 同步
     this._cachedVoices = [];       // 缓存TTS语音列表
+    this._voiceName = '';          // 用户手选的真实系统语音；空字符串表示自动
     this._voiceChangeHandler = null;
     this._previousVoiceChangeHandler = null;
     this._ttsResumeTimer = null;   // Chrome长文本bug修复定时器
     this._pendingSpeechEndCallbacks = []; // 朗读结束回调队列（用于剧情自动推进同步）
+    this._speechGeneration = 0;    // 朗读会话代号，隔离 cancel 后迟到的 onend/onerror
+    this._speechQueue = [];        // 短句队列，避免单个超长 SpeechSynthesisUtterance
+    this._speechActive = false;
+    this._activeSpeechUtterance = null;
+    this._speechDucked = false;    // 朗读时压低 BGM，结束后恢复
     this._sceneShutdownHandler = null;
     // 当前配音预设（持久化到 localStorage），默认使用沉稳男声
     this._voicePresetKey = 'luo_style';
@@ -95,10 +142,19 @@ export class AudioSystem {
       if (saved !== null) this.enabled = saved === 'true';
       const vol = localStorage.getItem('luohammer_volume');
       if (vol !== null) this.masterVolume = Math.max(0, Math.min(1, parseFloat(vol)));
-      const narr = localStorage.getItem('luohammer_narration');
-      if (narr !== null) this._narrationEnabled = narr === 'true';
+      const savedMode = localStorage.getItem(NARRATION_MODE_KEY);
+      const legacyNarration = localStorage.getItem('luohammer_narration');
+      if (savedMode && NARRATION_MODES[savedMode]) {
+        this._narrationMode = savedMode;
+      } else if (legacyNarration !== null) {
+        // 旧用户保持原有行为：旧“开”迁移为完整朗读，旧“关”迁移为关闭。
+        this._narrationMode = legacyNarration === 'true' ? 'full' : 'off';
+      }
+      this._narrationEnabled = this._narrationMode !== 'off';
+      if (this._narrationEnabled) this._lastNarrationMode = this._narrationMode;
       const preset = localStorage.getItem(VOICE_PRESET_KEY);
       if (preset && VOICE_PRESETS[preset]) this._voicePresetKey = preset;
+      this._voiceName = localStorage.getItem(VOICE_NAME_KEY) || '';
     } catch(e) {}
     // 预加载TTS语音列表
     this._initVoices();
@@ -214,9 +270,88 @@ export class AudioSystem {
     return null;
   }
 
+  /**
+   * 用户手动选择设备上的真实系统语音。空值恢复自动选择。
+   */
+  setVoiceName(name = '') {
+    this._voiceName = String(name || '');
+    try { localStorage.setItem(VOICE_NAME_KEY, this._voiceName); } catch(e) {}
+    return this._voiceName;
+  }
+
+  getVoiceName() {
+    return this._voiceName;
+  }
+
+  /**
+   * 统一的语音选择器：用户手选 > 风格已知名称 > zh-CN 本地语音 >
+   * 默认中文语音。不会再通过排序位置猜测性别。
+   */
+  _selectVoice(preset, explicitVoiceName = '') {
+    const voices = this._cachedVoices.length > 0
+      ? this._cachedVoices
+      : (window.speechSynthesis?.getVoices() || []);
+    const zhVoices = voices.filter(v => {
+      const lang = (v.lang || '').toLowerCase();
+      return lang.startsWith('zh') || /chinese|中文|普通话|国语/i.test(v.name || '');
+    });
+
+    const requestedName = explicitVoiceName || this._voiceName;
+    if (requestedName) {
+      const selected = voices.find(v => v.name === requestedName);
+      if (selected) return { voice: selected, matched: true, source: 'user' };
+    }
+
+    if (preset?.voiceFilter) {
+      const matched = zhVoices.find(v => preset.voiceFilter(v));
+      if (matched) return { voice: matched, matched: true, source: 'preset' };
+    }
+
+    const scored = zhVoices
+      .map((voice, index) => {
+        const lang = (voice.lang || '').toLowerCase();
+        let score = 0;
+        if (lang === 'zh-cn' || lang === 'zh-hans-cn') score += 50;
+        else if (lang.startsWith('zh-cn') || lang.includes('hans')) score += 35;
+        else if (lang.startsWith('zh')) score += 20;
+        if (voice.localService) score += 8;
+        if (voice.default) score += 6;
+        return { voice, score, index };
+      })
+      .sort((a, b) => b.score - a.score || a.index - b.index);
+
+    return {
+      voice: scored[0]?.voice || null,
+      matched: false,
+      source: scored.length > 0 ? 'automatic' : 'default'
+    };
+  }
+
   /** 实际音量 = 主音量 × 类型比例 */
   _sfxVol(v) { return v * this.sfxVolume; }
   _bgmVol(v) { return v * this.bgmVolume; }
+
+  _getBGMTargetVolume() {
+    return this._bgmVol(this._speechDucked ? 0.045 : 0.15);
+  }
+
+  /**
+   * 系统 TTS 无法接入 Web Audio 混音图，因此通过压低程序化 BGM 为人声让位。
+   */
+  _setSpeechDucking(ducked) {
+    this._speechDucked = Boolean(ducked);
+    if (!this._bgmGain || !this._bgmPlaying) return;
+    try {
+      const ctx = this._getCtx();
+      const gain = this._bgmGain.gain;
+      gain.cancelScheduledValues(ctx.currentTime);
+      gain.setValueAtTime(gain.value, ctx.currentTime);
+      gain.linearRampToValueAtTime(
+        this._getBGMTargetVolume(),
+        ctx.currentTime + (this._speechDucked ? 0.16 : 0.32)
+      );
+    } catch(e) {}
+  }
 
   /**
    * 基础合成器：按频率/时长/波形/音量出一个音。
@@ -678,7 +813,7 @@ export class AudioSystem {
 
       // 渐入
       this._bgmGain.gain.linearRampToValueAtTime(
-        this._bgmVol(0.15), ctx.currentTime + 1.5
+        this._getBGMTargetVolume(), ctx.currentTime + 1.5
       );
     } catch(e) {}
   }
@@ -1027,7 +1162,7 @@ export class AudioSystem {
             this._bgmGain.gain.cancelScheduledValues(ctx2.currentTime);
             this._bgmGain.gain.setValueAtTime(0, ctx2.currentTime);
             this._bgmGain.gain.linearRampToValueAtTime(
-              this._bgmVol(0.15), ctx2.currentTime + fadeSec
+              this._getBGMTargetVolume(), ctx2.currentTime + fadeSec
             );
           } catch(e) {}
         }
@@ -1058,7 +1193,7 @@ export class AudioSystem {
     if (this._bgmGain && this._bgmPlaying) {
       try {
         this._bgmGain.gain.setValueAtTime(
-          this._bgmVol(0.15), this._getCtx().currentTime
+          this._getBGMTargetVolume(), this._getCtx().currentTime
         );
       } catch(e) {}
     }
@@ -1068,14 +1203,17 @@ export class AudioSystem {
   // 开关
   // ============================================================
 
-  toggle() {
+  async toggle() {
     this.enabled = !this.enabled;
     try { localStorage.setItem('luohammer_audio', this.enabled.toString()); } catch(e) {}
     if (!this.enabled) {
       this.stopBGM();
+      this.stopSpeaking();
     } else {
+      await this.unlock();
       this._playTone(880, 0.05, 'sine', 0.08);
     }
+    return this.enabled;
   }
 
   // ============================================================
@@ -1083,118 +1221,173 @@ export class AudioSystem {
   // ============================================================
 
   /**
-   * 朗读文本。使用浏览器内置 speechSynthesis API。
-   * 自动选择中文语音，调整语速和音调以适配叙事风格。
-   * 朗读参数优先级：opts > 当前 voicePreset > 默认值。
+   * 朗读文本。正文先按朗读模式筛选，再拆成短句队列依次交给系统 TTS。
+   * 朗读参数优先级：opts > 情绪调整 > 当前 voicePreset。
    * @param {string} text - 要朗读的文本
-   * @param {object} opts - { rate, pitch, voiceName, force } force=true 时无视 _narrationEnabled 开关强制朗读（用于试听）
+   * @param {object} opts
+   * @param {number} [opts.rate]
+   * @param {number} [opts.pitch]
+   * @param {string} [opts.voiceName]
+   * @param {string} [opts.richText] - 保留 <b> 的剧情文本，供金句模式提取
+   * @param {string} [opts.highlightText] - 非 <b> 场景显式指定的金句
+   * @param {string} [opts.kind='story'] - story/intro/ending/choices/preview
+   * @param {string} [opts.mood] - angry/depressed/happy/excited/tense/reflective
+   * @param {boolean} [opts.enqueue=false] - 追加到当前队列，不打断正在朗读的内容
+   * @param {boolean} [opts.force=false] - 仅用于用户主动点击的试听
+   * @returns {boolean} 是否成功进入朗读队列
    */
   speak(text, opts = {}) {
-    // force=true 时绕过 narrationEnabled 开关（供试听按钮使用）
     const force = opts.force === true;
-    if (!this.enabled) return;
-    if (!force && !this._narrationEnabled) return;
-    if (!text) return;
+    if (!this.enabled || !text || !window.speechSynthesis) return false;
 
-    if (!window.speechSynthesis) return;
+    const speechText = this._resolveNarrationText(text, opts, force);
+    if (!speechText) return false;
 
-    // 停止上一段朗读
-    window.speechSynthesis.cancel();
-    if (this._ttsResumeTimer) {
-      clearInterval(this._ttsResumeTimer);
-      this._ttsResumeTimer = null;
+    const chunks = splitSpeechText(speechText);
+    if (chunks.length === 0) return false;
+
+    const settings = this._buildSpeechSettings(opts);
+    const queueItems = chunks.map(chunk => ({ text: chunk, settings }));
+
+    if (opts.enqueue === true && this._speechActive) {
+      this._speechQueue.push(...queueItems);
+      return true;
     }
 
-    // 清理文本：去掉引号、特殊符号，分段避免长文本被截断
-    const cleanText = text
-      .replace(/[「」""''《》]/g, '')
-      .replace(/\n+/g, '，')
-      .replace(/—{2,}/g, '——')
-      .trim();
+    // 新剧情替换旧剧情：旧 utterance 的迟到事件会被 generation 隔离。
+    this._cancelSpeech({ notify: false });
+    const generation = ++this._speechGeneration;
+    this._speechQueue = queueItems;
+    this._speechActive = true;
+    this._setSpeechDucking(true);
+    this._speakNextChunk(generation);
+    return true;
+  }
 
-    if (!cleanText) return;
+  _resolveNarrationText(text, opts, force) {
+    if (force) return normalizeSpeechText(text);
 
-    // 加载当前配音预设参数（opts 可覆盖）
+    const mode = this._narrationMode;
+    const kind = opts.kind || 'story';
+    if (mode === 'off') return '';
+    if (kind === 'choices' && mode !== 'accessible') return '';
+
+    if (mode === 'highlights') {
+      if (kind === 'choices') return '';
+      const explicitHighlight = opts.highlightText != null
+        ? opts.highlightText
+        : extractSpeechHighlights(opts.richText || '');
+      return normalizeSpeechText(explicitHighlight);
+    }
+
+    return normalizeSpeechText(text);
+  }
+
+  _buildSpeechSettings(opts) {
     const preset = VOICE_PRESETS[this._voicePresetKey] || VOICE_PRESETS.luo_style;
+    const mood = MOOD_SPEECH_ADJUSTMENTS[opts.mood] || { rate: 1, pitch: 1 };
+    const selected = this._selectVoice(preset, opts.voiceName || '');
+    const baseRate = opts.rate != null ? Number(opts.rate) : preset.rate * mood.rate;
+    const basePitch = opts.pitch != null ? Number(opts.pitch) : preset.pitch * mood.pitch;
 
-    const utter = new SpeechSynthesisUtterance(cleanText);
-    utter.lang = 'zh-CN';
-
-    // === 语音选择策略 ===
-    const voices = this._cachedVoices.length > 0 ? this._cachedVoices : window.speechSynthesis.getVoices();
-    const zhVoices = voices
-      .filter(v => v.lang && v.lang.toLowerCase().startsWith('zh'))
-      .sort((a, b) => a.name.localeCompare(b.name)); // 稳定排序，便于分桶
-
-    let chosenVoice = null;
-
-    // 1. 优先按 voiceFilter 精确匹配
-    if (preset.voiceFilter && zhVoices.length > 0) {
-      chosenVoice = zhVoices.find(v => preset.voiceFilter(v));
-    }
-
-    // 2. 分桶策略：多个中文 voice 时，按 gender 选前半/后半
-    if (!chosenVoice && zhVoices.length >= 2 && preset.gender) {
-      const mid = Math.floor(zhVoices.length / 2);
-      const bucket = preset.gender === 'male' ? zhVoices.slice(0, mid) : zhVoices.slice(mid);
-      if (bucket.length > 0) {
-        chosenVoice = bucket[0];
-      }
-    }
-
-    // 3. 最终回退：任意中文 voice
-    if (!chosenVoice && zhVoices.length > 0) {
-      chosenVoice = zhVoices[0];
-    }
-
-    // === 应用 pitch/rate：匹配成功用温和值，否则用极端值做补偿 ===
-    const voiceMatched = chosenVoice !== null;
-    if (opts.rate != null) {
-      utter.rate = opts.rate;
-    } else {
-      utter.rate = voiceMatched ? preset.rate : (preset.rateNoMatch ?? preset.rate);
-    }
-    if (opts.pitch != null) {
-      utter.pitch = opts.pitch;
-    } else {
-      utter.pitch = voiceMatched ? preset.pitch : (preset.pitchNoMatch ?? preset.pitch);
-    }
-    utter.volume = this.masterVolume * 0.9;
-
-    if (chosenVoice) utter.voice = chosenVoice;
-
-    // 显式指定 voiceName 时覆盖（向后兼容 opts.voiceName）
-    if (opts.voiceName) {
-      const v = voices.find(v => v.name === opts.voiceName);
-      if (v) utter.voice = v;
-    }
-
-    // Chrome长文本bug修复：每10秒resume一次防止朗读停止
-    utter.onstart = () => {
-      this._ttsResumeTimer = setInterval(() => {
-        if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
-          window.speechSynthesis.pause();
-          window.speechSynthesis.resume();
-        }
-      }, 10000);
+    return {
+      rate: Math.max(0.72, Math.min(1.18, Number.isFinite(baseRate) ? baseRate : 0.9)),
+      pitch: Math.max(0.90, Math.min(1.10, Number.isFinite(basePitch) ? basePitch : 1)),
+      volume: Math.max(0, Math.min(1, this.masterVolume * 0.9)),
+      voice: selected.voice
     };
-    utter.onend = () => {
-      if (this._ttsResumeTimer) {
-        clearInterval(this._ttsResumeTimer);
-        this._ttsResumeTimer = null;
-      }
-      this._flushSpeechEndCallbacks();
-    };
-    utter.onerror = () => {
-      if (this._ttsResumeTimer) {
-        clearInterval(this._ttsResumeTimer);
-        this._ttsResumeTimer = null;
-      }
-      // 出错也要触发回调，避免剧情卡死
-      this._flushSpeechEndCallbacks();
+  }
+
+  _createUtterance(text, settings) {
+    const Utterance = window.SpeechSynthesisUtterance || globalThis.SpeechSynthesisUtterance;
+    if (typeof Utterance !== 'function') return null;
+    const utterance = new Utterance(text);
+    utterance.lang = 'zh-CN';
+    utterance.rate = settings.rate;
+    utterance.pitch = settings.pitch;
+    utterance.volume = settings.volume;
+    if (settings.voice) utterance.voice = settings.voice;
+    return utterance;
+  }
+
+  _clearTTSResumeTimer() {
+    if (!this._ttsResumeTimer) return;
+    clearInterval(this._ttsResumeTimer);
+    this._ttsResumeTimer = null;
+  }
+
+  _speakNextChunk(generation) {
+    if (generation !== this._speechGeneration || !this._speechActive || this._destroyed) return;
+    const item = this._speechQueue.shift();
+    if (!item) {
+      this._finishSpeechSession(generation);
+      return;
+    }
+
+    const utterance = this._createUtterance(item.text, item.settings);
+    if (!utterance) {
+      this._finishSpeechSession(generation);
+      return;
+    }
+
+    this._activeSpeechUtterance = utterance;
+    let settled = false;
+    const advance = () => {
+      if (settled) return;
+      settled = true;
+      this._clearTTSResumeTimer();
+      if (generation !== this._speechGeneration || this._activeSpeechUtterance !== utterance) return;
+      this._activeSpeechUtterance = null;
+      this._speakNextChunk(generation);
     };
 
-    window.speechSynthesis.speak(utter);
+    utterance.onstart = () => {
+      if (generation !== this._speechGeneration) return;
+      // 短句通常不需要唤醒；较长语音块仍保留 Chrome 防暂停保护。
+      if (item.text.length >= 48) {
+        this._clearTTSResumeTimer();
+        this._ttsResumeTimer = setInterval(() => {
+          if (generation !== this._speechGeneration) return;
+          if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+            window.speechSynthesis.pause();
+            window.speechSynthesis.resume();
+          }
+        }, 8000);
+      }
+    };
+    utterance.onend = advance;
+    utterance.onerror = advance;
+
+    try {
+      window.speechSynthesis.speak(utterance);
+    } catch(e) {
+      advance();
+    }
+  }
+
+  _finishSpeechSession(generation) {
+    if (generation !== this._speechGeneration) return;
+    this._clearTTSResumeTimer();
+    this._activeSpeechUtterance = null;
+    this._speechQueue = [];
+    this._speechActive = false;
+    this._setSpeechDucking(false);
+    this._flushSpeechEndCallbacks();
+  }
+
+  _cancelSpeech({ notify = true } = {}) {
+    const hadSpeech = this._speechActive || this._speechQueue.length > 0 || this._activeSpeechUtterance;
+    this._speechGeneration++;
+    this._speechQueue = [];
+    this._speechActive = false;
+    this._activeSpeechUtterance = null;
+    this._clearTTSResumeTimer();
+    if (window.speechSynthesis) {
+      try { window.speechSynthesis.cancel(); } catch(e) {}
+    }
+    this._setSpeechDucking(false);
+    if (notify && hadSpeech) this._flushSpeechEndCallbacks();
+    else if (!notify) this._pendingSpeechEndCallbacks = [];
   }
 
   /**
@@ -1271,76 +1464,76 @@ export class AudioSystem {
   getMatchedVoiceInfo(key) {
     const targetKey = key || this._voicePresetKey;
     const preset = VOICE_PRESETS[targetKey] || VOICE_PRESETS.luo_style;
-
-    const voices = this._cachedVoices.length > 0 ? this._cachedVoices :
-                   (window.speechSynthesis ? window.speechSynthesis.getVoices() : []);
-
-    let chosen = null;
-    let matched = false;
-    if (preset.voiceFilter && voices.length > 0) {
-      chosen = voices.find(v => preset.voiceFilter(v));
-      if (chosen) matched = true;
-    }
-    if (!chosen) {
-      // 回退：任意中文 voice
-      chosen = voices.find(v => v.lang && v.lang.startsWith('zh')) ||
-              voices.find(v => v.name && v.name.includes('Chinese')) ||
-              voices.find(v => v.name && v.name.includes('中文'));
-    }
+    const selected = this._selectVoice(preset);
+    const chosen = selected.voice;
 
     // 判断实际 voice 性别（基于 voice name 关键词）
-    let isMale = null;
-    if (chosen) {
-      const name = chosen.name || '';
-      if (/kangkang|yunyang|liangliang|^yun$|male|男/i.test(name)) isMale = true;
-      else if (/huihui|yaoyao|tingting|hanhan|xiaoxiao|female|女/i.test(name)) isMale = false;
-    }
+    const isMale = chosen ? this._isMaleVoice(chosen.name) : null;
 
     return {
-      matched,                                          // 是否精确匹配到预设期望的 voice
+      matched: selected.matched,
       voiceName: chosen ? chosen.name : '(无中文语音)',
       voiceLang: chosen ? (chosen.lang || '') : '',
-      isMale,                                           // 实际 voice 的性别推断
-      expectMale: preset.voiceFilter ? /kangkang|yunyang|liangliang|^yun$|male|男/i.test(preset.voiceFilter.toString()) : false
+      isMale,
+      source: selected.source,
+      expectMale: preset.gender === 'male'
     };
   }
 
-  stopSpeaking() {
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-    if (this._ttsResumeTimer) {
-      clearInterval(this._ttsResumeTimer);
-      this._ttsResumeTimer = null;
-    }
+  stopSpeaking(options = {}) {
+    this._cancelSpeech({ notify: options.notify !== false });
   }
 
   /**
    * 是否正在朗读
    */
   isSpeaking() {
-    return window.speechSynthesis && window.speechSynthesis.speaking;
+    return this._speechActive || this._speechQueue.length > 0;
   }
 
   /**
-   * 开关剧情朗读
+   * 兼容旧开关：关闭时恢复最近一次非关闭模式，开启时切到关闭。
    */
   toggleNarration() {
-    this._narrationEnabled = !this._narrationEnabled;
-    try {
-      localStorage.setItem('luohammer_narration', this._narrationEnabled.toString());
-    } catch(e) {}
-    if (!this._narrationEnabled) {
-      this.stopSpeaking();
-    }
+    const nextMode = this._narrationMode === 'off'
+      ? (this._lastNarrationMode || 'highlights')
+      : 'off';
+    this.setNarrationMode(nextMode);
     return this._narrationEnabled;
+  }
+
+  setNarrationMode(mode) {
+    if (!NARRATION_MODES[mode]) return this._narrationMode;
+    this._narrationMode = mode;
+    this._narrationEnabled = mode !== 'off';
+    if (this._narrationEnabled) this._lastNarrationMode = mode;
+    try {
+      localStorage.setItem(NARRATION_MODE_KEY, mode);
+      localStorage.setItem('luohammer_narration', String(this._narrationEnabled));
+    } catch(e) {}
+    if (!this._narrationEnabled) this.stopSpeaking();
+    return this._narrationMode;
+  }
+
+  cycleNarrationMode() {
+    const index = NARRATION_MODE_ORDER.indexOf(this._narrationMode);
+    const next = NARRATION_MODE_ORDER[(index + 1) % NARRATION_MODE_ORDER.length];
+    return this.setNarrationMode(next);
+  }
+
+  getNarrationMode() {
+    return this._narrationMode;
+  }
+
+  getNarrationModeInfo() {
+    return NARRATION_MODES[this._narrationMode] || NARRATION_MODES.highlights;
   }
 
   /**
    * 朗读是否开启
    */
   isNarrationEnabled() {
-    return this._narrationEnabled;
+    return this._narrationMode !== 'off';
   }
 
   // ============================================================
@@ -1399,8 +1592,9 @@ export class AudioSystem {
     // 标记禁用，阻止正在竞争的音频回调继续触发
     this.enabled = false;
     this._narrationEnabled = false;
+    this._narrationMode = 'off';
     this.stopBGM();
-    this.stopSpeaking();
+    this.stopSpeaking({ notify: false });
     this._pendingSpeechEndCallbacks = [];
     // 注意：不 close 共享 AudioContext（避免场景切换时反复创建/关闭触发 Chrome 限制）
     // 仅清理本实例引用；共享 ctx 由模块级 _sharedCtx 保留，页面卸载时自动释放

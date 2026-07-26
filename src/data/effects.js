@@ -23,10 +23,11 @@ export const ATTRIBUTES = {
  * @returns {object} { state: 修改后的状态, changes: 变化摘要 }
  */
 export function applyEffects(state, effects) {
-  if (!effects) return { state, changes: [] };
+  if (!effects) return { state, changes: [], talentTriggers: [] };
 
   const newState = { ...state };
   const changes = [];
+  const talentTriggers = new Set();
 
   for (const [key, value] of Object.entries(effects)) {
     if (value === 0 || value === undefined) continue;
@@ -35,9 +36,16 @@ export function applyEffects(state, effects) {
     if (!attrDef) continue;
 
     const oldValue = newState[key] ?? (key === 'failures' ? 0 : 5);
-    const multiplier = getMultiplier(state, key, value);
-    const delta = Math.round(value * multiplier);
-    let newValue = oldValue + delta;
+    const keyTriggers = new Set();
+    const multiplier = getMultiplier(state, key, value, keyTriggers);
+    const flatBonus = getFlatBonus(state, key, value, keyTriggers);
+    const rawDelta = value * multiplier;
+    // 减益倍率必须真的能影响 ±1：如“压力增长减半”遇到 +1 时应为 0，而不是 round(0.5)=1。
+    const scaledDelta = Math.abs(multiplier) < 1
+      ? (rawDelta > 0 ? Math.floor(rawDelta) : Math.ceil(rawDelta))
+      : Math.round(rawDelta);
+    const requestedDelta = scaledDelta + flatBonus;
+    let newValue = oldValue + requestedDelta;
 
     // 钳制范围
     if (key === 'failures') {
@@ -49,17 +57,28 @@ export function applyEffects(state, effects) {
     }
 
     newState[key] = newValue;
+    const appliedDelta = newValue - oldValue;
+    const maxVal = key === 'pressure' ? (state.pressureMax || 10) : attrDef.max;
+    const baselineDelta = Math.round(value);
+    const baselineValue = Math.max(attrDef.min, Math.min(maxVal, oldValue + baselineDelta));
+    const talentChangedOutcome = baselineValue !== newValue;
 
-    if (delta !== 0) {
+    if (appliedDelta !== 0) {
       changes.push({
         attr: key,
         name: attrDef.name,
         icon: attrDef.icon,
-        delta,
+        delta: appliedDelta,
         oldValue,
         newValue,
-        hidden: attrDef.hidden
+        hidden: attrDef.hidden,
+        talentSpecials: talentChangedOutcome ? [...keyTriggers] : []
       });
+    }
+    // 即使被动把 +1 完全抵消成 0（例如“压力增长减半”），也应记为一次真实触发。
+    // 若属性已在上下限且结果没有变化，则不把一个无效修饰算作触发。
+    if (talentChangedOutcome) {
+      for (const trigger of keyTriggers) talentTriggers.add(trigger);
     }
   }
 
@@ -78,7 +97,23 @@ export function applyEffects(state, effects) {
 
   // 天赋特殊被动（failure_heals_pride, failure_wealth_bonus 等）
   const passiveResult = applySpecialPassives(newState, effects, changes);
-  return { state: passiveResult.state, changes: passiveResult.changes };
+  for (const change of passiveResult.changes) {
+    for (const trigger of change.talentSpecials || []) talentTriggers.add(trigger);
+  }
+
+  const finalState = passiveResult.state;
+  if (talentTriggers.size > 0) {
+    finalState.talentTriggerCounts = { ...(state.talentTriggerCounts || {}) };
+    for (const trigger of talentTriggers) {
+      finalState.talentTriggerCounts[trigger] = (finalState.talentTriggerCounts[trigger] || 0) + 1;
+    }
+  }
+
+  return {
+    state: finalState,
+    changes: passiveResult.changes,
+    talentTriggers: [...talentTriggers]
+  };
 }
 
 /**
@@ -103,7 +138,8 @@ function applySpecialPassives(state, effects, changes) {
     if (newState.pride !== oldPride) {
       newChanges.push({
         attr: 'pride', name: '理想主义', icon: '★',
-        delta: bonus, oldValue: oldPride, newValue: newState.pride, hidden: false
+        delta: bonus, oldValue: oldPride, newValue: newState.pride, hidden: false,
+        talentSpecials: ['failure_heals_pride']
       });
     }
   }
@@ -116,7 +152,8 @@ function applySpecialPassives(state, effects, changes) {
     if (newState.wealth !== oldWealth) {
       newChanges.push({
         attr: 'wealth', name: '财富', icon: '¤',
-        delta: bonus, oldValue: oldWealth, newValue: newState.wealth, hidden: false
+        delta: bonus, oldValue: oldWealth, newValue: newState.wealth, hidden: false,
+        talentSpecials: ['failure_wealth_bonus']
       });
     }
   }
@@ -131,7 +168,7 @@ function applySpecialPassives(state, effects, changes) {
  * @param {number} value - 原始效果值
  * @returns {number} 倍率
  */
-function getMultiplier(state, attrKey, value) {
+function getMultiplier(state, attrKey, value, talentTriggers = new Set()) {
   let mult = 1;
   const specials = state.talentSpecials || [];
 
@@ -139,10 +176,14 @@ function getMultiplier(state, attrKey, value) {
   // 翻车惩罚倍率
   if (attrKey === 'failures' && state.failurePenalty) {
     mult *= state.failurePenalty;
+    if (state.failurePenalty !== 1) talentTriggers.add('all_in');
   }
   // 成功奖励倍率（对正面效果生效）
   if (state.successBonus && attrKey !== 'failures') {
-    if (value > 0) mult *= state.successBonus;
+    if (value > 0) {
+      mult *= state.successBonus;
+      if (state.successBonus !== 1) talentTriggers.add('all_in');
+    }
   }
 
   // === 新增天赋 special 处理 ===
@@ -151,18 +192,14 @@ function getMultiplier(state, attrKey, value) {
   if (specials.includes('fans_loyalty_bonus') &&
       (attrKey === 'trust' || attrKey === 'reputation') && value > 0) {
     mult *= 2;
+    talentTriggers.add('fans_loyalty_bonus');
   }
 
   // reputation_gain_doubled: 名声增长翻倍
   if (specials.includes('reputation_gain_doubled') &&
       attrKey === 'reputation' && value > 0) {
     mult *= 2;
-  }
-
-  // trust_gain_bonus: 公众信任增长额外 +1（通过倍率实现，后面 applyEffects 补差）
-  if (specials.includes('trust_gain_bonus') &&
-      attrKey === 'trust' && value > 0) {
-    mult += 1;
+    talentTriggers.add('reputation_gain_doubled');
   }
 
   // low_stats_bonus: 劣势状态下获得额外加成（属性 <= 3 时）
@@ -170,70 +207,38 @@ function getMultiplier(state, attrKey, value) {
     const curVal = state[attrKey] ?? 5;
     if (curVal <= 3 && value > 0) {
       mult += 1;
+      talentTriggers.add('low_stats_bonus');
     }
-  }
-
-  // all_choices_bonus: 所有选项的正面效果 +1
-  if (specials.includes('all_choices_bonus') && value > 0 && attrKey !== 'failures') {
-    mult += 1;
   }
 
   // debt_reduction_bonus: 还债效率提升（花钱更少，wealth 负值时减半消耗）
   if (specials.includes('debt_reduction_bonus') &&
       attrKey === 'wealth' && value < 0) {
     mult *= 0.5;
+    talentTriggers.add('debt_reduction_bonus');
   }
 
   // high_risk_high_reward: 高风险选择收益翻倍，代价也翻倍
   if (specials.includes('high_risk_high_reward') && Math.abs(value) >= 2) {
     mult *= 2;
-  }
-
-  // late_game_bonus: 后半生阶段（dark/repay/reborn）属性加成额外 +1
-  if (specials.includes('late_game_bonus') && value > 0) {
-    const lateStages = new Set(['dark', 'repay', 'reborn']);
-    if (state.currentStageId && lateStages.has(state.currentStageId)) {
-      mult += 1;
-    }
+    talentTriggers.add('high_risk_high_reward');
   }
 
   // titan_heart_effect: 压力越高，理想主义加成越大
   if (specials.includes('titan_heart_effect') &&
       attrKey === 'pride' && value > 0) {
     const pressure = state.pressure || 0;
-    if (pressure >= 6) mult += 1;
+    if (pressure >= 6) {
+      mult += 1;
+      talentTriggers.add('titan_heart_effect');
+    }
     if (pressure >= 8) mult += 1;
-  }
-
-  // reality_distortion_field: 所有正面效果+15%
-  if (specials.includes('reality_distortion_field') && value > 0 && attrKey !== 'failures') {
-    mult += 0.15;
-  }
-
-  // stage_events_bonus: 阶段结算事件效果加成 +20%
-  if (specials.includes('stage_events_bonus') && value > 0 && attrKey !== 'failures') {
-    const stageFlags = state.flags;
-    if (stageFlags && stageFlags.has && stageFlags.has('stage_settlement')) {
-      mult += 0.2;
-    }
-  }
-
-  // product_events_bonus: 产品相关事件效果加成 +20%
-  if (specials.includes('product_events_bonus') && value > 0 && attrKey !== 'failures') {
-    const stageFlags = state.flags;
-    if (stageFlags && stageFlags.has && stageFlags.has('product_event')) {
-      mult += 0.2;
-    }
-  }
-
-  // pressure_recovery: 压力恢复速度加快（压力减少时倍率提升）
-  if (specials.includes('pressure_recovery') && attrKey === 'pressure' && value < 0) {
-    mult += 1;
   }
 
   // pressure_gain_halved: 斯多葛派 — 压力增加时倍率减半（压力负面增长减半）
   if (specials.includes('pressure_gain_halved') && attrKey === 'pressure' && value > 0) {
     mult *= 0.5;
+    talentTriggers.add('pressure_gain_halved');
   }
 
   // === 跨周目技能：绝地反击 — 财富≤2 时正面效果 +50% ===
@@ -254,6 +259,55 @@ function getMultiplier(state, attrKey, value) {
   }
 
   return mult;
+}
+
+/**
+ * 获取精确的天赋固定加成。需要表达“额外 +1”的能力走这里，
+ * 避免用倍率模拟后把 +2 错算成 +4，或把 15% 在取整时吞掉。
+ */
+function getFlatBonus(state, attrKey, value, talentTriggers = new Set()) {
+  const specials = state.talentSpecials || [];
+  const positiveAttributes = new Set(['pride', 'wealth', 'reputation', 'trust']);
+  if (value <= 0 || !positiveAttributes.has(attrKey)) return 0;
+
+  let bonus = 0;
+
+  if (specials.includes('trust_gain_bonus') && attrKey === 'trust') {
+    bonus += 1;
+    talentTriggers.add('trust_gain_bonus');
+  }
+
+  if (specials.includes('all_choices_bonus')) {
+    bonus += 1;
+    talentTriggers.add('all_choices_bonus');
+  }
+
+  if (specials.includes('reality_distortion_field') && value >= 2) {
+    bonus += 1;
+    talentTriggers.add('reality_distortion_field');
+  }
+
+  if (specials.includes('late_game_bonus') &&
+      ['dark', 'repay', 'reborn'].includes(state.currentStageId)) {
+    bonus += 1;
+    talentTriggers.add('late_game_bonus');
+  }
+
+  if (specials.includes('stage_events_bonus') &&
+      ['teacher', 'repay', 'reborn'].includes(state.currentStageId) &&
+      (attrKey === 'reputation' || attrKey === 'trust')) {
+    bonus += 1;
+    talentTriggers.add('stage_events_bonus');
+  }
+
+  if (specials.includes('product_events_bonus') &&
+      ['startup', 'reborn'].includes(state.currentStageId) &&
+      attrKey === 'trust') {
+    bonus += 1;
+    talentTriggers.add('product_events_bonus');
+  }
+
+  return bonus;
 }
 
 /**

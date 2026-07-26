@@ -160,7 +160,11 @@ export const SCENE_TYPES = {
   STREET_DAY: 'street_day',         // 90年代小城白天老街（延边摆摊期）
   STAGE_ARENA: 'stage_arena',       // 巨型体育馆（鸟巢TNT发布会）
   CLASSROOM_NIGHT: 'classroom_night', // 深夜教室（苦学/夜读期）
-  OFFICE_DAY: 'office_day'          // 白天明亮办公室（新东方/日常办公期）
+  OFFICE_DAY: 'office_day',          // 白天明亮办公室（新东方/日常办公期）
+  CAFE: 'cafe',                     // 白天咖啡馆（融资谈判/会面期）
+  FACTORY: 'factory',               // 手机代工厂产线（供应链生死期）
+  FACTORY_DOOR: 'factory_door',     // 工厂门口铁锁封条（供应商暴雷期）
+  RENTAL: 'rental'                  // 破旧出租屋（北漂苦学期）
 };
 
 /**
@@ -192,25 +196,29 @@ export const SCENE_ASSETS = [
   { key: 'bg-stage_arena',   url: 'assets/characters/scene-stage_arena-v2.webp',   type: 'stage_arena' },
   { key: 'bg-classroom_night', url: 'assets/characters/scene-classroom_night-v2.webp', type: 'classroom_night' },
   { key: 'bg-office_day',    url: 'assets/characters/scene-office_day-v2.webp',    type: 'office_day' },
+  { key: 'bg-cafe',          url: 'assets/characters/scene-cafe-v2.webp',          type: 'cafe' },
+  { key: 'bg-factory',       url: 'assets/characters/scene-factory-v2.webp',       type: 'factory' },
+  { key: 'bg-factory_door',  url: 'assets/characters/scene-factory_door-v2.webp',  type: 'factory_door' },
+  { key: 'bg-rental',        url: 'assets/characters/scene-rental-v2.webp',        type: 'rental' },
   // 结局专属插图
-  { key: 'bg-ending-legend',   url: 'assets/characters/ending-legend-v2.webp',   type: 'ending-legend' },
-  { key: 'bg-ending-phoenix',  url: 'assets/characters/ending-phoenix-v2.webp',  type: 'ending-phoenix' },
-  { key: 'bg-ending-returns',  url: 'assets/characters/ending-returns-v2.webp',  type: 'ending-returns' },
-  { key: 'bg-ending-peace',    url: 'assets/characters/ending-peace-v2.webp',    type: 'ending-peace' },
+  { key: 'bg-ending-legend',   url: 'assets/characters/ending-legend-v3.webp',   type: 'ending-legend' },
+  { key: 'bg-ending-phoenix',  url: 'assets/characters/ending-phoenix-v3.webp',  type: 'ending-phoenix' },
+  { key: 'bg-ending-returns',  url: 'assets/characters/ending-returns-v3.webp',  type: 'ending-returns' },
+  { key: 'bg-ending-peace',    url: 'assets/characters/ending-peace-v3.webp',    type: 'ending-peace' },
   { key: 'bg-ending-monk',     url: 'assets/characters/ending-monk-v2.webp',     type: 'ending-monk' }
 ];
 
 export const CHARACTER_ASSETS = [
   { key: 'char-reference', url: 'assets/characters/luo-character-reference.webp', pose: 'reference' },
-  { key: 'char-standing',   url: 'assets/characters/luo-standing-v2-nobg.webp',   pose: 'standing' },
-  { key: 'char-speaking',   url: 'assets/characters/luo-speaking-v2-nobg.webp',   pose: 'speaking' },
-  { key: 'char-angry',      url: 'assets/characters/luo-angry-v2-nobg.webp',      pose: 'angry' },
-  { key: 'char-depressed',  url: 'assets/characters/luo-depressed-v2-nobg.webp',  pose: 'depressed' },
-  { key: 'char-happy',      url: 'assets/characters/luo-happy-v2-nobg.webp',      pose: 'happy' },
-  { key: 'char-livestream', url: 'assets/characters/luo-livestream-v2-nobg.webp', pose: 'livestream' },
-  { key: 'char-young',      url: 'assets/characters/luo-young-v2-nobg.webp',      pose: 'young' },
-  { key: 'char-sitting',    url: 'assets/characters/luo-sitting-v2-nobg.webp',    pose: 'sitting' },
-  { key: 'char-middle',     url: 'assets/characters/luo-middle-v2-nobg.webp',     pose: 'middle' }
+  { key: 'char-standing',   url: 'assets/characters/luo-standing-v4-nobg.webp',   pose: 'standing' },
+  { key: 'char-speaking',   url: 'assets/characters/luo-speaking-v4-nobg.webp',   pose: 'speaking' },
+  { key: 'char-angry',      url: 'assets/characters/luo-angry-v4-nobg.webp',      pose: 'angry' },
+  { key: 'char-depressed',  url: 'assets/characters/luo-depressed-v4-nobg.webp',  pose: 'depressed' },
+  { key: 'char-happy',      url: 'assets/characters/luo-happy-v4-nobg.webp',      pose: 'happy' },
+  { key: 'char-livestream', url: 'assets/characters/luo-livestream-v4-nobg.webp', pose: 'livestream' },
+  { key: 'char-young',      url: 'assets/characters/luo-young-v4-nobg.webp',      pose: 'young' },
+  { key: 'char-sitting',    url: 'assets/characters/luo-sitting-v4-nobg.webp',    pose: 'sitting' },
+  { key: 'char-middle',     url: 'assets/characters/luo-middle-v4-nobg.webp',     pose: 'middle' }
 ];
 
 const ENDING_PRESENTATION_PROFILES = Object.freeze({

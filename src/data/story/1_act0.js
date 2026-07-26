@@ -172,7 +172,7 @@ export const NODES = {
   act0_fail3: {
     act: '第一章',
     actSub: '倒腾药材 · 发霉赔钱 1992',
-    sceneType: SCENE_TYPES.STREET_DAY,
+    sceneType: SCENE_TYPES.RENTAL,
     character: '小罗',
     text: `你听人说倒腾药材能赚钱，就从延边进了批人参须和鹿茸片，准备倒到沈阳去卖。你把药材堆在出租屋的角落里，心想这回总该赚了吧——书上说"低买高卖"四个字，简单得很。你甚至已经在脑子里算好了赚多少钱，给家里寄多少，自己留多少。
 
@@ -230,7 +230,7 @@ export const NODES = {
   act0_gre: {
     act: '第一章',
     actSub: '郊区出租屋 · 自学GRE 2000',
-    sceneType: SCENE_TYPES.CLASSROOM_NIGHT,
+    sceneType: SCENE_TYPES.RENTAL,
     character: '小罗',
     text: `2000年，你28岁，回到北京。郊区月租200块的出租屋，墙上发霉，窗户漏风。你买了本GRE红宝书，从第一页开始啃。第一个单词是"abandon"，你盯着它看了三秒，笑了：连红宝书都在劝我放弃。但你翻到了第二页。
 

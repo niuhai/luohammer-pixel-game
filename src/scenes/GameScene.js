@@ -6,7 +6,7 @@ import { DialogSystem } from '../systems/DialogSystem.js';
 import { ChoiceSystem } from '../systems/ChoiceSystem.js';
 import { StatsSystem } from '../systems/StatsSystem.js';
 import { Transition } from '../systems/Transition.js';
-import { AudioSystem, VOICE_PRESETS } from '../systems/AudioSystem.js';
+import { AudioSystem, NARRATION_MODES, VOICE_PRESETS } from '../systems/AudioSystem.js';
 import { StageProgressSystem } from '../systems/StageProgressSystem.js';
 import { SaveSystem } from '../systems/SaveSystem.js';
 import { HistoryCard } from '../ui/HistoryCard.js';
@@ -15,10 +15,14 @@ import { AchievementPopup, isHiddenAchievement, addAchievementToStorage, HIDDEN_
 import { TalentSystem } from '../systems/TalentSystem.js';
 import { RandomEventSystem } from '../systems/RandomEventSystem.js';
 import {
+  TALENTS,
+  TALENT_OFFER_COUNT,
+  TALENT_SPECIAL_LABELS,
   drawTalents,
   applyTalentEffects,
   applyAchievementHunterBonus,
-  ACHIEVEMENT_HUNTER_MAX_BONUSES
+  ACHIEVEMENT_HUNTER_MAX_BONUSES,
+  getTalentCombination
 } from '../data/talents.js';
 import { matchEnding } from '../data/endings.js';
 import { getStageByNodeId, STAGES } from '../data/stages.js';
@@ -26,6 +30,7 @@ import { applyEffects, checkPressureCrash, checkThresholdTriggers, checkComboTri
 import { MetaProgression } from '../systems/MetaProgression.js';
 import { toast } from '../systems/ToastSystem.js';
 import { DebugLogger } from '../systems/DebugLogger.js';
+import { resolveStageAwarePose, resolvePoseStageKey, extractNodeYear, MIDDLE_AGE_YEAR } from '../systems/CharacterPoseResolver.js';
 
 // 关键冲击场景集合：进入这些场景时触发白闪，增强转场冲击感
 // 落实项目硬约束：冰箱砸碎/法庭/脱口秀等关键场景转场应有 1-2 帧白闪
@@ -123,12 +128,12 @@ export class GameScene extends Phaser.Scene {
   preload() {
     // 懒加载策略：首屏只加载序章 + 第一章必需资源
     // - classroom + standing：序章教室场景
-    // - young：第一章青年立绘（_inferMood 规则：youth/teacher 阶段强制用 young）
+    // - young：第一章少年立绘（年龄保护规则：仅 youth 阶段强制使用 young）
     // - office：第二章办公室场景（提前预读，避免章节切换卡顿）
     // 其余资源在 _renderNode 时按需加载 + _preloadAdjacentScenes 后台预读
     this.load.image('bg-classroom', 'assets/characters/scene-classroom-v2.webp');
-    this.load.image('char-standing', 'assets/characters/luo-standing-v2-nobg.webp');
-    this.load.image('char-young', 'assets/characters/luo-young-v2-nobg.webp');
+    this.load.image('char-standing', GameScene._CHAR_URL_BY_POSE.standing);
+    this.load.image('char-young', GameScene._CHAR_URL_BY_POSE.young);
     this.load.image('bg-office', 'assets/characters/scene-office-v2.webp');
   }
 
@@ -204,6 +209,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * 将场景姿态/情绪姿态限制在节点所属的年龄组内。
+   * 缺少同年龄情绪立绘时，优先回退到同年龄的场景姿态，再回退到该阶段默认立绘。
+   * startup 阶段跨 40→46 岁：actSub 年份 ≥2016 的节点改按中年立绘池解析。
+   */
+  _resolveStageAwarePose(nodeId, requestedPose, scenePose = 'standing') {
+    const stage = getStageByNodeId(nodeId);
+    const year = extractNodeYear(STORY[nodeId]?.actSub);
+    return resolveStageAwarePose(resolvePoseStageKey(stage?.id, year), requestedPose, scenePose);
+  }
+
+  /**
    * 后台预读当前节点选项指向的下一节点资源（fire-and-forget，不阻塞渲染）。
    * 玩家点选项时，对应场景图 + 角色立绘通常已在缓存中，切换无感知。
    * 同一节点最多预读 N 个相邻场景（默认上限 4，避免一次性触发过多请求）。
@@ -233,7 +249,7 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * 预测给定节点的角色姿态（用于预读，避免与 _renderNode 的 _inferMood 重复耦合）。
-   * 简化版推断：mood > livestream > 阶段推断 > 默认 standing
+   * 简化版推断：显式 mood/直播动作 + 场景姿态，再应用年龄阶段保护。
    * 不做 state 属性推断（pressure/failures），因为预读时 state 可能尚未变化。
    * @param {string} nodeId 节点 ID（用于阶段推断）
    * @param {object} node 目标节点对象
@@ -241,20 +257,7 @@ export class GameScene extends Phaser.Scene {
    */
   _predictNodePose(nodeId, node) {
     if (!node) return null;
-    // 1. 节点显式 mood 优先
-    if (node.mood) return node.mood;
-    // 2. 直播场景固定立绘
-    if (node.sceneType === 'livestream') return 'livestream';
-    // 3. 阶段推断：简化版（不查 state，仅按节点 ID 归属阶段）
-    // teacher 阶段不做年龄覆盖（与 _inferMood 三段逻辑一致，用场景姿态即黑毛衣青年组）
-    const stage = getStageByNodeId(nodeId);
-    if (stage) {
-      const earlyStages = new Set(['youth']);
-      const middleStages = new Set(['startup', 'dark', 'repay', 'reborn']);
-      if (earlyStages.has(stage.id)) return 'young';
-      if (middleStages.has(stage.id)) return 'middle';
-    }
-    // 4. 与 _renderNode 的 poseMap 保持一致，避免预读姿态与实际渲染姿态错位
+    // 与 _renderNode 的 poseMap 保持一致，避免预读姿态与实际渲染姿态错位
     const poseMap = {
       'classroom': 'sitting', 'lecture': 'speaking', 'office': 'sitting',
       'stage': 'speaking', 'livestream': 'sitting', 'lab': 'standing',
@@ -265,7 +268,10 @@ export class GameScene extends Phaser.Scene {
       'street_day': 'standing', 'stage_arena': 'speaking',
       'classroom_night': 'sitting', 'office_day': 'sitting'
     };
-    return poseMap[node.sceneType] || 'standing';
+    const scenePose = poseMap[node.sceneType] || 'standing';
+    const isLivestream = node.sceneType === 'livestream' || node.sceneType === 'livestream_first';
+    const requestedPose = node.mood || (isLivestream ? 'livestream' : null);
+    return this._resolveStageAwarePose(nodeId, requestedPose, scenePose);
   }
 
   init(data) {
@@ -586,22 +592,19 @@ export class GameScene extends Phaser.Scene {
       }, uiSignalOpts);
     }
 
-    // === 剧情朗读开关 ===
+    // === 剧情朗读模式：关闭 → 金句 → 完整 → 无障碍 ===
     this.narrationToggleEl = document.getElementById('ui-narration-toggle');
     this.narrationIconEl = document.getElementById('ui-narration-icon');
-    if (this.narrationIconEl) this.narrationIconEl.textContent = this.audio.isNarrationEnabled() ? '朗读✓' : '朗读';
     if (this.narrationToggleEl) {
-      this._updateNarrationToggleState(this.audio.isNarrationEnabled());
+      this._updateNarrationToggleState(this.audio.getNarrationMode());
       this.narrationToggleEl.classList.add('visible');
       this.narrationToggleEl.addEventListener('click', () => {
-        const on = this.audio.toggleNarration();
-        if (this.narrationIconEl) this.narrationIconEl.textContent = on ? '朗读✓' : '朗读';
-        this._updateNarrationToggleState(on);
-        if (!on) this.audio.stopSpeaking();
+        const mode = this.audio.cycleNarrationMode();
+        this._updateNarrationToggleState(mode);
       }, uiSignalOpts);
     }
 
-    // === 音色快捷切换按钮（游戏内直接切换配音预设，无需返回标题页）===
+    // === 朗读风格快捷切换（游戏内切换节奏与真实系统语音）===
     this.voiceToggleEl = document.getElementById('ui-voice-toggle');
     this.voiceIconEl = document.getElementById('ui-voice-icon');
     if (this.voiceToggleEl) {
@@ -698,10 +701,13 @@ export class GameScene extends Phaser.Scene {
     this._setupTwoFingerTap();
 
     // === DialogSystem Hooks：剧情文字开始时朗读 ===
-    this.dialog.setHook('onTextStart', (characterName, text) => {
-      if (this.audio.isNarrationEnabled()) {
-        this.audio.speak(text);
-      }
+    this.dialog.setHook('onTextStart', (characterName, text, context = {}) => {
+      this.audio.speak(text, {
+        kind: 'story',
+        richText: context.richText,
+        mood: context.mood,
+        speaker: characterName
+      });
     });
     // 对话框隐藏时停止朗读
     this.dialog.setHook('onHide', () => {
@@ -867,13 +873,26 @@ export class GameScene extends Phaser.Scene {
    * 天赋选择流程（5选2）
    */
   _showTalentSelection() {
-    const talents = drawTalents(5, { guaranteeRare: true });
+    // 兼容此前只记录成就、未执行天赋解锁结算的存档。
+    if (this.meta && typeof this.meta.checkAchievementMilestones === 'function') {
+      try {
+        const storedAchievements = loadUnlockedAchievements();
+        this.meta.checkAchievementMilestones(Array.isArray(storedAchievements) ? storedAchievements.length : 0);
+      } catch(e) {}
+    }
+    const unlockedTalentIds = this.meta && typeof this.meta.getUnlockedSkills === 'function'
+      ? this.meta.getUnlockedSkills()
+      : [];
+    const drawOptions = { guaranteeRare: true, unlockedTalentIds };
+    const talents = drawTalents(TALENT_OFFER_COUNT, drawOptions);
 
     // 里程碑奖励 + 逆天改命技能：额外天赋刷新次数
     const milestoneReroll = this.state._milestoneExtraReroll || 0;
     const talentReroll = this.state._talentReroll || 0;
     const rerollCount = milestoneReroll + talentReroll;
-    const onReroll = rerollCount > 0 ? () => drawTalents(5, { guaranteeRare: true }) : null;
+    const onReroll = rerollCount > 0
+      ? () => drawTalents(TALENT_OFFER_COUNT, drawOptions)
+      : null;
 
     this.talentSystem.show(talents, (selectedTalents) => {
       // 天赋选中音效
@@ -882,17 +901,64 @@ export class GameScene extends Phaser.Scene {
       // === 跨周目技能：稳扎稳打 — 失去天赋加成，仅记录选择 ===
       if (this.state._steadyWealth) {
         this.state.talent = selectedTalents.map(t => t.id).join(',');
+        this.state.talentCombo = getTalentCombination(selectedTalents);
         try { toast.info('▣ 稳扎稳打生效：牺牲天赋加成换取财富 +3', 3000); } catch(e) {}
       } else {
         // 应用天赋效果（支持多个天赋）
         this.state = applyTalentEffects(this.state, selectedTalents);
         this.state.talent = selectedTalents.map(t => t.id).join(',');
       }
+      if (this.state.talentCombo) {
+        try { toast.success(`★ 人生底色：${this.state.talentCombo.title}`, 2600); } catch(e) {}
+      }
       this.stats.update(this.state);
 
       // 开始游戏
       this.loadNode(this.state.currentNode);
     }, onReroll ? { onReroll, rerollCount } : {});
+  }
+
+  _showTalentTriggerFeedback(triggerKeys) {
+    if (!Array.isArray(triggerKeys) || triggerKeys.length === 0) return;
+    if (!this._talentTriggerNoticeCounts) this._talentTriggerNoticeCounts = {};
+
+    const selectedIds = String(this.state.talent || '')
+      .split(',')
+      .map(id => id.trim())
+      .filter(Boolean);
+    const selectedTalents = selectedIds
+      .map(id => TALENTS.find(talent => talent.id === id))
+      .filter(Boolean);
+
+    const notices = [];
+    for (const trigger of [...new Set(triggerKeys)]) {
+      const shownCount = this._talentTriggerNoticeCounts[trigger] || 0;
+      if (shownCount >= 3) continue;
+      this._talentTriggerNoticeCounts[trigger] = shownCount + 1;
+      const talent = selectedTalents.find(item => item.id === trigger || item.special === trigger)
+        || TALENTS.find(item => item.id === trigger || item.special === trigger);
+      const name = talent ? talent.name : '天赋';
+      const effect = TALENT_SPECIAL_LABELS[trigger] || '命运轨迹发生改变';
+      notices.push(`${name}：${effect}`);
+    }
+
+    if (notices.length > 0) {
+      try { toast.info(`★ 天赋触发 · ${notices.join('；')}`, 2600); } catch(e) {}
+    }
+  }
+
+  _applyEffectsWithTalentFeedback(effects) {
+    const result = applyEffects(this.state, effects);
+    this.state = result.state;
+    this._showTalentTriggerFeedback(result.talentTriggers);
+    return result;
+  }
+
+  _recordDirectTalentTrigger(trigger) {
+    if (!trigger) return;
+    this.state.talentTriggerCounts = { ...(this.state.talentTriggerCounts || {}) };
+    this.state.talentTriggerCounts[trigger] = (this.state.talentTriggerCounts[trigger] || 0) + 1;
+    this._showTalentTriggerFeedback([trigger]);
   }
 
   /**
@@ -979,8 +1045,8 @@ export class GameScene extends Phaser.Scene {
     };
     const pose = poseMap[node.sceneType] || 'standing';
     const mood = this._inferMood(node);
-    // 实际生效的姿态：mood 优先（如 young/middle/livestream），否则用场景对应 pose
-    const effectivePose = mood || pose;
+    // 情绪姿态必须属于当前年龄组；没有同年龄情绪图时回退到同年龄场景/默认立绘。
+    const effectivePose = this._resolveStageAwarePose(this.state.currentNode, mood, pose);
 
     await Promise.all([
       this._ensureSceneTexture(node.sceneType),
@@ -1008,7 +1074,7 @@ export class GameScene extends Phaser.Scene {
       this._playCrashSequence(crashFx.level, { dropTitle: false, pressureSpike: !!crashFx.pressureSpike });
     }
 
-    const targetTexture = this._resolveMoodTexture(mood, pose);
+    const targetTexture = this._resolveMoodTexture(effectivePose, pose);
 
     const renderer = this.pixelRenderer;
     const hasSprite = renderer.charSprite && renderer.charSprite.active;
@@ -1053,8 +1119,16 @@ export class GameScene extends Phaser.Scene {
         }
 
         this.choices.show(resolvedChoices, (choice) => { this.makeChoice(choice); });
+        const spokenChoices = resolvedChoices
+          .map((choice, index) => `选项${index + 1}，${choice.label || choice}`)
+          .join('。');
+        this.audio.speak(spokenChoices, {
+          kind: 'choices',
+          enqueue: true,
+          rate: 0.96
+        });
       }
-    }, node.mood);
+    }, this._inferSpeechMood(node));
 
     // R26 P1：首次进入游戏时显示操作引导（一次性）
     if (this.isNewGame && this.state.currentNode === 'intro' && !this._tutorialShown) {
@@ -2048,12 +2122,16 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * 根据节点所在阶段返回角色名字：youth/teacher/startup → 小罗，dark/repay/reborn → 老罗
+   * startup 阶段内 actSub 年份 ≥2016（44 岁+）的节点与中年立绘一致，显示「老罗」
    */
   _resolveCharacterName(nodeId) {
     const stage = getStageByNodeId(nodeId);
     if (!stage) return '罗远';
     const earlyStages = new Set(['youth', 'teacher', 'startup']);
-    return earlyStages.has(stage.id) ? '小罗' : '老罗';
+    if (!earlyStages.has(stage.id)) return '老罗';
+    const year = extractNodeYear(STORY[nodeId]?.actSub);
+    if (stage.id === 'startup' && year != null && year >= MIDDLE_AGE_YEAR) return '老罗';
+    return '小罗';
   }
 
   /**
@@ -2063,6 +2141,32 @@ export class GameScene extends Phaser.Scene {
     if (!text || typeof text !== 'string') return text;
     const resolved = this._resolveCharacterName(nodeId);
     return text.replace(/罗远/g, resolved);
+  }
+
+  /**
+   * 朗读情绪与角色立绘分离。立绘 mood 还承担年龄/姿态职责（young、middle、
+   * livestream），不能直接拿来调 TTS；这里只返回声音节奏可理解的情绪。
+   */
+  _inferSpeechMood(node) {
+    if (!node) return null;
+    if (['angry', 'depressed', 'happy', 'excited', 'tense', 'reflective'].includes(node.mood)) {
+      return node.mood;
+    }
+
+    const text = (node.text || '').toLowerCase();
+    const pressure = this.state.pressure || 0;
+    const failures = this.state.failures || 0;
+    const pride = this.state.pride || 0;
+
+    if (this._textContainsAny(text, ['愤怒', '混蛋', '骗子', '砸', '怒吼', '拍桌子'])) return 'angry';
+    if (pressure >= 7 || this._textContainsAny(text, ['崩溃', '绝望', '疲惫', '失败', '对不起', '沉默'])) {
+      return 'depressed';
+    }
+    if (failures >= 5 || this._textContainsAny(text, ['债务', '围堵', '断裂', '倒闭', '禁令'])) return 'tense';
+    if (this._textContainsAny(text, ['回想', '回顾', '终于明白', '十字路口', '深夜反思'])) return 'reflective';
+    if (pride >= 8 || this._textContainsAny(text, ['掌声雷动', '欢呼', '大卖', '成功', '牛逼'])) return 'excited';
+    if (this._textContainsAny(text, ['笑了', '高兴', '庆幸', '温暖'])) return 'happy';
+    return null;
   }
 
   /**
@@ -2077,26 +2181,9 @@ export class GameScene extends Phaser.Scene {
     if (node.mood) return node.mood;
 
     // 2. 直播/卖货场景固定使用直播立绘
-    if (node.sceneType === 'livestream') return 'livestream';
+    if (node.sceneType === 'livestream' || node.sceneType === 'livestream_first') return 'livestream';
 
-    // 3. 根据阶段推断年龄立绘：youth 少年 → teacher 黑毛衣青年（默认 pose 组）→ startup+ 中年
-    const stage = getStageByNodeId(this.state.currentNode);
-    if (stage) {
-      // 三段年龄过渡：youth 用 young 少年立绘；
-      // teacher 不做年龄覆盖（落到场景 poseMap/情绪姿态，即黑毛衣青年组，作为少年→中年的过渡）；
-      // startup(锤子科技 2012-2018) 及之后主角已 40+ 岁，用 middle 中年立绘
-      const earlyStages = new Set(['youth']);
-      const middleStages = new Set(['startup', 'dark', 'repay', 'reborn']);
-      if (earlyStages.has(stage.id)) {
-        // 年轻阶段：如果没有显式 mood 覆盖情绪，用 young 立绘
-        if (!node.mood && node.sceneType !== 'livestream') return 'young';
-      } else if (middleStages.has(stage.id)) {
-        // 中年阶段：如果没有显式 mood 覆盖情绪，用 middle 立绘
-        if (!node.mood && node.sceneType !== 'livestream') return 'middle';
-      }
-    }
-
-    // 4. 状态属性推断：翻车/压力高 → 沮丧；理想主义高 → 自信/开心
+    // 3. 状态属性推断：翻车/压力高 → 沮丧；理想主义高 → 自信/开心
     const pride = this.state.pride || 0;
     const pressure = this.state.pressure || 0;
     const failures = this.state.failures || 0;
@@ -2106,7 +2193,7 @@ export class GameScene extends Phaser.Scene {
     if (pride >= 8) return 'happy';
     if (pride >= 6) return 'speaking';
 
-    // 5. 文本关键词兜底推断
+    // 4. 文本关键词兜底推断
     const text = (node.text || '').toLowerCase();
     if (this._textContainsAny(text, ['翻车', '崩溃', '绝望', '失败', '对不起', '压力'])) return 'depressed';
     if (this._textContainsAny(text, ['愤怒', '混蛋', '骗子', '怼', '砸'])) return 'angry';
@@ -2123,15 +2210,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * 将 mood 或 pose 解析为实际纹理 key。
-   * 优先使用 mood 映射；若无效则回退到 pose 映射；最终兜底 char-standing。
+   * 将年龄保护后的有效姿态解析为实际纹理 key。
+   * 若无效则回退到场景姿态，最终兜底 char-standing。
    */
-  _resolveMoodTexture(mood, pose) {
-    if (mood) {
-      const moodKey = GameScene.CHAR_TEXTURES[mood];
-      if (moodKey) return moodKey;
+  _resolveMoodTexture(effectivePose, fallbackPose) {
+    if (effectivePose) {
+      const poseKey = GameScene.CHAR_TEXTURES[effectivePose];
+      if (poseKey) return poseKey;
     }
-    return GameScene.CHAR_TEXTURES[pose] || 'char-standing';
+    return GameScene.CHAR_TEXTURES[fallbackPose] || 'char-standing';
   }
 
   /**
@@ -2341,8 +2428,7 @@ export class GameScene extends Phaser.Scene {
       // 应用结算效果
       for (const check of results) {
         if (check.effects) {
-          const { state: newState } = applyEffects(this.state, check.effects);
-          this.state = newState;
+          this._applyEffectsWithTalentFeedback(check.effects);
         }
       }
 
@@ -2353,6 +2439,7 @@ export class GameScene extends Phaser.Scene {
         const newPressure = Math.max(0, oldPressure - 2);
         if (newPressure !== oldPressure) {
           this.state.pressure = newPressure;
+          this._recordDirectTalentTrigger('pressure_recovery');
         }
       }
 
@@ -2424,8 +2511,7 @@ export class GameScene extends Phaser.Scene {
     try { this.audio.playConsequence(); } catch(e) {}
     this.dialog.show('往事回响', this._replaceCharacterNameInText(c.text, this.state.currentNode), () => {
       if (c.effects) {
-        const { state: newState } = applyEffects(this.state, c.effects);
-        this.state = newState;
+        this._applyEffectsWithTalentFeedback(c.effects);
         this.stats.update(this.state);
       }
       this._showConsequences(consequences, index + 1, onComplete);
@@ -2491,8 +2577,9 @@ export class GameScene extends Phaser.Scene {
     // 使用效果引擎应用属性变化
     const effects = choice.effects || {};
     const stateBefore = this.state;
-    const { state: newState, changes } = applyEffects(this.state, effects);
+    const { state: newState, changes, talentTriggers } = applyEffects(this.state, effects);
     this.state = newState;
+    this._showTalentTriggerFeedback(talentTriggers);
     try { this.debug.logChoice(this.state.currentNode, choice.label, effects, stateBefore, this.state); } catch(e) {}
 
     // === 跨周目技能：浴火重生 — 翻车后下个选择效果 +50% ===
@@ -2790,10 +2877,19 @@ export class GameScene extends Phaser.Scene {
       }
       const total = sessionSet.size;
       const highest = this.meta.checkMilestoneRewards(total);
+      const achievementMilestones = typeof this.meta.checkAchievementMilestones === 'function'
+        ? this.meta.checkAchievementMilestones(total)
+        : [];
       if (highest) {
         // 里程碑达成提示
         try {
           toast.success(`★ 里程碑达成：${highest.name}`, 5000);
+        } catch(e) {}
+      }
+      for (const milestone of achievementMilestones) {
+        try {
+          const unlockText = milestone.unlockTalent ? ' · 新天赋已加入抽取池' : '';
+          toast.success(`★ 成就里程碑：${milestone.name}${unlockText}`, 5000);
         } catch(e) {}
       }
     } catch(e) {}
@@ -2883,8 +2979,7 @@ export class GameScene extends Phaser.Scene {
       try { this.debug.logComboTrigger(comboTrigger.id, comboTrigger.message); } catch(e) {}
       try { toast.warning(comboTrigger.message, 4000); } catch(e) {}
       if (comboTrigger.effects) {
-        const { state: comboState } = applyEffects(this.state, comboTrigger.effects);
-        this.state = comboState;
+        this._applyEffectsWithTalentFeedback(comboTrigger.effects);
         this.stats.update(this.state);
       }
     }
@@ -2907,8 +3002,7 @@ export class GameScene extends Phaser.Scene {
           try { this.meta.addSeenEvent(eventId); } catch(e) {}
 
           // 随机事件选择后的回调
-          const { state: newState } = applyEffects(this.state, effects);
-          this.state = newState;
+          this._applyEffectsWithTalentFeedback(effects);
           if (flag) this.state.flags.add(flag);
           this.state.triggeredEvents.add(eventId);
           this.stats.update(this.state);
@@ -2922,6 +3016,9 @@ export class GameScene extends Phaser.Scene {
         }
       );
       if (triggered) {
+        if ((this.state.talentSpecials || []).includes('random_events_bias_positive')) {
+          this._recordDirectTalentTrigger('random_events_bias_positive');
+        }
         // === 跨周目技能：预知未来 — 随机事件预兆提示 ===
         if (this.state._showEventOmen) {
           try { toast.info('◯ 预知未来：你预感到一个随机事件正在发生……', 3500); } catch(e) {}
@@ -3007,6 +3104,7 @@ export class GameScene extends Phaser.Scene {
     // === 天赋：人脉编织者 — 信任≥5 时检定值 +1 ===
     if (this.state.talentSpecials && this.state.talentSpecials.includes('trust_check_bonus') && (this.state.trust || 0) >= 5) {
       checkBonus += 1;
+      this._recordDirectTalentTrigger('trust_check_bonus');
     }
     // === 里程碑奖励：成就猎人 — 所有检定 +1 ===
     if (this.state._achievementHunter) {
@@ -3024,8 +3122,7 @@ export class GameScene extends Phaser.Scene {
       try { this.audio.playAchievementRare(); } catch(e) {}
       this.dialog.show('◊ 属性检定', `【${attrLabel}检定】${rawAttrValue}${checkBonus ? `+${checkBonus}` : ''}/${check.min} —— 失败！\n但「第二次机会」技能触发，自动转为成功！`, () => {
         if (check.successEffects) {
-          const { state: newState } = applyEffects(this.state, check.successEffects);
-          this.state = newState;
+          this._applyEffectsWithTalentFeedback(check.successEffects);
           this.stats.update(this.state);
         }
         const nextNode = check.successNext;
@@ -3042,8 +3139,7 @@ export class GameScene extends Phaser.Scene {
     this._showCheckAnimation(check, passed, attrLabel, attrValue, () => {
       // 应用检定结果效果
       if (passed && check.successEffects) {
-        const { state: newState } = applyEffects(this.state, check.successEffects);
-        this.state = newState;
+        this._applyEffectsWithTalentFeedback(check.successEffects);
         this.stats.update(this.state);
       } else if (!passed && check.failEffects) {
         // === 跨周目技能：检定失败惩罚减半 ===
@@ -3066,8 +3162,7 @@ export class GameScene extends Phaser.Scene {
             }
           }
         }
-        const { state: newState } = applyEffects(this.state, actualFailEffects);
-        this.state = newState;
+        this._applyEffectsWithTalentFeedback(actualFailEffects);
         this.stats.update(this.state);
       }
 
@@ -3132,6 +3227,9 @@ export class GameScene extends Phaser.Scene {
   _checkPressureCrashOrProceed(continueCallback, originalChoice, skipRandomEvent = false) {
     const crashEvent = checkPressureCrash(this.state);
     if (crashEvent) {
+      if ((this.state.talentSpecials || []).includes('pressure_crash_halved')) {
+        this._recordDirectTalentTrigger('pressure_crash_halved');
+      }
       // === 跨周目技能：不死鸟 — 每局一次满血复活，跳过崩溃 ===
       if (this.state._phoenixRevive && this.state._phoenixRevive > 0) {
         this._offerPhoenixRevive(crashEvent, originalChoice, skipRandomEvent, continueCallback);
@@ -3206,10 +3304,9 @@ export class GameScene extends Phaser.Scene {
         try { toast.info('◉ 绝境逢生：本次崩溃的负面损失已减半。', 3500); } catch(e) {}
       }
       // 用对话框显示崩溃事件
-      this.dialog.show('⚠ 压力崩溃', this._replaceCharacterNameInText(crashEvent.text, this.state.currentNode), () => {
+        this.dialog.show('⚠ 压力崩溃', this._replaceCharacterNameInText(crashEvent.text, this.state.currentNode), () => {
         this.choices.show(crashChoices, (choice) => {
-          const { state: newState } = applyEffects(this.state, choice.effects);
-          this.state = newState;
+          this._applyEffectsWithTalentFeedback(choice.effects);
           this.stats.update(this.state);
           this.choices.hide();
           this.dialog.hide();
@@ -3247,8 +3344,7 @@ export class GameScene extends Phaser.Scene {
     try { this.audio.playThresholdTrigger(); } catch(e) {}
     this.dialog.show('✦ 隐藏事件', this._replaceCharacterNameInText(t.text, this.state.currentNode), () => {
       if (t.effects) {
-        const { state: newState } = applyEffects(this.state, t.effects);
-        this.state = newState;
+        this._applyEffectsWithTalentFeedback(t.effects);
         this.stats.update(this.state);
       }
       if (t.flag) {
@@ -3371,12 +3467,15 @@ export class GameScene extends Phaser.Scene {
   /**
    * 同步剧情朗读按钮的可访问状态。
    */
-  _updateNarrationToggleState(enabled) {
+  _updateNarrationToggleState(mode) {
     if (!this.narrationToggleEl) return;
+    const info = NARRATION_MODES[mode] || NARRATION_MODES.highlights;
+    const enabled = info.key !== 'off';
+    if (this.narrationIconEl) this.narrationIconEl.textContent = info.shortLabel;
     this.narrationToggleEl.classList.toggle('active', enabled);
     this.narrationToggleEl.setAttribute('aria-pressed', String(enabled));
-    this.narrationToggleEl.setAttribute('aria-label', enabled ? '关闭剧情朗读' : '开启剧情朗读');
-    this.narrationToggleEl.title = enabled ? '关闭剧情朗读' : '开启剧情朗读';
+    this.narrationToggleEl.setAttribute('aria-label', `朗读模式：${info.label}。点击切换`);
+    this.narrationToggleEl.title = `朗读模式：${info.label}｜${info.desc}`;
   }
 
   /**
@@ -3390,7 +3489,7 @@ export class GameScene extends Phaser.Scene {
       const short = preset.label.replace(/★/, '').split('·')[0].slice(0, 4);
       this.voiceIconEl.textContent = short;
     } catch(e) {
-      this.voiceIconEl.textContent = '音色';
+      this.voiceIconEl.textContent = '风格';
     }
   }
 
@@ -3411,7 +3510,7 @@ export class GameScene extends Phaser.Scene {
     panel.id = 'ui-quick-voice-panel';
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-modal', 'true');
-    panel.setAttribute('aria-label', '配音音色切换');
+    panel.setAttribute('aria-label', '朗读设置');
     panel.style.cssText = [
       'position: fixed',
       'inset: 0',
@@ -3437,9 +3536,86 @@ export class GameScene extends Phaser.Scene {
     ].join(';');
 
     const title = document.createElement('div');
-    title.textContent = '♪ 配音音色切换';
+    title.textContent = '♪ 朗读设置';
     title.style.cssText = 'font-size: 14px; color: var(--color-gold); margin-bottom: 14px; text-align: center; font-weight: 700;';
     box.appendChild(title);
+
+    const modeLabel = document.createElement('div');
+    modeLabel.textContent = '朗读内容';
+    modeLabel.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); margin: 0 0 6px;';
+    box.appendChild(modeLabel);
+
+    const modeGroup = document.createElement('div');
+    modeGroup.style.cssText = 'display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 14px;';
+    Object.values(NARRATION_MODES).forEach(mode => {
+      const modeBtn = document.createElement('button');
+      const isCurrent = audio.getNarrationMode() === mode.key;
+      modeBtn.textContent = mode.label;
+      modeBtn.title = mode.desc;
+      modeBtn.style.cssText = [
+        'padding: 7px 4px',
+        'font-size: 10px',
+        'cursor: pointer',
+        'font-family: inherit',
+        `color: ${isCurrent ? 'var(--color-bg-dark)' : 'var(--color-gold)'}`,
+        `background: ${isCurrent ? 'var(--color-gold)' : 'rgba(240, 192, 64, 0.06)'}`,
+        'border: 1px solid var(--color-gold-border)'
+      ].join(';');
+      modeBtn.addEventListener('click', () => {
+        audio.setNarrationMode(mode.key);
+        this._updateNarrationToggleState(mode.key);
+        this._closeQuickVoicePanel();
+        this._showQuickVoicePanel();
+      });
+      modeGroup.appendChild(modeBtn);
+    });
+    box.appendChild(modeGroup);
+
+    const replayBtn = document.createElement('button');
+    replayBtn.textContent = '↻ 重播当前段';
+    replayBtn.style.cssText = 'width: 100%; margin: 0 0 14px; padding: 8px; color: var(--color-gold); background: rgba(240, 192, 64, 0.06); border: 1px solid var(--color-gold-border); font-family: inherit; font-size: 10px; cursor: pointer;';
+    replayBtn.disabled = !this.dialog?._plainText;
+    if (replayBtn.disabled) replayBtn.style.opacity = '0.45';
+    replayBtn.addEventListener('click', () => {
+      if (!this.dialog?._plainText) return;
+      audio.speak(this.dialog._plainText, {
+        kind: 'story',
+        richText: this.dialog.fullText,
+        mood: this.dialog._currentMood,
+        force: true
+      });
+    });
+    box.appendChild(replayBtn);
+
+    const systemVoices = audio.getVoiceList();
+    const voiceLabel = document.createElement('label');
+    voiceLabel.textContent = '设备语音';
+    voiceLabel.style.cssText = 'display: block; font-size: 10px; color: var(--color-text-secondary); margin: 0 0 6px;';
+    const voiceSelect = document.createElement('select');
+    voiceSelect.setAttribute('aria-label', '选择设备上的中文系统语音');
+    voiceSelect.style.cssText = 'width: 100%; margin-bottom: 14px; padding: 8px; color: var(--color-text-primary); background: rgba(0, 0, 0, 0.45); border: 1px solid var(--color-gold-border); font-family: inherit; font-size: 10px;';
+    const automaticOption = document.createElement('option');
+    automaticOption.value = '';
+    automaticOption.textContent = systemVoices.length > 0 ? '自动选择（推荐）' : '自动选择（未发现中文语音）';
+    voiceSelect.appendChild(automaticOption);
+    systemVoices.forEach(voice => {
+      const option = document.createElement('option');
+      option.value = voice.name;
+      option.textContent = `${voice.name}${voice.lang ? ` · ${voice.lang}` : ''}`;
+      voiceSelect.appendChild(option);
+    });
+    voiceSelect.value = audio.getVoiceName();
+    voiceSelect.addEventListener('change', () => {
+      audio.setVoiceName(voiceSelect.value);
+      audio.previewVoicePreset(audio.getVoicePresetKey());
+    });
+    voiceLabel.appendChild(voiceSelect);
+    box.appendChild(voiceLabel);
+
+    const styleLabel = document.createElement('div');
+    styleLabel.textContent = '朗读风格';
+    styleLabel.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); margin: 0 0 6px;';
+    box.appendChild(styleLabel);
 
     const presets = Object.values(VOICE_PRESETS);
     presets.forEach(preset => {

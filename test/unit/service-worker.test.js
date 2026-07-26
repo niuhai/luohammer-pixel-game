@@ -32,6 +32,7 @@ function createHarness() {
   const keyOf = (request) => typeof request === 'string' ? request : request.url;
   const cache = {
     addAll: vi.fn(),
+    add: vi.fn(async (request) => { entries.set(keyOf(request), new FakeResponse('cached')); }),
     match: vi.fn(async (request) => entries.get(keyOf(request))),
     put: vi.fn(async (request, response) => {
       entries.set(keyOf(request), response);
@@ -91,11 +92,19 @@ describe('Service Worker - 评委访问版本新鲜度', () => {
   });
 
   it('首次安装会从构建后的 HTML 发现并预缓存哈希入口', async () => {
-    harness.fetchMock.mockResolvedValue(new FakeResponse(`
-      <link rel="stylesheet" href="/luohammer-pixel-game/assets/index-STYLE123.css">
-      <script type="module" src="/luohammer-pixel-game/assets/index-SCRIPT99.js"></script>
-      <script type="module" src="/luohammer-pixel-game/assets/phaser-ENGINE88.js"></script>
-    `));
+    harness.fetchMock.mockImplementation(async (url) => {
+      const u = String(url);
+      // R84：入口 chunk 内 __vite__mapDeps 持有懒加载 chunk 哈希，SW 会抓取入口 JS 文本提取
+      if (u.includes('index-SCRIPT99.js')) {
+        return new FakeResponse('const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/GameScene-CHUNK77.js","assets/phaser-ENGINE88.js"])))=>i.map(i=>d[i]);');
+      }
+      if (u.includes('phaser-ENGINE88.js')) return new FakeResponse('phaser bundle');
+      return new FakeResponse(`
+        <link rel="stylesheet" href="/luohammer-pixel-game/assets/index-STYLE123.css">
+        <script type="module" src="/luohammer-pixel-game/assets/index-SCRIPT99.js"></script>
+        <script type="module" src="/luohammer-pixel-game/assets/phaser-ENGINE88.js"></script>
+      `);
+    });
 
     await harness.dispatchLifecycle('install');
 
@@ -103,11 +112,30 @@ describe('Service Worker - 评委访问版本新鲜度', () => {
       './index.html',
       expect.objectContaining({ body: expect.stringContaining('index-SCRIPT99.js') })
     );
-    expect(harness.cache.addAll).toHaveBeenCalledWith(expect.arrayContaining([
-      '/luohammer-pixel-game/assets/index-STYLE123.css',
-      '/luohammer-pixel-game/assets/index-SCRIPT99.js',
-      '/luohammer-pixel-game/assets/phaser-ENGINE88.js'
-    ]));
+    // R84：原子 addAll 已替换为逐项 cache.add（单项失败不摧毁整个 install）
+    expect(harness.cache.add).toHaveBeenCalledWith('/luohammer-pixel-game/assets/index-STYLE123.css');
+    expect(harness.cache.add).toHaveBeenCalledWith('/luohammer-pixel-game/assets/index-SCRIPT99.js');
+    expect(harness.cache.add).toHaveBeenCalledWith('/luohammer-pixel-game/assets/phaser-ENGINE88.js');
+    // 懒加载 chunk（GameScene）从入口 JS 文本提取并预缓存——评委断网点"开始游戏"不再卡标题屏
+    expect(harness.cache.add).toHaveBeenCalledWith('./assets/GameScene-CHUNK77.js');
+  });
+
+  it('单项预缓存失败不阻塞安装，失败项写入调试键', async () => {
+    harness.fetchMock.mockResolvedValue(new FakeResponse('<html><script src="/luohammer-pixel-game/assets/index-SCRIPT99.js"></script></html>'));
+    harness.cache.add.mockImplementation(async (request) => {
+      const key = typeof request === 'string' ? request : request.url;
+      if (key === './icon-512.png') throw new Error('Request failed: 404');
+      harness.entries.set(key, new FakeResponse('cached'));
+    });
+
+    await harness.dispatchLifecycle('install');
+
+    // install 正常完成（skipWaiting 被调用），其余项仍被缓存
+    expect(harness.entries.has('./manifest.json')).toBe(true);
+    expect(harness.entries.has('./icon-512.png')).toBe(false);
+    const failLog = harness.entries.get('./__precache_failures__');
+    expect(failLog).toBeTruthy();
+    expect(failLog.body).toContain('./icon-512.png');
   });
 
   it('导航请求优先联网并刷新离线首页，而不是返回旧缓存', async () => {

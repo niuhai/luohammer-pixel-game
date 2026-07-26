@@ -1,5 +1,4 @@
 import { STAGES, getStageByNodeId } from '../data/stages.js';
-import { STORY } from '../data/story.js';
 
 const SAVE_KEY = 'luohammer_save';
 const BACKUP_KEY = 'luohammer_save_backup';
@@ -39,6 +38,9 @@ function sanitizeForJSON(state) {
 // 用于校验存档完整性，防止损坏数据导致游戏中途崩溃
 const REQUIRED_ATTRS = ['pride', 'wealth', 'reputation'];
 const ATTR_RANGE = { min: -50, max: 50 }; // 容忍迁移期数值越界，但拒绝明显异常值
+// 标题页读取存档时不能同步拉取整份 STORY（约 195KB gzip）。
+// 阶段表已包含所有可继续游玩的主线节点；结局节点统一使用 ending_ 前缀。
+const VALID_STAGE_NODES = new Set(STAGES.flatMap(stage => stage.nodes || []));
 
 function _isValidState(parsed) {
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return false;
@@ -50,8 +52,8 @@ function _isValidState(parsed) {
   }
   // currentNode 必须是非空字符串（空字符串会导致 getStageByNodeId 返回 null 后续崩溃）
   if (typeof parsed.currentNode !== 'string' || parsed.currentNode.length === 0) return false;
-  // currentNode 必须在 STORY 中实际存在（旧版存档节点改名后不致白屏崩溃）
-  if (!STORY[parsed.currentNode]) return false;
+  // currentNode 必须属于主线阶段或结局命名空间（旧版存档节点改名后不致白屏崩溃）
+  if (!VALID_STAGE_NODES.has(parsed.currentNode) && !parsed.currentNode.startsWith('ending_')) return false;
   return true;
 }
 

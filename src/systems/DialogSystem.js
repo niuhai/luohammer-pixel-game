@@ -39,7 +39,7 @@ export class DialogSystem {
     this._typingInterval = TYPING_SPEEDS[this._typingSpeedIdx];
     // === Hook 系统：外部可以在这些时机插入回调 ===
     this.hooks = {
-      onTextStart: null,     // 开始打字时 (characterName, text) => void
+      onTextStart: null,     // 开始打字时 (characterName, plainText, context) => void
       onTextComplete: null,  // 文字打完时 (characterName, text) => void
       onChoice: null,        // 用户点击继续时 (characterName, text) => void
       onShow: null,          // 对话框显示时
@@ -594,9 +594,17 @@ export class DialogSystem {
     if (this.touchLayer) this.touchLayer.classList.add('visible');
 
     // === Hook: onTextStart — 开始打字前 ===
-    // 传 _plainText（去除 <b> 标签）给 TTS，避免朗读"小于b大于"字面文本
+    // 纯文本用于完整朗读；richText 保留 <b>，供金句模式只提取高亮内容。
     if (this.hooks.onTextStart) {
-      try { this.hooks.onTextStart(characterName, this._plainText); } catch(e) {}
+      try {
+        this.hooks.onTextStart(characterName, this._plainText, {
+          richText: text,
+          mood: this._currentMood,
+          nodeId: this.scene?.state?.currentNode || null,
+          segmentIndex: this._segmentIndex,
+          segmentCount: this._segments?.length || 1
+        });
+      } catch(e) {}
     }
     // === Hook: onShow ===
     if (this.hooks.onShow) {

@@ -20,10 +20,9 @@ export default defineConfig({
           if (id.includes('node_modules') && id.includes('phaser')) {
             return 'phaser';
           }
-          // 将体量较大的 story 数据拆为独立 chunk，减轻 index chunk 体积
-          if (id.includes('src/data/story/')) {
-            return 'story';
-          }
+          // 剧情随动态导入的 GameScene 自动拆分，不能强制 manual chunk：
+          // 否则 Rollup 会把 config/stages 等首屏共享依赖一并吸入 story，
+          // 导致标题页仍然预加载整份剧情。
         }
       }
     },

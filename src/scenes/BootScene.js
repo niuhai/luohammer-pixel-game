@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../config.js';
 import { SaveSystem } from '../systems/SaveSystem.js';
-import { AudioSystem, VOICE_PRESETS } from '../systems/AudioSystem.js';
+import { AudioSystem, NARRATION_MODES, VOICE_PRESETS } from '../systems/AudioSystem.js';
 import { showAchievementGallery } from '../ui/AchievementGallery.js';
 import { showEndingGallery, getEndingProgress } from '../ui/EndingGallery.js';
 import { showSaveLoadPanel } from '../ui/SaveLoadPanel.js';
@@ -25,6 +25,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
+    this._launchingGameplay = false;
     // 背景音乐系统（在用户首次交互后才会真正播放，避免浏览器自动播放策略拦截）
     this.audio = new AudioSystem(this);
 
@@ -74,12 +75,12 @@ export class BootScene extends Phaser.Scene {
       return introBtn;
     };
 
-    // "配音试听"按钮：弹出预设选择面板，供用户试听并切换配音风格
+    // “朗读设置”按钮：选择内容模式、真实系统语音与朗读风格
     const createVoicePreviewBtn = () => {
       const btn = document.createElement('button');
       btn.className = 'ui-boot-btn';
       const currentPreset = this.audio.getVoicePresetKey();
-      btn.textContent = `♪ 配音试听（${VOICE_PRESETS[currentPreset].label}）`;
+      btn.textContent = `♪ 朗读设置（${VOICE_PRESETS[currentPreset].label}）`;
       btn.addEventListener('click', () => this._showVoicePreviewPanel(btn));
       return btn;
     };
@@ -110,9 +111,7 @@ export class BootScene extends Phaser.Scene {
             try { toast('存档已损坏或不兼容当前版本，请重新开始', 3500); } catch (e) {}
             return;
           }
-          this.audio.fadeOutBGM(0.5);
-          overlay.classList.remove('visible');
-          this.scene.start('GameScene', { state });
+          this._startGameplay(overlay, { state }, continueBtn);
         });
         buttonsEl.appendChild(continueBtn);
       }
@@ -126,9 +125,7 @@ export class BootScene extends Phaser.Scene {
           mode: 'manage',
           saveSystem: save,
           onLoad: (slotId, state) => {
-            this.audio.fadeOutBGM(0.5);
-            overlay.classList.remove('visible');
-            this.scene.start('GameScene', { state });
+            this._startGameplay(overlay, { state });
           }
         });
       });
@@ -225,10 +222,14 @@ export class BootScene extends Phaser.Scene {
             charIndex++;
           } else {
             timer.remove();
-            // 打字完成后语音播报金句（force=true，无视 narration 开关）
+            // 标题金句遵循用户朗读模式；关闭时保持安静，不再强制越过设置。
             if (!quoteSpoken && this.audio) {
               quoteSpoken = true;
-              this.audio.speak(quoteText, { force: true });
+              this.audio.speak(quoteText, {
+                kind: 'intro',
+                highlightText: quoteText,
+                mood: 'reflective'
+              });
             }
             // 打字完成后光标再闪几秒后消失
             this.time.delayedCall(3000, () => {
@@ -252,6 +253,9 @@ export class BootScene extends Phaser.Scene {
 
     // === 同步 overlay 与 Phaser canvas 尺寸/位置（窗口模式适配） ===
     this._syncOverlayToCanvas(overlay);
+
+    // main.js 据此立刻撤下首屏 Loading；此时标题、按钮与尺寸均已就绪。
+    this.game.events.emit('boot-ui-ready');
 
     // Hide overlay when scene is shutdown
     this.events.on('shutdown', () => {
@@ -299,6 +303,32 @@ export class BootScene extends Phaser.Scene {
     });
   }
 
+  /** 确保懒加载的主游戏场景就绪后再切场，慢网下保留标题反馈而不是进入黑屏。 */
+  async _startGameplay(overlay, data, triggerBtn = null) {
+    if (this._launchingGameplay) return;
+    this._launchingGameplay = true;
+    const originalText = triggerBtn?.textContent || '';
+    if (triggerBtn) {
+      triggerBtn.disabled = true;
+      triggerBtn.textContent = '正在进入…';
+    }
+    try {
+      const ensureScenes = this.registry.get('ensureGameplayScenes');
+      if (typeof ensureScenes === 'function') await ensureScenes();
+      if (this.audio) this.audio.fadeOutBGM(0.5);
+      if (overlay) overlay.classList.remove('visible');
+      this.scene.start('GameScene', data);
+    } catch (error) {
+      console.error('[BootScene] 主游戏资源加载失败:', error);
+      this._launchingGameplay = false;
+      if (triggerBtn) {
+        triggerBtn.disabled = false;
+        triggerBtn.textContent = originalText;
+      }
+      try { toast('游戏资源加载失败，请检查网络后重试', 3500); } catch (e) {}
+    }
+  }
+
   /**
    * 配音试听面板：列出所有预设，每项提供「试听」+「应用」按钮。
    * - 试听：用该预设朗读一段标准示例文本，不持久化
@@ -339,20 +369,82 @@ export class BootScene extends Phaser.Scene {
 
     // 标题
     const title = document.createElement('div');
-    title.textContent = '♪ 配音试听';
+    title.textContent = '♪ 朗读设置';
     title.style.cssText = 'font-size: 16px; color: var(--color-gold); text-align: center; margin-bottom: 4px; letter-spacing: 1px;';
     panel.appendChild(title);
 
     const subtitle = document.createElement('div');
-    subtitle.textContent = '点击「试听」听效果，满意后点「应用」';
+    subtitle.textContent = '选择朗读内容、设备语音和讲述风格';
     subtitle.style.cssText = 'font-size: 11px; color: var(--color-text-secondary); text-align: center; margin-bottom: 6px; line-height: 1.5;';
     panel.appendChild(subtitle);
 
-    // 系统语音由设备提供，明确说明跨平台差异。
+    // 纯本地系统语音：不依赖预生成音频或云端服务。
     const ttsNote = document.createElement('div');
-    ttsNote.textContent = '使用当前设备的中文系统语音，实际音色会因系统与浏览器而异';
+    ttsNote.textContent = '完全使用当前设备的中文系统语音，不上传文本、不需要网络语音服务';
     ttsNote.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); text-align: center; margin-bottom: 14px; line-height: 1.5; opacity: 0.7;';
     panel.appendChild(ttsNote);
+
+    const modeTitle = document.createElement('div');
+    modeTitle.textContent = '朗读内容';
+    modeTitle.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); margin-bottom: 6px;';
+    panel.appendChild(modeTitle);
+
+    const modeGroup = document.createElement('div');
+    modeGroup.style.cssText = 'display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 14px;';
+    Object.values(NARRATION_MODES).forEach(mode => {
+      const modeBtn = document.createElement('button');
+      const isCurrent = this.audio.getNarrationMode() === mode.key;
+      modeBtn.textContent = mode.label;
+      modeBtn.title = mode.desc;
+      modeBtn.style.cssText = [
+        'padding: 7px 4px',
+        'font-size: 10px',
+        'font-family: inherit',
+        'cursor: pointer',
+        `color: ${isCurrent ? 'var(--color-bg-dark)' : 'var(--color-gold)'}`,
+        `background: ${isCurrent ? 'var(--color-gold)' : 'rgba(240, 192, 64, 0.06)'}`,
+        'border: 1px solid rgba(240, 192, 64, 0.35)'
+      ].join(';');
+      modeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.audio.setNarrationMode(mode.key);
+        this._voicePanelCleanup();
+        this._showVoicePreviewPanel(triggerBtn);
+      });
+      modeGroup.appendChild(modeBtn);
+    });
+    panel.appendChild(modeGroup);
+
+    const systemVoices = this.audio.getVoiceList();
+    const voiceLabel = document.createElement('label');
+    voiceLabel.textContent = '设备语音';
+    voiceLabel.style.cssText = 'display: block; font-size: 10px; color: var(--color-text-secondary); margin-bottom: 14px;';
+    const voiceSelect = document.createElement('select');
+    voiceSelect.setAttribute('aria-label', '选择设备上的中文系统语音');
+    voiceSelect.style.cssText = 'display: block; width: 100%; margin-top: 6px; padding: 8px; color: var(--color-text-primary); background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(240, 192, 64, 0.35); font-family: inherit; font-size: 10px;';
+    const autoOption = document.createElement('option');
+    autoOption.value = '';
+    autoOption.textContent = systemVoices.length > 0 ? '自动选择（推荐）' : '自动选择（未发现中文语音）';
+    voiceSelect.appendChild(autoOption);
+    systemVoices.forEach(voice => {
+      const option = document.createElement('option');
+      option.value = voice.name;
+      option.textContent = `${voice.name}${voice.lang ? ` · ${voice.lang}` : ''}`;
+      voiceSelect.appendChild(option);
+    });
+    voiceSelect.value = this.audio.getVoiceName();
+    voiceSelect.addEventListener('change', (e) => {
+      e.stopPropagation();
+      this.audio.setVoiceName(voiceSelect.value);
+      this.audio.previewVoicePreset(this.audio.getVoicePresetKey());
+    });
+    voiceLabel.appendChild(voiceSelect);
+    panel.appendChild(voiceLabel);
+
+    const styleTitle = document.createElement('div');
+    styleTitle.textContent = '朗读风格';
+    styleTitle.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); margin-bottom: 6px;';
+    panel.appendChild(styleTitle);
 
     // 预设列表
     presets.forEach(preset => {
@@ -442,7 +534,7 @@ export class BootScene extends Phaser.Scene {
         this._showVoicePreviewPanel(triggerBtn);
         // 同步触发按钮的标签
         if (triggerBtn) {
-          triggerBtn.textContent = `♪ 配音试听（${VOICE_PRESETS[preset.key].label}）`;
+          triggerBtn.textContent = `♪ 朗读设置（${VOICE_PRESETS[preset.key].label}）`;
         }
         try { toast(`已应用：${preset.label}`); } catch(e) {}
       });
@@ -706,25 +798,8 @@ export class BootScene extends Phaser.Scene {
       btn.type = 'button';
       btn.textContent = '安装到桌面';
       btn.setAttribute('aria-label', '安装到桌面');
-      btn.style.cssText = `
-        position: absolute;
-        top: 12px;
-        left: 12px;
-        padding: 0 14px;
-        height: 40px;
-        line-height: 38px;
-        border: 1px solid var(--color-gold);
-        border-radius: 4px;
-        background: rgba(0, 0, 0, 0.6);
-        color: var(--color-gold);
-        font-size: 14px;
-        font-weight: 700;
-        cursor: pointer;
-        z-index: 10;
-        user-select: none;
-        display: none;
-        font-family: 'Luohammer UI', "Microsoft YaHei", "PingFang SC", sans-serif;
-      `;
+      // R82 F4：定位/视觉样式迁至 index.html #ui-boot-install-btn（含竖屏左下特判），
+      // 此处不再 inline cssText——原 top:12/left:12 与"怎么玩"指南物理重叠
       overlay.appendChild(btn);
     }
     this._installBtn = btn;

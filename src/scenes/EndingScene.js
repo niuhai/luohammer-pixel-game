@@ -13,7 +13,27 @@ import { SKILL_TREES, calculateExpGain } from '../data/skillTree.js';
 import { RANDOM_EVENTS } from '../data/events-random.js';
 import { toast } from '../systems/ToastSystem.js';
 
-const ENDING_BACKGROUND_SAFE_CROP_BOTTOM = 24;
+function fitImageCover(image, targetWidth, targetHeight) {
+  const sourceWidth = image.frame.realWidth;
+  const sourceHeight = image.frame.realHeight;
+  const targetRatio = targetWidth / targetHeight;
+  const sourceRatio = sourceWidth / sourceHeight;
+  let cropX = 0;
+  let cropY = 0;
+  let cropWidth = sourceWidth;
+  let cropHeight = sourceHeight;
+
+  if (sourceRatio > targetRatio) {
+    cropWidth = Math.round(sourceHeight * targetRatio);
+    cropX = Math.floor((sourceWidth - cropWidth) / 2);
+  } else if (sourceRatio < targetRatio) {
+    cropHeight = Math.round(sourceWidth / targetRatio);
+    cropY = Math.floor((sourceHeight - cropHeight) / 2);
+  }
+
+  image.setCrop(cropX, cropY, cropWidth, cropHeight);
+  image.setScale(targetWidth / cropWidth, targetHeight / cropHeight);
+}
 
 export class EndingScene extends Phaser.Scene {
   constructor() { super('EndingScene'); }
@@ -142,16 +162,7 @@ export class EndingScene extends Phaser.Scene {
     const img = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, assetKey);
     // 高清结局插画使用线性过滤，避免缩放锯齿
     img.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
-    // 统一裁掉素材底部安全边，避免角落标记随全屏缩放进入最终画面。
-    if (img.height > ENDING_BACKGROUND_SAFE_CROP_BOTTOM) {
-      img.setCrop(
-        0,
-        0,
-        img.width,
-        img.height - ENDING_BACKGROUND_SAFE_CROP_BOTTOM
-      );
-    }
-    img.setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
+    fitImageCover(img, GAME_WIDTH, GAME_HEIGHT);
     img.setAlpha(0.35); // 半透明叠加，保留粒子效果
     img.setDepth(-1);
   }
@@ -289,17 +300,32 @@ export class EndingScene extends Phaser.Scene {
     this._flashbackAbort = new AbortController();
     const signalOpts = { signal: this._flashbackAbort.signal };
 
-    let skipFlag = false;
-    const skipHandler = () => { skipFlag = true; };
+    // R83 F1：finish 幂等收口——原实现"提前跳过（首个选项 800ms 渲染前 choicesEl 仍为空）
+    // 不调 onComplete"导致结局 overlay 永不渲染的 P0 软锁；且跳过仅停止后续渲染，
+    // 空屏仍要等满 totalDuration(~5.5s) 才消失，体感卡死。
+    // 修复：跳过 = 立即进结局，与自然结束殊途同归；双路径同走 finish 保证 onComplete 恰好一次。
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (this._flashbackAbort) {
+        this._flashbackAbort.abort();
+        this._flashbackAbort = null;
+      }
+      flashback.classList.remove('visible');
+      if (label) label.classList.remove('show');
+      onComplete();
+    };
+    const skipHandler = () => finish();
     flashback.addEventListener('pointerdown', skipHandler, signalOpts);
-    const keyHandler = (e) => { if (e.code === 'Space') skipFlag = true; };
+    const keyHandler = (e) => { if (e.code === 'Space') finish(); };
     window.addEventListener('keydown', keyHandler, signalOpts);
 
     picks.forEach((item, i) => {
       const delay = 800 + i * 700;
       this.time.delayedCall(delay, () => {
-        if (skipFlag) return;
-        if (this._flashbackAbort.signal.aborted) return; // 场景已关闭
+        if (finished) return; // 已跳过/已自然结束
+        if (!this._flashbackAbort || this._flashbackAbort.signal.aborted) return; // 场景已关闭
         const el = document.createElement('div');
         el.className = 'ui-ending-flashback-choice';
         const nodeLabel = item.nodeId ? item.nodeId.replace(/_/g, ' ').toUpperCase() : '';
@@ -311,18 +337,7 @@ export class EndingScene extends Phaser.Scene {
 
     // 闪回结束后进入结局
     const totalDuration = 800 + picks.length * 700 + 1200;
-    this.time.delayedCall(totalDuration, () => {
-      if (this._flashbackAbort) {
-        this._flashbackAbort.abort();
-        this._flashbackAbort = null;
-      }
-      flashback.classList.remove('visible');
-      if (label) label.classList.remove('show');
-      // 仅在未被提前 abort 时调用 onComplete
-      if (!skipFlag || choicesEl.children.length > 0) {
-        onComplete();
-      }
-    });
+    this.time.delayedCall(totalDuration, finish);
   }
 
   _checkAchievementRewards() {
@@ -417,6 +432,27 @@ export class EndingScene extends Phaser.Scene {
 
     // Summary
     summaryEl.textContent = (this.ending.summary || '').replace(/罗远/g, '老罗');
+
+    // 结局也进入统一朗读链路：金句模式只读 quote/respect，完整模式读标题、
+    // 描述、金句和总结。沿用纯本地系统 TTS，不依赖云端音频。
+    const endingSpeech = [
+      titleEl.textContent,
+      descEl.textContent,
+      quoteText,
+      summaryEl.textContent
+    ].filter(Boolean).join('。');
+    const endingMood = pStyle === 'tragic'
+      ? 'depressed'
+      : pStyle === 'legendary'
+        ? 'excited'
+        : pStyle === 'peaceful'
+          ? 'reflective'
+          : null;
+    this.audio?.speak(endingSpeech, {
+      kind: 'ending',
+      highlightText: quoteText || summaryEl.textContent,
+      mood: endingMood
+    });
 
     // Achievements - 展示已解锁/未解锁成就列表
     const sessionAchievements = this.state.achievements || [];
@@ -1091,9 +1127,11 @@ export class EndingScene extends Phaser.Scene {
     `;
 
     const panelContent = document.createElement('div');
+    // R83: width/max-height 加视口钳制——700px 定宽在 375px 竖屏双向溢出 325px（实测 left=-162/right=538），
+    // 380px 定高在 812×375 横屏超高溢出；与历史真相回顾面板 min() 钳制对齐
     panelContent.style.cssText = `
       background: var(--color-bg-elevated); border: 2px solid var(--color-gold); padding: 20px;
-      width: 700px; max-height: 380px; overflow-y: auto;
+      width: min(700px, 92vw); max-height: min(380px, 80vh); overflow-y: auto;
     `;
 
     // Title
