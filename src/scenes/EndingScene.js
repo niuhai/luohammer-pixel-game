@@ -2049,6 +2049,12 @@ export class EndingScene extends Phaser.Scene {
       this._flashbackAbort = null;
     }
 
+    // R88 GATE-R87 P1-3：复位闪回 overlay 的 visible class——
+    // 原实现仅 finish()（time.delayedCall 驱动）负责移除，闪回播放中场景被切走时
+    // time.removeAllEvents() 连带清掉 finish，常驻 #ui-ending-flashback 永久覆盖屏幕
+    const flashbackEl = document.getElementById('ui-ending-flashback');
+    if (flashbackEl) flashbackEl.classList.remove('visible');
+
     // P1-1：清理"人生结算中..."过渡文案
     const calculatingEl = document.getElementById('ui-ending-calculating');
     if (calculatingEl && calculatingEl.parentNode) {

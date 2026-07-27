@@ -40,11 +40,15 @@ export class StatsSystem {
     this.el.appendChild(this._toggleHint);
 
     // Toggle hidden stats on click
-    this.el.addEventListener('click', () => {
+    // R88 GATE-R87 P0-2：监听器存为实例属性，destroy() 中显式移除——
+    // #ui-stats 是常驻 DOM（index.html），匿名监听器不回收会随每局
+    // new StatsSystem 累积，闭包引用旧实例使其无法 GC
+    this._onToggleClick = () => {
       this.showHidden = !this.showHidden;
       this._updateHiddenVisibility();
       this._toggleHint.textContent = this.showHidden ? '点击收起隐藏属性' : '点击展开隐藏属性';
-    });
+    };
+    this.el.addEventListener('click', this._onToggleClick);
   }
 
   _createBar(stat, hidden = false) {
@@ -145,22 +149,26 @@ export class StatsSystem {
     this.el.appendChild(hint);
 
     // 3.5秒后自动消失，或点击属性面板时消失
-    const removeHint = () => {
+    // R88 GATE-R87 P0-2：removeHint 同样存为实例属性供 destroy 移除
+    this._onRemoveHint = () => {
       if (hint.parentNode) {
         hint.classList.add('fading');
         this._hintFadeTimer = setTimeout(() => { if (hint.parentNode) hint.parentNode.removeChild(hint); }, 400);
       }
     };
-    this._hintRemoveTimer = setTimeout(removeHint, 3500);
-    this.el.addEventListener('click', removeHint, { once: true });
+    this._hintRemoveTimer = setTimeout(this._onRemoveHint, 3500);
+    this.el.addEventListener('click', this._onRemoveHint, { once: true });
   }
 
   /**
    * R25 P2-2：销毁时清理引导气泡定时器，避免场景切换后孤立
+   * R88 GATE-R87 P0-2：同时移除常驻 DOM 上的两个 click 监听器
    */
   destroy() {
     if (this._hintRemoveTimer) { clearTimeout(this._hintRemoveTimer); this._hintRemoveTimer = null; }
     if (this._hintFadeTimer) { clearTimeout(this._hintFadeTimer); this._hintFadeTimer = null; }
+    if (this._onToggleClick) { this.el.removeEventListener('click', this._onToggleClick); this._onToggleClick = null; }
+    if (this._onRemoveHint) { this.el.removeEventListener('click', this._onRemoveHint); this._onRemoveHint = null; }
   }
 
   _updateBars(bars, state) {

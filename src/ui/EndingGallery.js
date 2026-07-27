@@ -109,8 +109,15 @@ export function showEndingGallery(options = {}) {
   });
 
   // 关闭按钮
+  // R88 GATE-R87 P1-2：closed 幂等 + escHandler 统一解绑（对齐 AchievementGallery 模式）——
+  // 原实现仅 ESC 路径移除 keydown 监听器，点关闭按钮/遮罩关闭时监听器永久泄漏，
+  // 且残留 handler 再收 ESC 会对已关闭图鉴重跑 closeGallery 导致 onClose 二次调用
   const closeBtn = overlay.querySelector('.ui-ending-gallery-close');
+  let closed = false;
   const closeGallery = () => {
+    if (closed) return;
+    closed = true;
+    document.removeEventListener('keydown', escHandler);
     overlay.classList.remove('visible');
     setTimeout(() => {
       if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
@@ -126,10 +133,7 @@ export function showEndingGallery(options = {}) {
 
   // ESC 关闭
   const escHandler = (e) => {
-    if (e.key === 'Escape') {
-      closeGallery();
-      document.removeEventListener('keydown', escHandler);
-    }
+    if (e.key === 'Escape') closeGallery();
   };
   document.addEventListener('keydown', escHandler);
 }

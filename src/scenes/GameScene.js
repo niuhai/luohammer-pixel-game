@@ -318,6 +318,12 @@ export class GameScene extends Phaser.Scene {
     // R39: 章节转场跟踪——记录上一次渲染的 act，用于检测章节切换
     this._lastAct = null;
     this._chapterTransitionEl = null;
+
+    // R88 GATE-R87 P1-1/P2-1：跨局实例属性归零——Scene 实例复用下，
+    // 上一局的 killer 节点防抖/崩溃特效节流标记会残留，导致二周目相同
+    // killer 节点演出静默、新局开局 2.5s 内崩溃演出被误节流
+    this._lastKillerNode = null;
+    this._lastCrashFxTime = null;
   }
 
   /**
@@ -3934,6 +3940,10 @@ export class GameScene extends Phaser.Scene {
     this.menuCancelBtn = null;
     this.menuOkBtn = null;
     this._menuPreviousFocus = null;
+    // R88 GATE-R87 P0-1：置空"保存游戏"按钮引用——其 click 监听器随本局
+    // _uiAbortController abort 移除，若不置空，下局 _setupSaveButton 的
+    // this._saveGameBtn 短路守卫会跳过重挂监听器，按钮点击死寂（玩家失去手动存档）
+    this._saveGameBtn = null;
   }
 
   /**
