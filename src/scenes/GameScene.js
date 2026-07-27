@@ -991,7 +991,7 @@ export class GameScene extends Phaser.Scene {
 
     // 检查是否进入新阶段 → 触发阶段结算
     if (stage && this._isStageEntry(nodeId, stage)) {
-      this._showStageSettlement(stage, () => {
+      this._onStageEntry(stage, () => {
         this._renderNode(node);
       });
       return;
@@ -1163,7 +1163,11 @@ export class GameScene extends Phaser.Scene {
           position: fixed;
           bottom: calc(35% + 16px);
           right: max(16px, env(safe-area-inset-right));
-          z-index: 9999;
+          /* R83 F5：z-index 9999 → 40——原置顶压过结算卡(z58)等所有模态层，
+             阶段边界时教程卡浮在结算卡文本上造成遮挡；降到 40 后被模态暗背景罩住
+             自然让位（教程卡非阻塞 pointer-events:none，被罩无害），
+             平时与对话框/选项位置不重叠，可见性不受影响。 */
+          z-index: 40;
           width: min(240px, 60vw);
           padding: 12px 14px;
           background: rgba(13, 13, 28, 0.95);
@@ -2222,25 +2226,50 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * 显示阶段结算（DOM overlay 实现）
+   * R83 F4【B】：阶段入口收口——结算卡与章节标签矛盾修复。
+   * 原实现把"进入的新阶段"自己的 settlement 文本弹出来（如进 act1_first 弹
+   * "新东方时代结束了"，开局进 intro 弹"少年时代结束了"），文本全是完成时态，
+   * 与紧随其后的新章节转场卡直接矛盾；且 checks 按阶段末属性区间撰写，
+   * 阶段初入时几乎不可能命中。同时成就映射残留旧阶段 id（blog/hammer/crisis），
+   * 现行 startup/dark/reborn 无键 → stage_3/4/5 成就不可达。
+   * 修复：入口仅发"进入第N阶段"成就（含 youth 开局、reborn 新映射）；
+   * 结算卡展示已完成的前序阶段（完成时态文本+阶段末 checks 均对齐），
+   * 首个阶段无前序 → 不弹卡。叙事序列变为：旧阶段落幕（结算卡）→ 新篇章开启（转场卡）。
    */
-  _showStageSettlement(stage, onComplete) {
-    this.state.triggeredEvents.add(`stage_entry_${stage.id}`);
-    try { this.debug.logStageSettlement(stage.id, this.state); } catch(e) {}
+  _onStageEntry(enteredStage, onComplete) {
+    this.state.triggeredEvents.add(`stage_entry_${enteredStage.id}`);
 
-    // 阶段进度成就触发
+    // 阶段进度成就：按现行 6 阶段 id 一一映射（旧 blog/hammer/crisis 键已失效）
     const stageAchievements = {
       youth:   ALL_ACHIEVEMENTS.first_steps,
       teacher: ALL_ACHIEVEMENTS.stage_2,
-      blog:    ALL_ACHIEVEMENTS.stage_3,
-      hammer:  ALL_ACHIEVEMENTS.stage_4,
-      crisis:  ALL_ACHIEVEMENTS.stage_5,
-      repay:   ALL_ACHIEVEMENTS.stage_6
+      startup: ALL_ACHIEVEMENTS.stage_3,
+      dark:    ALL_ACHIEVEMENTS.stage_4,
+      repay:   ALL_ACHIEVEMENTS.stage_5,
+      reborn:  ALL_ACHIEVEMENTS.stage_6
     };
-    const stageAch = stageAchievements[stage.id];
+    const stageAch = stageAchievements[enteredStage.id];
     if (stageAch && !this.state.achievements.includes(stageAch.name)) {
       this._unlockAchievement(stageAch);
     }
+
+    // 结算卡展示刚完成的前序阶段；第一阶段（开局）无前序，直接进剧情
+    const stageIndex = STAGES.findIndex(s => s.id === enteredStage.id);
+    const prevStage = stageIndex > 0 ? STAGES[stageIndex - 1] : null;
+    if (!prevStage || !prevStage.settlement) {
+      onComplete();
+      return;
+    }
+    this._showStageSettlement(prevStage, onComplete);
+  }
+
+  /**
+   * 显示阶段结算卡（DOM overlay）。
+   * R83 F4 起语义为"已完成阶段"的落幕结算：文本为完成时态、checks 按阶段末属性区间命中。
+   * @param {object} stage 刚完成的阶段（非即将进入的新阶段）
+   */
+  _showStageSettlement(stage, onComplete) {
+    try { this.debug.logStageSettlement(stage.id, this.state); } catch(e) {}
 
     // 阶段结算音效
     try { this.audio.playStageSettlement(); } catch(e) {}

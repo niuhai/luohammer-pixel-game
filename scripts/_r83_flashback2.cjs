@@ -1,6 +1,6 @@
 // R83 定向验证2：等走马灯 visible 后立刻跳过（落在 <800ms 窗口内）
 const { chromium } = require('playwright');
-const BASE = 'http://localhost:4176/luohammer-pixel-game/';
+const BASE = process.argv[2] || 'http://localhost:4174/luohammer-pixel-game/';
 const SHOT = (n) => `shots/r83-${n}.png`;
 
 const SAVE = {
