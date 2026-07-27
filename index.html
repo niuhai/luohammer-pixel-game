@@ -6615,17 +6615,7 @@
   <div id="achievement-particles-overlay" class="achievement-particles-overlay"></div>
 
   <script>
-    // 全局竖屏提示关闭按钮：任意场景下点击后永久关闭提示
-    (function() {
-      const btn = document.getElementById('rotate-hint-dismiss');
-      const hint = document.getElementById('rotate-hint');
-      if (btn && hint) {
-        btn.addEventListener('click', function() {
-          hint.classList.add('hidden');
-        });
-      }
-    })();
-
+    // R90: rotate-hint-dismiss 绑定唯一收编到 main.js（含 userDismissed 永久关闭语义），此处不再重复绑定
     // PWA 安装事件捕获：尽早阻止默认横幅，将安装机会留给标题画面的按钮
     window.luohammerDeferredPrompt = null;
     window.addEventListener('beforeinstallprompt', (e) => {

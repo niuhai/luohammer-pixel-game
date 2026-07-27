@@ -25,7 +25,9 @@ const { chromium } = require('playwright');
 
     if (result.bootVisible) {
       await page.locator('#ui-boot-buttons button', { hasText: '开始游戏' }).click({ timeout: 8000 });
-      for (let i = 0; i < 14; i++) {
+      // R90：慢网（GitHub Pages 跨境）下 GameScene preload 可达 20s+（R89 加载层即为此设计），
+      // 14×800ms=11.2s 预算会在慢网误 FAIL——扩到 50×800ms=40s，与 loader.timeout 20s+重试对齐
+      for (let i = 0; i < 50; i++) {
         result.talentOverlay = await page.evaluate(() => {
           const el = document.querySelector('.ui-talent-overlay');
           return !!(el && getComputedStyle(el).display !== 'none' && el.offsetHeight > 0);
