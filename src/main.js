@@ -107,7 +107,10 @@ function getResponsiveConfig() {
 const config = getResponsiveConfig();
 
 const game = new Phaser.Game(config);
-window.game = game;
+// R90: 仅本地环境暴露调试句柄（走查/诊断脚本依赖），生产环境关闭 cheat 面
+if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+  window.game = game;
+}
 
 // a11y: 为 Phaser 生成的 canvas 添加无障碍标注
 game.events.once('ready', () => {

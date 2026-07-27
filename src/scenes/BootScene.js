@@ -245,8 +245,9 @@ export class BootScene extends Phaser.Scene {
       };
     }
 
-    // === 移动端竖屏提示：横屏优先，但不冻结标题动画或可访问操作 ===
-    this._setupOrientationHint();
+    // === 移动端竖屏提示：由 main.js setupGlobalOrientationHint 全局统一负责 ===
+    // （R90：删除本场景重复绑定——两处 update() 逻辑不一致（场景版缺 innerWidth<768
+    // 检查）且 dismiss 状态各自闭包，双事件源写同一 DOM class 存在竞态）
 
     // === PWA：标题画面提供"安装到桌面"入口，不主动弹窗打扰首次体验 ===
     this._createInstallPrompt();
@@ -733,48 +734,6 @@ export class BootScene extends Phaser.Scene {
       overlay.addEventListener('pointerdown', this._audioUnlockHandler, { once: true });
     }
     window.addEventListener('pointerdown', this._audioUnlockHandler, { once: true });
-  }
-
-  /**
-   * 移动端竖屏提示：检测屏幕方向，竖屏时显示非阻塞提示。
-   * 用户点击"继续竖屏游玩"后，不再强制弹出提示。
-   */
-  _setupOrientationHint() {
-    const hint = document.getElementById('rotate-hint');
-    if (!hint) return;
-
-    const isPortrait = () => window.matchMedia('(orientation: portrait)').matches;
-    let userDismissed = false;
-    let resizeHandler = null;
-    let orientationHandler = null;
-
-    const update = () => {
-      if (userDismissed) return;
-      if (isPortrait()) {
-        hint.classList.remove('hidden');
-      } else {
-        hint.classList.add('hidden');
-      }
-    };
-
-    const dismissBtn = document.getElementById('rotate-hint-dismiss');
-    if (dismissBtn) {
-      dismissBtn.addEventListener('click', () => {
-        userDismissed = true;
-        hint.classList.add('hidden');
-      }, { once: true });
-    }
-
-    update();
-    window.addEventListener('resize', resizeHandler = update);
-    window.addEventListener('orientationchange', orientationHandler = update);
-
-    this.events.on('shutdown', () => {
-      if (resizeHandler) window.removeEventListener('resize', resizeHandler);
-      if (orientationHandler) window.removeEventListener('orientationchange', orientationHandler);
-      resizeHandler = null;
-      orientationHandler = null;
-    });
   }
 
   /**

@@ -89,6 +89,11 @@ scripts/_*.png
 # 演示视频产物（体量大不入库，_record_demo.cjs 可复现）
 demo-footage/
 
+# 走查/审计产物（截图/录屏体量大不入库，scripts/_*.cjs 可复现）
+dogfood-output-*/
+walkthrough/
+image-audit/
+
 # 扫描/模拟临时产物
 simulate-*.txt
 stat-output.txt
