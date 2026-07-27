@@ -44,6 +44,9 @@
 
   <!-- 预加载首屏关键资源：标题背景图（最大首屏瓶颈，提前发起请求） -->
   <link rel="preload" as="image" href="./assets/characters/scene-stage-v2.webp">
+  <!-- R89: 序章关键资源（GameScene preload 首批），开场阅读期间并行拉取，缩短进入游戏等待 -->
+  <link rel="preload" as="image" href="./assets/characters/scene-classroom-v2.webp">
+  <link rel="preload" as="image" href="./assets/characters/luo-standing-v4-nobg.webp">
 
   <!-- 字体策略：优先使用系统本地字体，不依赖外部网络字体，配合 font-display: swap 保证首屏渲染 -->
   <!-- Windows: 微软雅黑 | macOS/iOS: PingFang SC | Android: 思源黑体 / Noto Sans SC -->
@@ -239,6 +242,20 @@
       font-size: clamp(10px, 1.4vw, 12px); color: var(--color-text-muted-dark);
       letter-spacing: 0.08em;
     }
+
+    /* === R89: 游戏内资源加载层 ===
+       IntroScene 结束 → GameScene preload 期间显示真实下载进度，
+       杜绝慢网（如 GitHub Pages 跨境）下的"永久黑屏"错觉。
+       快网/缓存命中时 150ms 内完成则不显示（GameScene 控制延迟挂载）。 */
+    #ui-game-loading {
+      position: fixed; inset: 0; z-index: 60;
+      background: var(--color-bg-dark);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.24s ease-out;
+    }
+    #ui-game-loading.visible { opacity: 1; }
+    #ui-game-loading .app-loading-title { font-size: clamp(16px, 3vw, 24px); }
 
     body {
       /* R76: 移除 flex 居中——body flex 与 Phaser autoCenter 内联 margin 双重居中叠加，
@@ -6269,7 +6286,7 @@
       .scene-transition { animation: none !important; opacity: 1 !important; transform: none !important; }
     }
   </style>
-  <script type="module" crossorigin src="/luohammer-pixel-game/assets/index-Dsc2eC2U.js"></script>
+  <script type="module" crossorigin src="/luohammer-pixel-game/assets/index-CZD8HESG.js"></script>
   <link rel="modulepreload" crossorigin href="/luohammer-pixel-game/assets/phaser-DzVrRZrn.js">
 </head>
 <body>
@@ -6281,6 +6298,15 @@
       <div class="app-loading-subtitle">真还传 · 人生模拟</div>
       <div class="app-loading-bar"><div class="app-loading-fill" id="app-loading-fill"></div></div>
       <div class="app-loading-text" id="app-loading-text">正在进入人生的十字路口...</div>
+    </div>
+  </div>
+
+  <!-- R89: GameScene 资源加载层：慢网下显示真实下载进度，杜绝"永久黑屏"错觉 -->
+  <div id="ui-game-loading" role="status" aria-live="polite">
+    <div class="app-loading-inner">
+      <div class="app-loading-title">正在进入人生…</div>
+      <div class="app-loading-bar"><div class="app-loading-fill ui-game-loading-fill"></div></div>
+      <div class="app-loading-text ui-game-loading-text">正在进入人生… 0%</div>
     </div>
   </div>
 
