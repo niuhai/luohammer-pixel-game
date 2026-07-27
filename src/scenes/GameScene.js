@@ -135,6 +135,51 @@ export class GameScene extends Phaser.Scene {
     this.load.image('char-standing', GameScene._CHAR_URL_BY_POSE.standing);
     this.load.image('char-young', GameScene._CHAR_URL_BY_POSE.young);
     this.load.image('bg-office', 'assets/characters/scene-office-v2.webp');
+
+    // R89：慢网加载反馈——真实下载进度条，杜绝"永久黑屏"错觉
+    this._setupGameLoadingUI();
+  }
+
+  /**
+   * R89：游戏内加载层——慢网下显示真实下载进度。
+   * 延迟 150ms 挂载：快网/缓存命中时 preload 瞬间完成，不闪现加载层。
+   * 引用全部存实例属性，create()/_onShutdown() 幂等清理（Scene 复用安全）。
+   */
+  _setupGameLoadingUI() {
+    const el = document.getElementById('ui-game-loading');
+    if (!el) return;
+    this._gameLoadingEl = el;
+    this._gameLoadingFill = el.querySelector('.ui-game-loading-fill');
+    this._gameLoadingText = el.querySelector('.ui-game-loading-text');
+    this._onLoadProgress = (value) => {
+      const pct = Math.round(value * 100);
+      if (this._gameLoadingFill) this._gameLoadingFill.style.width = pct + '%';
+      if (this._gameLoadingText) this._gameLoadingText.textContent = `正在进入人生… ${pct}%`;
+    };
+    this.load.on('progress', this._onLoadProgress);
+    this._gameLoadingShowTimer = this._trackedTimeout(() => {
+      if (this._gameLoadingEl) this._gameLoadingEl.classList.add('visible');
+      this._gameLoadingShowTimer = null;
+    }, 150);
+  }
+
+  /** R89：隐藏加载层并解除监听（create 与 _onShutdown 双路径调用，幂等） */
+  _hideGameLoadingUI() {
+    if (this._gameLoadingShowTimer) {
+      clearTimeout(this._gameLoadingShowTimer);
+      this._pendingTimeouts.delete(this._gameLoadingShowTimer);
+      this._gameLoadingShowTimer = null;
+    }
+    if (this._onLoadProgress) {
+      this.load.off('progress', this._onLoadProgress);
+      this._onLoadProgress = null;
+    }
+    if (this._gameLoadingEl) {
+      this._gameLoadingEl.classList.remove('visible');
+      this._gameLoadingEl = null;
+      this._gameLoadingFill = null;
+      this._gameLoadingText = null;
+    }
   }
 
   // === 资源懒加载辅助 ===
@@ -324,6 +369,13 @@ export class GameScene extends Phaser.Scene {
     // killer 节点演出静默、新局开局 2.5s 内崩溃演出被误节流
     this._lastKillerNode = null;
     this._lastCrashFxTime = null;
+
+    // R89：加载层引用归零（Scene 复用下防跨局残留）
+    this._gameLoadingEl = null;
+    this._gameLoadingFill = null;
+    this._gameLoadingText = null;
+    this._gameLoadingShowTimer = null;
+    this._onLoadProgress = null;
   }
 
   /**
@@ -553,6 +605,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
+    // R89：preload 完成（含失败降级路径）——隐藏加载层，进度监听同步解除
+    this._hideGameLoadingUI();
+
     this.pixelRenderer = new PixelRenderer(this);
     this.dialog = new DialogSystem(this);
     this.choices = new ChoiceSystem(this);
@@ -3775,6 +3830,9 @@ export class GameScene extends Phaser.Scene {
   _onShutdown() {
     // 移除 shutdown 事件监听器本身，避免重复触发
     this.events.off('shutdown', this._onShutdown, this);
+
+    // R89：加载层兜底清理（场景在 preload/游玩中被切走时防 DOM 残留）
+    this._hideGameLoadingUI();
 
     // 清理快捷音色切换面板（避免场景切换时 DOM 残留）
     if (this._quickVoicePanelEl) {

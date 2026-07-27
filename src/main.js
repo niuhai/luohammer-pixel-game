@@ -80,6 +80,14 @@ function getResponsiveConfig() {
     pixelArt: true,
     roundPixels: true,
     backgroundColor: 0x0a0a0a,
+    // R89: XHR 资源加载韧性——默认 timeout=0（无限等待）会让挂起请求永久阻塞
+    // GameScene create()（慢网"永久黑屏"根因）。20s 判定失败 + 重试 2 次，
+    // 最终失败走 loaderror → create() 照常执行，PixelRenderer 自动降级为
+    // Graphics 绘制的兜底角色/背景，游戏永远可玩。
+    loader: {
+      timeout: 20000,
+      maxRetries: 2
+    },
     scale: {
       mode: mobilePortrait ? Phaser.Scale.FIT : Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
