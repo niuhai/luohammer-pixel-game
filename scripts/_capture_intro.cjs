@@ -111,8 +111,9 @@ async function captureMobile() {
     if (window.game.loop && window.game.loop.wake) window.game.loop.wake();
   }, mobileAt);
   await page.waitForFunction(() => window.__frozen === true, null, { timeout: 15000 });
-  await page.screenshot({ path: path.join(OUT_DIR, 'f08-mobile-portrait.png') });
-  console.log('captured f08-mobile-portrait');
+  const mobileName = process.env.INTRO_MOBILE_NAME || 'f08-mobile-portrait';
+  await page.screenshot({ path: path.join(OUT_DIR, `${mobileName}.png`) });
+  console.log(`captured ${mobileName}`);
   await browser.close();
 }
 
