@@ -62,6 +62,7 @@ describe('TalentSystem - 跨周目生命周期', () => {
     expect(confirm.disabled).toBe(true);
     expect(document.querySelector('.ui-talent-hint').textContent).toContain('5 选 2');
     expect(cards.map(card => card.dataset.position)).toEqual(['1/5', '2/5', '3/5', '4/5', '5/5']);
+    vi.runAllTimers();
     cards[0].click();
     expect(confirm.disabled).toBe(true);
     expect(document.querySelector('.ui-talent-combo').textContent).toContain('再选择 1 个');
@@ -69,5 +70,31 @@ describe('TalentSystem - 跨周目生命周期', () => {
     expect(confirm.disabled).toBe(false);
     expect(confirm.textContent).toContain('2 个天赋');
     expect(document.querySelector('.ui-talent-combo').textContent).toContain('天赋甲 × 天赋乙');
+  });
+
+  it('翻牌完成前不可误选，并按顺序解锁卡牌', () => {
+    const system = new TalentSystem({});
+    system.show(TALENTS, vi.fn());
+    const cards = [...document.querySelectorAll('.ui-talent-card')];
+
+    expect(cards.every(card => card.disabled)).toBe(true);
+    expect(cards.every(card => card.classList.contains('is-dealing'))).toBe(true);
+    expect(cards[0].querySelector('.ui-talent-card-back')).not.toBeNull();
+    expect(cards[0].querySelector('.ui-talent-card-front')).not.toBeNull();
+
+    cards[0].click();
+    expect(document.querySelector('.ui-talent-hint').textContent).toContain('0/2');
+
+    vi.advanceTimersByTime(939);
+    expect(cards[0].disabled).toBe(true);
+
+    vi.advanceTimersByTime(1);
+    expect(cards[0].disabled).toBe(false);
+    expect(cards[0].classList.contains('is-revealed')).toBe(true);
+    expect(cards[1].disabled).toBe(true);
+
+    vi.runAllTimers();
+    expect(cards.every(card => !card.disabled)).toBe(true);
+    expect(cards.every(card => card.tabIndex === 0)).toBe(true);
   });
 });

@@ -26,6 +26,11 @@ const ATTR_NAMES = Object.freeze({
   successBonus: '正面收益'
 });
 
+const TALENT_DEAL_STAGGER_MS = 65;
+const TALENT_FLIP_LEAD_MS = 260;
+const TALENT_REVEAL_STAGGER_MS = 110;
+const TALENT_FLIP_DURATION_MS = 680;
+
 export function formatTalentEffect(key, value) {
   const name = ATTR_NAMES[key] || key;
   if (key === 'failurePenalty' || key === 'successBonus') {
@@ -58,6 +63,7 @@ export class TalentSystem {
     this._clickHandler = null;
     this._rerollBtn = null;
     this._confirmTimer = null;  // 确认淡出定时器（destroy 时清理）
+    this._revealTimers = new Set();
     this._rerollClickHandler = () => this._performReroll();
 
     // 切换周目会重建 TalentSystem；动态按钮不能复用旧实例遗留的闭包监听。
@@ -82,6 +88,7 @@ export class TalentSystem {
    * @param {number} [opts.rerollCount] - 剩余刷新次数
    */
   show(talents, onSelect, opts = {}) {
+    this._clearRevealTimers();
     this.cardsEl.innerHTML = '';
     this.selectedTalents = [];
     this.onSelect = onSelect;
@@ -103,16 +110,29 @@ export class TalentSystem {
     const rarityLabels = { common: '普通', rare: '稀有', legendary: '传说' };
     const specialLabels = SPECIAL_LABELS;
 
+    const reducedMotion = typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
     talents.forEach((talent, _i) => {
       const card = document.createElement('button');
       card.type = 'button';
-      card.className = 'ui-talent-card';
+      card.className = reducedMotion
+        ? 'ui-talent-card is-revealed'
+        : 'ui-talent-card is-dealing';
       card.setAttribute('data-rarity', talent.rarity);
       card.setAttribute('data-position', `${_i + 1}/${talents.length}`);
       card.setAttribute('aria-pressed', 'false');
       card.setAttribute('aria-label', `${talent.name}，${rarityLabels[talent.rarity]}天赋`);
-      // R28-T1: stagger 入场——每张卡延迟 100ms 出现，营造抽卡仪式感
-      card.style.animationDelay = `${_i * 100}ms`;
+      const dealDelay = _i * TALENT_DEAL_STAGGER_MS;
+      const revealDelay = TALENT_FLIP_LEAD_MS + _i * TALENT_REVEAL_STAGGER_MS;
+      card.style.setProperty('--talent-deal-delay', `${dealDelay}ms`);
+      card.style.setProperty('--talent-reveal-delay', `${revealDelay}ms`);
+      if (!reducedMotion) {
+        // 翻牌完成前不允许误选，也不让键盘焦点落到尚未揭晓的卡牌上。
+        card.disabled = true;
+        card.setAttribute('aria-disabled', 'true');
+        card.tabIndex = -1;
+      }
 
       // Build effects HTML
       const effectEntries = Object.entries(talent.effects).filter(([_k, v]) => v !== 0);
@@ -129,13 +149,22 @@ export class TalentSystem {
       }
 
       card.innerHTML = `
-        <span class="ui-talent-rarity ${talent.rarity}">${rarityLabels[talent.rarity]}</span>
-        <span class="ui-talent-position">${_i + 1}/${talents.length}</span>
-        <div class="ui-talent-icon">${talent.icon}</div>
-        <div class="ui-talent-name">${talent.name}</div>
-        <div class="ui-talent-desc">${talent.desc}</div>
-        <div class="ui-talent-effects">${effectsHtml}</div>
-        ${specialHtml}
+        <span class="ui-talent-card-inner">
+          <span class="ui-talent-card-face ui-talent-card-back" aria-hidden="true">
+            <span class="ui-talent-card-back-sigil">◇</span>
+            <span class="ui-talent-card-back-title">人生底色</span>
+            <span class="ui-talent-card-back-index">${String(_i + 1).padStart(2, '0')}</span>
+          </span>
+          <span class="ui-talent-card-face ui-talent-card-front">
+            <span class="ui-talent-rarity ${talent.rarity}">${rarityLabels[talent.rarity]}</span>
+            <span class="ui-talent-position">${_i + 1}/${talents.length}</span>
+            <span class="ui-talent-icon">${talent.icon}</span>
+            <span class="ui-talent-name">${talent.name}</span>
+            <span class="ui-talent-desc">${talent.desc}</span>
+            <span class="ui-talent-effects">${effectsHtml}</span>
+            ${specialHtml}
+          </span>
+        </span>
       `;
 
       card.addEventListener('click', () => {
@@ -143,40 +172,66 @@ export class TalentSystem {
       });
 
       this.cardsEl.appendChild(card);
+
+      if (!reducedMotion) {
+        this._scheduleRevealTask(() => {
+          card.disabled = false;
+          card.removeAttribute('aria-disabled');
+          card.tabIndex = 0;
+          card.classList.remove('is-dealing');
+          card.classList.add('is-revealed');
+        }, revealDelay + TALENT_FLIP_DURATION_MS);
+      }
     });
 
     this.overlay.classList.add('visible');
 
-    // R28-T1: 卡牌出现音效——翻牌声 + 稀有度差异化提示音
-    // 复用 AudioSystem.playTalentSelect 的三角波音色，但节奏更短促模拟"翻牌"
-    // 传说天赋：额外的金光闪耀音（复用 playAchievementLegendary 的和弦）
+    // 音效落在翻牌经过 90° 的瞬间，视觉与听觉共用同一个 stagger 节奏。
     try {
       const audio = this.scene && this.scene.audio;
-      if (audio && audio.enabled) {
-        // 翻牌声：每张卡 80ms 间隔的短促三角波
+      if (!reducedMotion && audio && audio.enabled) {
         for (let i = 0; i < talents.length; i++) {
-          const delay = i * 100;
+          const delay = TALENT_FLIP_LEAD_MS + i * TALENT_REVEAL_STAGGER_MS +
+            Math.round(TALENT_FLIP_DURATION_MS * 0.48);
           const isLegendary = talents[i].rarity === 'legendary';
           const isRare = talents[i].rarity === 'rare';
-          if (audio._scheduleSfx) {
-            audio._scheduleSfx(() => {
+          this._scheduleRevealTask(() => {
+            if (audio._playTone) {
               audio._playTone(440 + i * 80, 0.06, 'triangle', 0.07);
-            }, delay);
-            // 稀有度差异化：传说/稀有多一个高音点缀
-            if (isLegendary) {
-              audio._scheduleSfx(() => {
+            }
+          }, delay);
+          if (isLegendary) {
+            this._scheduleRevealTask(() => {
+              if (audio._playTone) {
                 audio._playTone(1047, 0.12, 'sine', 0.06);
                 audio._playTone(1319, 0.15, 'sine', 0.05);
-              }, delay + 80);
-            } else if (isRare) {
-              audio._scheduleSfx(() => {
+              }
+            }, delay + 90);
+          } else if (isRare) {
+            this._scheduleRevealTask(() => {
+              if (audio._playTone) {
                 audio._playTone(880, 0.1, 'sine', 0.05);
-              }, delay + 80);
-            }
+              }
+            }, delay + 90);
           }
         }
       }
     } catch (e) {}
+  }
+
+  _scheduleRevealTask(fn, delay) {
+    const timer = setTimeout(() => {
+      this._revealTimers.delete(timer);
+      if (!this.scene || !this.overlay) return;
+      try { fn(); } catch (e) {}
+    }, delay);
+    this._revealTimers.add(timer);
+    return timer;
+  }
+
+  _clearRevealTimers() {
+    for (const timer of this._revealTimers) clearTimeout(timer);
+    this._revealTimers.clear();
   }
 
   /**
@@ -291,6 +346,7 @@ export class TalentSystem {
   }
 
   hide() {
+    this._clearRevealTimers();
     this.overlay.classList.remove('visible');
     this.cardsEl.innerHTML = '';
     this.confirmBtn.classList.remove('visible');
@@ -310,6 +366,7 @@ export class TalentSystem {
   destroy() {
     // 清理确认淡出定时器（P1：防止场景切换后回调操作已销毁对象）
     if (this._confirmTimer) { clearTimeout(this._confirmTimer); this._confirmTimer = null; }
+    this._clearRevealTimers();
     if (this._confirmClickHandler) {
       this.confirmBtn.removeEventListener('click', this._confirmClickHandler);
       this._confirmClickHandler = null;

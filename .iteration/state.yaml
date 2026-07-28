@@ -1,0 +1,52 @@
+# 当前迭代状态（v4.2 首期周期）
+
+cycle: 2026-07-28-v4.2-first
+round_next: R005
+
+goal: >
+  评委 10 分钟体验旅程在"电脑端主验收、手机端护栏"下持续逼近极限
+  （对应评审 GATE 加权 ≥9.5/10）；序章 FREEZE 后推进下一段旅程。
+
+baseline:
+  quality: Q001（scorecard.md，本周期建立）
+  ui: UI-Q002（ui/baseline.md，序章场景，FREEZE）
+  capability: growth.md 首期账本
+  best_known_version: fd8230a（线上 index-CTsdVfCR + SW v10-prod，已 verify）
+
+target: >
+  每轮产生可证据化的 Outcome Delta（IMPROVED 且护栏稳定）；
+  连续 3 个有效轮次无 Outcome Delta 触发 GATE。
+
+guardrails:
+  - 手机端 375×812 / 390×844 核心旅程与触摸可用性不退化
+  - vitest 352/352、lint 0 错、validate-story 214 节点 0 错、simulate-paths 13 策略 7 结局
+  - PWA 离线全链路可玩（R94 基线：boot→天赋→纹理→对话全通）
+  - 首访网络竞争不回退（R001 基线：普通窗口请求 9 / 传输 0.3MB）
+  - 序章时间线与跳过控制不回退（R001/R002 基线，场景 FREEZE）
+
+scope:
+  in: 序章之后的评委旅程场景（天赋选择/剧情对话/选项面板/结局页）、首屏性能、无障碍保持、桌面全程覆盖
+  out: 序章选择路口场景（FREEZE：下一触发为用户主观反馈、真实用户数据或跨系统字体差异暴露）
+
+budget:
+  wip: 3
+  change: 单轮 1 主任务 + ≤2 支撑任务；同一问题连续修补 ≤2 次
+
+environment:
+  source: Windows / Vite 5 / Phaser 3 / 分支 dev-20260722
+  target: GitHub Pages（niuhai.github.io/luohammer-pixel-game/）+ SW v10-prod
+
+frontend_loop:
+  status: active
+  protocol: .iteration/ui/continuous-loop.md
+  backlog: .iteration/ui/backlog.json
+  current: .iteration/ui/current.json
+  command: npm run iterate:ui
+  primary_viewport: 1440x900
+  guardrail_viewports: 390x844, 375x812
+  settlement: 视觉前后证据 + 自动化护栏 + Outcome Contract
+  next_trigger: 每次目标续跑先读取队列并推进最高价值 eligible 任务
+
+pending_from_v3:
+  - 复赛帖数字对齐已在 910519c 完成（95 轮口径）；后续轮次变更时同步刷新
+  - Phaser 初始包 ~1.48MB：R001/R002 均标记为"下一轮可独立评估的首屏性能问题"

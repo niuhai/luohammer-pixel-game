@@ -38,6 +38,19 @@ test.describe('首次游玩流程', () => {
     await expect(page.locator('.ui-intro-film-frame')).toBeVisible();
     await expect(overlay).toHaveAttribute('data-stage', /[1-3]/, { timeout: 2_500 });
 
+    await expect(overlay).toHaveAttribute('data-stage', '3', { timeout: 6_000 });
+    await expect.poll(async () => page.locator('.ui-intro-line').nth(2).evaluate(
+      line => Number(getComputedStyle(line).opacity)
+    )).toBeGreaterThanOrEqual(0.98);
+    const finaleReadability = await page.locator('.ui-intro-line').evaluateAll(lines => lines.map(line => ({
+      opacity: Number(getComputedStyle(line).opacity),
+      fontSize: Number.parseFloat(getComputedStyle(line).fontSize)
+    })));
+    expect(finaleReadability[0].opacity).toBeGreaterThanOrEqual(0.64);
+    expect(finaleReadability[1].opacity).toBeGreaterThanOrEqual(0.64);
+    expect(finaleReadability[2].opacity).toBeGreaterThanOrEqual(0.98);
+    expect(finaleReadability.every(line => line.fontSize >= 18)).toBe(true);
+
     const desktopControl = await skipBtn.evaluate(element => {
       const rect = element.getBoundingClientRect();
       return {

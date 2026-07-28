@@ -332,11 +332,11 @@ export class IntroScene extends Phaser.Scene {
 
   /** 为每个终点节点创建人生方向词标签（初始隐藏，节点点亮时弹性浮现） */
   _buildNodeLabels() {
-    // 竖屏移动端：画布 FIT 缩放 ~0.47，15px 方向词显示仅 ~7px 不可读，
-    // 放大到 21px（显示 ~10px）+ 加粗描边保住"人生方向"信息载体
+    // 竖屏移动端：画布 FIT 缩放约 0.47；按最终显示尺寸反向补偿，
+    // 让方向词稳定落在约 12px，而不是把小字当作氛围装饰。
     const portrait = this.registry.get('isPortraitMobile') === true;
-    const fontSize = portrait ? '20px' : '14px';
-    const strokeW = portrait ? 3 : 2;
+    const fontSize = portrait ? '26px' : '15px';
+    const strokeW = portrait ? 4 : 2;
     this._nodeLabels = this._paths.map(p => {
       const color = '#' + p.node.toString(16).padStart(6, '0');
       return this.add.text(p.endX + p.labelDx, p.endY + p.labelDy, p.label, {
@@ -344,7 +344,12 @@ export class IntroScene extends Phaser.Scene {
         fontSize,
         color,
         letterSpacing: portrait ? 3 : 2
-      }).setOrigin(0.5, 0).setAlpha(0).setScale(0.72).setStroke('#07070b', strokeW);
+      })
+        .setOrigin(0.5, 0)
+        .setAlpha(0)
+        .setScale(0.78)
+        .setStroke('#050509', strokeW)
+        .setShadow(0, portrait ? 3 : 2, '#000000', portrait ? 5 : 3, true, true);
     });
   }
 
@@ -353,10 +358,15 @@ export class IntroScene extends Phaser.Scene {
     const portrait = this.registry.get('isPortraitMobile') === true;
     this._centerLabel = this.add.text(CENTER.x, CENTER.y + 25, '此刻 · 你', {
       fontFamily: FONTS.chinese,
-      fontSize: portrait ? '17px' : '11px',
+      fontSize: portrait ? '23px' : '12px',
       color: '#fff0c8',
       letterSpacing: portrait ? 4 : 3
-    }).setOrigin(0.5, 0).setAlpha(0).setScale(0.94).setStroke('#07070b', portrait ? 3 : 2);
+    })
+      .setOrigin(0.5, 0)
+      .setAlpha(0)
+      .setScale(0.94)
+      .setStroke('#050509', portrait ? 4 : 2)
+      .setShadow(0, portrait ? 3 : 2, '#000000', portrait ? 5 : 3, true, true);
   }
 
   update(time) {
@@ -873,6 +883,7 @@ export class IntroScene extends Phaser.Scene {
         el.innerHTML = '';
       }
     });
+    this._srClear();
     // 重置终局聚焦态（回顾开场可重放）
     const layer = document.querySelector('.ui-intro-text-layer');
     if (layer) layer.classList.remove('finale');
@@ -891,6 +902,26 @@ export class IntroScene extends Phaser.Scene {
       span.textContent = char;
       lineEl.appendChild(span);
     });
+  }
+
+  /** 读屏镜像：把整句写入 aria-live 隐藏区；delay 用于等逐字演出完成（防逐字朗读） */
+  _srMirror(text, delay = 0) {
+    const write = () => {
+      if (this._finished) return;
+      const sr = document.getElementById('ui-intro-sr');
+      if (sr) sr.textContent = text;
+    };
+    if (delay > 0) {
+      this.time.delayedCall(delay, write);
+    } else {
+      write();
+    }
+  }
+
+  /** 清空读屏镜像（重放/跳过/场景清理时调用，防陈旧文案被后续朗读） */
+  _srClear() {
+    const sr = document.getElementById('ui-intro-sr');
+    if (sr) sr.textContent = '';
   }
 
   /** 注册一行文案的逐字浮现：由 update() 以场景时钟推进（无动画偏好时直接全亮） */
@@ -923,6 +954,9 @@ export class IntroScene extends Phaser.Scene {
     } else {
       this._startReveal(el, 760);
     }
+    // 读屏镜像（R003，沿用 R93 DialogSystem 模式）：可视文本层 aria-hidden，
+    // 整句一次性写入 #ui-intro-sr live 区；逐字句等演出完成后写入，防逐字朗读爆炸
+    this._srMirror(LINES[index].text, (index < 2 || this._reducedMotion) ? 0 : 800);
     // L3 是情绪最高点：L1/L2 降透明度，视线聚焦到"他"
     if (index === 2) {
       const layer = document.querySelector('.ui-intro-text-layer');
@@ -1130,6 +1164,7 @@ export class IntroScene extends Phaser.Scene {
   _finish(fade) {
     if (!this._skipEnabled || this._finished) return;
     this._finished = true;
+    this._srClear();
 
     if (this.audio) {
       this.audio.stopSpeaking();
@@ -1187,6 +1222,7 @@ export class IntroScene extends Phaser.Scene {
       window.removeEventListener('keydown', this._skipKeyHandler);
     }
     if (overlay) overlay.classList.remove('visible');
+    this._srClear();
 
     if (this.audio) {
       this.audio.destroy();
