@@ -748,6 +748,9 @@ export class GameScene extends Phaser.Scene {
         // 存档面板打开时，ESC 由面板自行处理，避免冲突
         const saveload = document.getElementById('ui-saveload-overlay');
         if (saveload && saveload.classList.contains('visible')) return;
+        // 历史真相 overlay 打开时同理（R93：ESC 双重消费会连开暂停菜单）
+        const histNote = document.getElementById('ui-history-note-overlay');
+        if (histNote && histNote.classList.contains('visible')) return;
         if (this.menuConfirmEl && this.menuConfirmEl.classList.contains('visible')) {
           this._hideMenuConfirm();
         } else {

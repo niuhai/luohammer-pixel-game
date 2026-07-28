@@ -71,9 +71,9 @@ const PANEL_CSS = `
     font-size: clamp(11px, 1.5vw, 13px);
   }
   .ui-saveload-close {
-    width: 32px;
-    height: 32px;
-    line-height: 30px;
+    width: 44px;
+    height: 44px;
+    line-height: 42px;
     text-align: center;
     background: transparent;
     border: 1px solid var(--color-text-dim);
@@ -299,6 +299,9 @@ function formatTimeAgo(timestamp) {
  * @param {()=>void} [options.onClose]
  */
 export function showSaveLoadPanel(options = {}) {
+  const previousFocus = document.activeElement instanceof HTMLElement
+    ? document.activeElement
+    : null;
   const mode = options.mode === 'save' ? 'save' : 'manage';
   const currentState = options.currentState || null;
   const save = options.saveSystem instanceof SaveSystem
@@ -318,6 +321,9 @@ export function showSaveLoadPanel(options = {}) {
   const overlay = document.createElement('div');
   overlay.id = 'ui-saveload-overlay';
   overlay.className = 'ui-saveload-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-labelledby', 'ui-saveload-title');
 
   const titleText = mode === 'save' ? '保存游戏' : '存档管理';
 
@@ -325,7 +331,7 @@ export function showSaveLoadPanel(options = {}) {
     <div class="ui-saveload-card">
       <div class="ui-saveload-header">
         <div>
-          <div class="ui-saveload-title"><span>◈</span><span>${titleText}</span></div>
+          <div class="ui-saveload-title" id="ui-saveload-title"><span>◈</span><span>${titleText}</span></div>
           <div class="ui-saveload-subtitle">${
             mode === 'save'
               ? '选择一个手动槽位保存进度（自动存档只读）'
@@ -358,14 +364,29 @@ export function showSaveLoadPanel(options = {}) {
 
   // === 确认弹窗 ===
   let pendingAction = null;
+  let confirmTriggerEl = null;
+  let confirmTriggerSlotId = null;
   const showConfirm = (text, action) => {
     pendingAction = action;
+    // 记录触发按钮及其槽位，确认弹窗关闭后焦点归还（防误删档：焦点先落「取消」）
+    confirmTriggerEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    confirmTriggerSlotId = confirmTriggerEl?.closest?.('.ui-saveload-slot')?.dataset?.slotId || null;
     confirmText.innerHTML = text;
     confirmEl.classList.add('visible');
+    confirmCancel.focus();
   };
   const hideConfirm = () => {
     pendingAction = null;
     confirmEl.classList.remove('visible');
+    // 焦点归还触发槽位按钮；确认操作会重渲染槽位，原按钮已销毁则按槽位找回新按钮
+    let target = confirmTriggerEl;
+    if (target && !target.isConnected && confirmTriggerSlotId) {
+      const cardEl = grid.querySelector(`.ui-saveload-slot[data-slot-id="${CSS.escape(confirmTriggerSlotId)}"]`);
+      target = cardEl ? cardEl.querySelector('button') : null;
+    }
+    confirmTriggerEl = null;
+    confirmTriggerSlotId = null;
+    if (target && target.isConnected) target.focus({ preventScroll: true });
   };
   confirmCancel.addEventListener('click', hideConfirm);
   confirmOk.addEventListener('click', () => {
@@ -383,6 +404,9 @@ export function showSaveLoadPanel(options = {}) {
     document.removeEventListener('keydown', escHandler);
     setTimeout(() => {
       if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      if (previousFocus && previousFocus.isConnected) {
+        previousFocus.focus({ preventScroll: true });
+      }
       if (onClose) onClose();
     }, 220);
   };
@@ -398,14 +422,39 @@ export function showSaveLoadPanel(options = {}) {
         return;
       }
       closePanel();
+      return;
+    }
+
+    // Tab 焦点陷阱：确认弹窗可见时锁定在弹窗内，否则锁定在面板内
+    if (e.key === 'Tab') {
+      const scope = confirmEl.classList.contains('visible') ? confirmEl : overlay;
+      const focusable = [...scope.querySelectorAll(
+        'button:not([disabled]), summary, [href], [tabindex]:not([tabindex="-1"])'
+      )].filter(element => element.getClientRects().length > 0 || element === document.activeElement);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (!scope.contains(document.activeElement)) {
+        e.preventDefault();
+        first.focus();
+      }
     }
   };
   document.addEventListener('keydown', escHandler);
 
-  overlay.querySelector('.ui-saveload-close').addEventListener('click', closePanel);
+  const closeBtn = overlay.querySelector('.ui-saveload-close');
+  closeBtn.addEventListener('click', closePanel);
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) closePanel();
   });
+  // 初始焦点移入面板（关闭按钮）
+  closeBtn.focus();
 
   // === 渲染槽位卡片 ===
   function renderSlots() {
@@ -423,6 +472,7 @@ export function showSaveLoadPanel(options = {}) {
 
     const card = document.createElement('div');
     card.className = 'ui-saveload-slot' + (isAuto ? ' is-auto' : '') + (info.empty ? ' is-empty' : '');
+    card.dataset.slotId = info.slotId;
 
     const attrs = info.attributes || {};
     // R82 F3：属性名与 HUD/结局屏统一（理想/财富/名声/信任）——

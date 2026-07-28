@@ -362,7 +362,7 @@
       cursor: pointer;
       font-family: 'Luohammer UI', "Microsoft YaHei", "PingFang SC", sans-serif;
       min-width: 44px;
-      min-height: 32px;
+      min-height: 44px;
       white-space: nowrap;
       border-radius: 2px;
       transition: all 0.2s;
@@ -2358,8 +2358,8 @@
     }
 
     .ui-life-map-close {
-      width: clamp(32px, 4vw, 40px);
-      height: clamp(32px, 4vw, 40px);
+      width: clamp(44px, 4vw, 48px);
+      height: clamp(44px, 4vw, 48px);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -3191,6 +3191,10 @@
       padding: clamp(4px, 0.8vh, 8px) clamp(8px, 1.2vw, 12px);
       transition: color 0.2s;
       letter-spacing: 1px;
+      /* R93 F2：div 改原生 button 后的默认样式 reset，保持原视觉 */
+      background: none;
+      border: none;
+      font-family: inherit;
     }
 
     .ui-history-note-skip:hover {
@@ -5510,9 +5514,9 @@
       margin-right: 12px;
     }
     .ui-ending-gallery-close {
-      width: 32px;
-      height: 32px;
-      line-height: 30px;
+      width: 44px;
+      height: 44px;
+      line-height: 42px;
       text-align: center;
       border: 1px solid rgba(240, 192, 64, 0.3);
       border-radius: var(--radius-sharp);
@@ -6051,7 +6055,8 @@
         font-size: 12px;
       }
       .ui-dialog-text {
-        font-size: 14px;
+        /* R93 F3：删除硬编码 14px，回落基础规则 var(--fs-body)，
+           竖屏 16px 下限（:143-147 媒体查询）方能生效 */
         line-height: 1.6;
       }
 

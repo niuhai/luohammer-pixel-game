@@ -338,7 +338,7 @@ export function checkPressureCrash(state) {
       text: '你撑不住了。压力已经到了极限，你必须做出选择。',
       choices: [
         { label: '"崩溃就崩溃吧！"', effects: { pride: -2, reputation: -1, pressure: -5, failures: 1 } },
-        { label: '"咬牙撑住！"', effects: { pride: 1, pressure: -3, trust: 1 } }
+        { label: '"咬牙撑住！"', effects: { pressure: -3 } }
       ]
     };
   }

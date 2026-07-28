@@ -34,6 +34,9 @@ function loadSeenEndings() {
  * @param {Function} [options.onClose] - 关闭后的回调。
  */
 export function showEndingGallery(options = {}) {
+  const previousFocus = document.activeElement instanceof HTMLElement
+    ? document.activeElement
+    : null;
   const seenList = options.seenEndings || loadSeenEndings();
   const seenSet = new Set(seenList);
 
@@ -48,11 +51,14 @@ export function showEndingGallery(options = {}) {
   const overlay = document.createElement('div');
   overlay.id = 'ui-ending-gallery-overlay';
   overlay.className = 'ui-ending-gallery-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-labelledby', 'ui-ending-gallery-title');
 
   overlay.innerHTML = `
     <div class="ui-ending-gallery-card">
       <div class="ui-ending-gallery-header">
-        <div class="ui-ending-gallery-title">
+        <div class="ui-ending-gallery-title" id="ui-ending-gallery-title">
           <span>▤</span>
           <span>结局图鉴</span>
         </div>
@@ -122,6 +128,9 @@ export function showEndingGallery(options = {}) {
     overlay.classList.remove('visible');
     setTimeout(() => {
       if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      if (previousFocus && previousFocus.isConnected) {
+        previousFocus.focus({ preventScroll: true });
+      }
       if (typeof options.onClose === 'function') options.onClose();
     }, 250);
   };
@@ -132,11 +141,36 @@ export function showEndingGallery(options = {}) {
     if (e.target === overlay) closeGallery();
   });
 
-  // ESC 关闭
+  // ESC 关闭 + Tab 焦点陷阱（统一在此 keydown 处理器，closeGallery 一处解绑，
+  // 对齐 AchievementGallery onKey 模式，防监听器泄漏）
   const escHandler = (e) => {
-    if (e.key === 'Escape') closeGallery();
+    if (e.key === 'Escape') {
+      closeGallery();
+      return;
+    }
+
+    if (e.key === 'Tab') {
+      const focusable = [...overlay.querySelectorAll(
+        'button:not([disabled]), summary, [href], [tabindex]:not([tabindex="-1"])'
+      )].filter(element => element.getClientRects().length > 0 || element === document.activeElement);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (!overlay.contains(document.activeElement)) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
   };
   document.addEventListener('keydown', escHandler);
+  // 初始焦点移入弹窗（关闭按钮）
+  closeBtn.focus();
   // R91：图鉴开启确认音
   try { options.audio?.playChoice?.(); } catch (e) {}
 }

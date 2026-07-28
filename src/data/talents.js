@@ -40,7 +40,6 @@ export const TALENT_SPECIAL_LABELS = Object.freeze({
   fans_loyalty_bonus: '公众信任和名声的正收益翻倍',
   low_stats_bonus: '属性不高于 3 时，该属性的正收益翻倍',
   debt_reduction_bonus: '财富损失减半',
-  pressure_never_max: '压力永远不会爆表',
   stage_events_bonus: '公开舞台阶段获得名声或信任时额外 +1',
   product_events_bonus: '产品创业阶段获得公众信任时额外 +1',
   reality_distortion_field: '单项正收益达到 +2 时，再额外 +1',

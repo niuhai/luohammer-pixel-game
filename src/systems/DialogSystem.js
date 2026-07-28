@@ -57,6 +57,18 @@ export class DialogSystem {
     this.autoBtn = document.getElementById('ui-dialog-auto');
     this.overlayEl = document.getElementById('ui-overlay');
 
+    // === 读屏支持（R93 F1）：sr-only aria-live 镜像 ===
+    // 打字机逐字更新 textContent，若直接把可视文本设为 live 区会让读屏器逐字朗读爆炸；
+    // 因此可视文本对读屏隐藏，另挂一个视觉隐藏的 live 镜像，
+    // 打字完成后在 finishTyping 中一次性写入整句。
+    this.textEl.setAttribute('aria-hidden', 'true');
+    this._srLiveEl = document.createElement('div');
+    this._srLiveEl.setAttribute('role', 'log');
+    this._srLiveEl.setAttribute('aria-live', 'polite');
+    this._srLiveEl.setAttribute('aria-atomic', 'true');
+    this._srLiveEl.style.cssText = 'position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;';
+    this.el.appendChild(this._srLiveEl);
+
     // 选择面板引用（用于计算对话框上移距离）
     this.choicesEl = document.getElementById('ui-choices');
 
@@ -349,7 +361,9 @@ export class DialogSystem {
 
   /**
    * 将长文本按自然断句拆分为多段
-   * 规则：按句号/感叹号/问号/换行符断句，每段 100-150 字，不在词中间断
+   * 规则：按句号/感叹号/问号/分号/省略号/破折号/换行符断句，每段目标 100-150 字，不在词中间断；
+   * 仍超 254 字的段按字数强制二次均分（断点取标点/空格、避开标签内部），
+   * 并保证每页 <b> 标签配对、含标签总长 ≤263（竖屏单页容量）
    * 短文本（<150字）返回 null，表示不需要拆分
    * @param {string} text - 原始文本
    * @returns {string[]|null} 拆分后的段落数组，或 null
@@ -368,11 +382,13 @@ export class DialogSystem {
     }
 
     // 第二步：对每个预段按自然断句符号拆分为句子
-    // 句号、感叹号、问号（中英文都支持），保留分隔符在句子末尾
+    // 句号、感叹号、问号、分号、省略号、破折号（中英文都支持），保留分隔符在句子末尾
+    // R93 F5：补充 ；…— 断点——act9_reflect 等节点用分号串长句，旧正则无点可断
     const sentences = [];
     for (const seg of preSegments) {
       // 使用更健壮的正则：匹配非断句符号的字符序列，后跟可选的断句符号
-      const regex = /[^。！？!?.]+[。！？!?.]*/g;
+      // （—— 是双字符，字符类中的 — 会逐个匹配，[…—]* 贪心吞掉整段破折号）
+      const regex = /[^。！？!?.；…—]+[。！？!?.；…—]*/g;
       let match;
       while ((match = regex.exec(seg)) !== null) {
         const s = match[0].trim();
@@ -381,7 +397,7 @@ export class DialogSystem {
       // 如果正则没匹配到任何内容（极端情况），将整段作为一个句子
       if (sentences.length === 0 || sentences[sentences.length - 1] !== seg.trim()) {
         // 检查是否有遗漏的文本
-        const remainder = seg.replace(/[^。！？!?.]+[。！？!?.]*/g, '').trim();
+        const remainder = seg.replace(/[^。！？!?.；…—]+[。！？!?.；…—]*/g, '').trim();
         if (remainder) sentences.push(remainder);
       }
     }
@@ -426,19 +442,71 @@ export class DialogSystem {
     // 如果拆分后只有一段，不需要拆分
     if (segments.length <= 1) return null;
 
-    // 拆分后检查每段 <b></b> 是否配对，不配对则与下一段合并
-    // 避免 <b> 标签被句号拆断导致 innerHTML 渲染时过度高亮
-    for (let i = 0; i < segments.length - 1; i++) {
-      const open = (segments[i].match(/<b>/g) || []).length;
-      const close = (segments[i].match(/<\/b>/g) || []).length;
-      if (open !== close) {
-        segments[i + 1] = segments[i] + segments[i + 1];
-        segments.splice(i, 1);
-        i--;
+    // 第四步（R93 F5）：超容量段强制二次均分
+    // 竖屏对话框单页容量约 263 字；>254 触发（为第五步 <b> 重平衡预留 9 字标签余量）
+    // 断点优先取标点/空格；截断点落在 <b>/</b> 标签内部时顺延到标签外
+    const FORCE_TRIGGER = 254;
+    const FORCE_TARGET = 240;
+    const FORCE_MAX = 250;
+    const BREAK_CHARS = '，、；：。！？…— ,.!?;:';
+    const forced = [];
+    for (const seg of segments) {
+      if (seg.length <= FORCE_TRIGGER) {
+        forced.push(seg);
+        continue;
+      }
+      let rest = seg;
+      while (rest.length > FORCE_MAX) {
+        const parts = Math.ceil(rest.length / FORCE_TARGET);
+        const ideal = Math.max(1, Math.ceil(rest.length / parts));
+        let cut = -1;
+        // 优先从理想位置向前找断点（不越过 80 字窗口）
+        for (let i = Math.min(ideal, FORCE_MAX); i >= Math.max(1, ideal - 80); i--) {
+          if (BREAK_CHARS.indexOf(rest[i - 1]) >= 0) { cut = i; break; }
+        }
+        // 其次向后找，但不越过硬上限
+        if (cut < 0) {
+          const fwdLimit = Math.min(FORCE_MAX, rest.length - 1);
+          for (let i = ideal + 1; i <= fwdLimit; i++) {
+            if (BREAK_CHARS.indexOf(rest[i - 1]) >= 0) { cut = i; break; }
+          }
+        }
+        // 兜底：按字数硬切
+        if (cut < 0) cut = Math.min(ideal, FORCE_MAX, rest.length);
+        // 截断点落在标签内部（< 与 > 之间）则顺延到标签外
+        // （断点字符不可能出现在标签内，此情况只在硬切时发生）
+        const lastLt = rest.lastIndexOf('<', cut - 1);
+        const lastGt = rest.lastIndexOf('>', cut - 1);
+        if (lastLt > lastGt) {
+          const gt = rest.indexOf('>', lastLt);
+          if (gt >= 0) cut = gt + 1;
+        }
+        // 破折号是双字符（——），避免从中间截断
+        if (cut < FORCE_MAX && cut < rest.length && rest[cut - 1] === '—' && rest[cut] === '—') cut++;
+        if (cut <= 0 || cut >= rest.length) {
+          // 无法安全截断（极端情况），保留原段整段
+          forced.push(rest);
+          rest = '';
+          break;
+        }
+        forced.push(rest.slice(0, cut));
+        rest = rest.slice(cut);
+      }
+      if (rest) forced.push(rest);
+    }
+
+    // 第五步（R93 F5）：重新平衡 <b> 配对 —— 段尾补 </b>、下段开头补 <b>
+    // 取代旧的"不配对则与下一段合并"逻辑（会把多段并成超容量巨段）
+    for (let i = 0; i < forced.length - 1; i++) {
+      const open = (forced[i].match(/<b>/g) || []).length;
+      const close = (forced[i].match(/<\/b>/g) || []).length;
+      if (open > close) {
+        forced[i] += '</b>';
+        forced[i + 1] = '<b>' + forced[i + 1];
       }
     }
 
-    return segments;
+    return forced;
   }
 
   /**
@@ -611,6 +679,18 @@ export class DialogSystem {
       try { this.hooks.onShow(characterName, text); } catch(e) {}
     }
 
+    // === reduced-motion 降级（R93 F3）：用户系统开启"减少动态效果"时
+    // 跳过逐字动画直接整句渲染，走 finishTyping 统一完成路径
+    // （含关键词高亮、继续提示、完成回调、AUTO 调度与 F1 读屏写入）===
+    const reduceMotion = typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) {
+      this.currentIndex = this._plainText.length;
+      this.textEl.textContent = this._plainText;
+      this.finishTyping();
+      return;
+    }
+
     // 立即显示第一个字，然后由 update 驱动后续打字
     this._advanceTyping();
     // === 根据刚打出的字符重新计算下次延迟（标点停顿）===
@@ -780,6 +860,11 @@ export class DialogSystem {
     this._typingActive = false;
     // === 关键词高亮：打字完成后将文本中的关键词用金色高亮显示 ===
     this._applyKeywordHighlight();
+    // === 读屏镜像（R93 F1）：打字完成后一次性写入整句，读屏器整体朗读 ===
+    if (this._srLiveEl) {
+      const name = this.currentCharacterName ? this.currentCharacterName + '：' : '';
+      this._srLiveEl.textContent = name + (this._plainText || '');
+    }
     this.continueEl.style.display = 'block';
     this._startPulse();
     this._updateContinueHint();
@@ -1065,14 +1150,15 @@ export class DialogSystem {
       container = document.createElement('div');
       container.id = 'ui-history-note-area';
       container.className = 'ui-history-note-area interactive';
+      // R93 F2：入口改用原生 <button>，天然可聚焦 + Enter/Space 触发，键盘可达
       container.innerHTML = `
-        <div class="ui-history-note-btn" id="ui-history-note-btn">
+        <button type="button" class="ui-history-note-btn" id="ui-history-note-btn">
           <span class="corner-deco tl"></span><span class="corner-deco tr"></span>
           <span class="corner-deco bl"></span><span class="corner-deco br"></span>
           <span class="ui-history-note-icon">▤</span>
           <span class="ui-history-note-label">历史真相</span>
-        </div>
-        <div class="ui-history-note-skip" id="ui-history-note-skip">跳过 ▶</div>
+        </button>
+        <button type="button" class="ui-history-note-skip" id="ui-history-note-skip">跳过 ▶</button>
       `;
       const overlay = document.getElementById('ui-overlay');
       if (overlay) overlay.appendChild(container);
@@ -1150,9 +1236,8 @@ export class DialogSystem {
     if (this._historyNoteConsumed) return;
     this._historyNoteConsumed = true;
     this.hideHistoryNoteButton();
-    // 同时关闭可能打开的 overlay
-    const overlay = document.getElementById('ui-history-note-overlay');
-    if (overlay) overlay.classList.remove('visible');
+    // 同时关闭可能打开的 overlay（含键盘监听清理与焦点归还，R93 F4）
+    this._closeHistoryNoteOverlay();
     if (this._historyNoteContinue) {
       const cb = this._historyNoteContinue;
       this._historyNoteContinue = null;
@@ -1162,6 +1247,9 @@ export class DialogSystem {
 
   /**
    * 显示 historyNote DOM overlay（半透明遮罩 + 居中卡片）
+   * R93 F4：焦点管理照搬 AchievementGallery 模式 ——
+   * role=dialog/aria-modal、打开时焦点移入关闭按钮、ESC 关闭、
+   * Tab 在 overlay 内循环、关闭后焦点归还触发元素
    * @param {string} text - historyNote 文本
    */
   _showHistoryNoteOverlay(text) {
@@ -1170,15 +1258,18 @@ export class DialogSystem {
       overlay = document.createElement('div');
       overlay.id = 'ui-history-note-overlay';
       overlay.className = 'ui-history-note-overlay';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.setAttribute('aria-labelledby', 'ui-history-note-title');
       overlay.innerHTML = `
         <div class="ui-history-note-card">
           <div class="ui-history-note-header">
-            <span class="ui-history-note-header-icon">▤</span>
-            <span class="ui-history-note-title">历史真相</span>
+            <span class="ui-history-note-header-icon" aria-hidden="true">▤</span>
+            <span class="ui-history-note-title" id="ui-history-note-title">历史真相</span>
           </div>
           <div class="ui-history-note-body" id="ui-history-note-body"></div>
           <div class="ui-history-note-footer">
-            <button class="ui-history-note-close" id="ui-history-note-close">继续前行 ▶</button>
+            <button class="ui-history-note-close" id="ui-history-note-close" type="button">继续前行 ▶</button>
           </div>
         </div>
       `;
@@ -1191,11 +1282,80 @@ export class DialogSystem {
 
     overlay.classList.add('visible');
 
+    // 保存触发焦点，关闭后归还（触发元素即 ui-history-note-btn）
+    this._historyNotePreviousFocus = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : (document.getElementById('ui-history-note-btn') || null);
+
     const closeBtn = document.getElementById('ui-history-note-close');
     if (closeBtn) {
       closeBtn.onclick = () => {
         this._consumeHistoryNoteContinue();
       };
+      closeBtn.focus();
+    }
+
+    // ESC 关闭 + Tab 焦点陷阱（先清掉旧监听，防止 overlay 复用时重复注册）
+    this._removeHistoryNoteKeyHandler();
+    this._historyNoteKeyHandler = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        // 阻断事件继续冒泡到 window——GameScene 的 ESC 菜单监听在 window 级，
+        // 本 handler（document 级）先执行并已关闭 overlay，不阻断则菜单被连开（R93 探针实证）
+        event.stopImmediatePropagation();
+        this._consumeHistoryNoteContinue();
+        return;
+      }
+      if (event.key === 'Tab') {
+        const focusable = [...overlay.querySelectorAll(
+          'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+        )].filter(el => el.getClientRects().length > 0 || el === document.activeElement);
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        } else if (!overlay.contains(document.activeElement)) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', this._historyNoteKeyHandler);
+  }
+
+  /**
+   * 关闭 historyNote overlay：移除键盘监听、隐藏遮罩、归还焦点（R93 F4）
+   */
+  _closeHistoryNoteOverlay() {
+    this._removeHistoryNoteKeyHandler();
+    const overlay = document.getElementById('ui-history-note-overlay');
+    if (overlay) overlay.classList.remove('visible');
+    const prev = this._historyNotePreviousFocus;
+    this._historyNotePreviousFocus = null;
+    if (prev && prev.isConnected) {
+      prev.focus({ preventScroll: true });
+    } else {
+      // 触发元素已随流程移除（"继续前行"会隐藏历史真相条），焦点落到对话框防键盘迷失
+      const dialog = document.getElementById('ui-dialog');
+      if (dialog && dialog.isConnected) {
+        if (!dialog.hasAttribute('tabindex')) dialog.setAttribute('tabindex', '-1');
+        dialog.focus({ preventScroll: true });
+      }
+    }
+  }
+
+  /**
+   * 移除 historyNote overlay 的 document 级键盘监听
+   */
+  _removeHistoryNoteKeyHandler() {
+    if (this._historyNoteKeyHandler) {
+      document.removeEventListener('keydown', this._historyNoteKeyHandler);
+      this._historyNoteKeyHandler = null;
     }
   }
 
@@ -1253,10 +1413,14 @@ export class DialogSystem {
       this.textEl.style.transition = '';
       this.textEl.style.transform = '';
     }
-    // 清理历史真相按钮和 overlay
+    // 移除读屏 live 镜像（R93 F1）
+    if (this._srLiveEl) {
+      this._srLiveEl.remove();
+      this._srLiveEl = null;
+    }
+    // 清理历史真相按钮和 overlay（含键盘监听清理与焦点归还，R93 F4）
     this.hideHistoryNoteButton();
-    const overlay = document.getElementById('ui-history-note-overlay');
-    if (overlay) overlay.classList.remove('visible');
+    this._closeHistoryNoteOverlay();
     this._historyNoteContinue = null;
     this._historyNoteOnRead = null;
     // 隐藏下半屏点击捕获层
