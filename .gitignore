@@ -99,5 +99,8 @@ simulate-*.txt
 stat-output.txt
 tmp-*
 
+# 评审视频抽帧证据（ffmpeg 可从 demo-footage 复现，不入库）
+_r003_eval/
+
 # 文档草稿（可选保留，按需删除此行）
 docs/
