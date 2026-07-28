@@ -1977,6 +1977,10 @@ export class EndingScene extends Phaser.Scene {
       lines.push(`► 来试试：${url}`);
     }
 
+    // R92：话题标签——传播闭环最后一公里，朋友圈/微博场景可直接被搜索聚合
+    lines.push(``);
+    lines.push(`#罗的十字路口 #人生模拟器`);
+
     const text = lines.join('\n');
 
     const doCopy = () => {
