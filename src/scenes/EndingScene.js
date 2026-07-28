@@ -527,7 +527,7 @@ export class EndingScene extends Phaser.Scene {
       item.style.cssText = `font-size: 9px; color: ${hidden ? 'var(--color-hidden)' : 'var(--color-gold)'}; white-space: nowrap; padding: 1px 4px; border-radius: 2px; background: ${hidden ? 'rgba(var(--color-hidden-rgb), 0.1)' : 'rgba(var(--color-gold-rgb), 0.08)'}; border: 1px solid ${hidden ? 'rgba(var(--color-hidden-rgb), 0.3)' : 'rgba(var(--color-gold-rgb), 0.2)'}; cursor: pointer;`;
       item.textContent = `${ach.icon} ${ach.name}`;
       item.dataset.name = ach.name;
-      item.addEventListener('click', () => showAchievementGallery({ unlockedNames, highlightName: ach.name, showHiddenHints }));
+      item.addEventListener('click', () => showAchievementGallery({ unlockedNames, highlightName: ach.name, showHiddenHints, audio: this.audio }));
       achGrid.appendChild(item);
     });
 
@@ -538,7 +538,7 @@ export class EndingScene extends Phaser.Scene {
       item.style.cssText = 'font-size: 9px; color: var(--color-text-dim); white-space: nowrap; padding: 1px 4px; border-radius: 2px; background: rgba(58,58,74,0.15); border: 1px solid rgba(58,58,74,0.2); cursor: pointer;';
       item.textContent = `${hidden ? '◑' : '?'} ${hidden ? '???' : ach.name}`;
       item.dataset.name = ach.name;
-      item.addEventListener('click', () => showAchievementGallery({ unlockedNames, highlightName: ach.name, showHiddenHints }));
+      item.addEventListener('click', () => showAchievementGallery({ unlockedNames, highlightName: ach.name, showHiddenHints, audio: this.audio }));
       achGrid.appendChild(item);
     });
 
@@ -559,7 +559,7 @@ export class EndingScene extends Phaser.Scene {
     const endingHeader = document.createElement('div');
     endingHeader.style.cssText = 'display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 6px; cursor: pointer;';
     endingHeader.addEventListener('click', () => {
-      showEndingGallery({ seenEndings: this.meta.getSeenEndings() });
+      showEndingGallery({ seenEndings: this.meta.getSeenEndings(), audio: this.audio });
     });
     const endingTitle = document.createElement('span');
     endingTitle.style.cssText = 'font-size: 11px; color: var(--color-gold); font-weight: 700; letter-spacing: 2px;';

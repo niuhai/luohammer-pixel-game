@@ -342,6 +342,8 @@ export class ChoiceSystem {
 
         // 任务1：天平倾斜效果——hover 时天平向该方向倾斜
         btn.addEventListener('mouseenter', () => {
+          // R91：桌面端悬停轻音（80ms 节流，快速划过一排便签不炸音）
+          try { this.scene?.audio?.playHover?.(); } catch(e) {}
           balance.classList.remove('tilt-left', 'tilt-right');
           if (i % 2 === 0) {
             balance.classList.add('tilt-left');

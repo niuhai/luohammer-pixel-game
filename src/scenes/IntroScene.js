@@ -38,18 +38,18 @@ const LINES = [
 
 // 情感时间线（ms）
 const TL = {
-  arriveAt: 80,    // 一束旧路星光从画面下方走向路口
-  igniteAt: 720,   // 来路抵达中心，路口星火点燃
-  line1At: 1050,   // L1 文案
-  path1At: 2100,   // 第一批光轨（2 条）开始延伸
-  line2At: 2600,   // L2 文案
-  path2At: 3300,   // 第二批光轨（3 条）
-  line3At: 5000,   // L3 文案
-  fadeAt: 8200,    // 自然结束：给点题句留出完整呼吸
-  skipAt: 1000     // 可跳过时间
+  arriveAt: 60,    // 一束旧路星光从画面下方走向路口
+  igniteAt: 560,   // 来路抵达中心，路口星火点燃
+  line1At: 800,    // L1 文案
+  path1At: 1600,   // 第一批光轨（2 条）开始延伸
+  line2At: 2050,   // L2 文案
+  path2At: 2600,   // 第二批光轨（3 条）
+  line3At: 3800,   // L3 文案
+  fadeAt: 6600,    // 自然结束：点题句保留呼吸，但不让开场拖沓
+  skipAt: 700      // 尽早把节奏控制权交给玩家
 };
 
-const STEP_MS = 55;      // 光轨每格点亮间隔
+const STEP_MS = 44;      // 光轨每格点亮间隔：更利落地展开五条未来
 const CENTER = { x: GAME_WIDTH / 2, y: 172 }; // 偏上，下半屏留给文案
 
 // 玩家抵达路口前已经走过的那条路：从画面下方蜿蜒进入中心。
@@ -94,8 +94,8 @@ const PATH_DEFS = [
  * t=4.4s 暗流星掠过左上深空呼应。确定性轨迹，保证每次演出一致。
  */
 const METEORS = [
-  { at: 1500, dur: 900, x0: 700, y0: 56, x1: 470, y1: 140, dim: false },
-  { at: 4400, dur: 800, x0: 96, y0: 36, x1: 300, y1: 104, dim: true }
+  { at: 1200, dur: 760, x0: 700, y0: 56, x1: 470, y1: 140, dim: false },
+  { at: 3400, dur: 680, x0: 96, y0: 36, x1: 300, y1: 104, dim: true }
 ];
 
 export class IntroScene extends Phaser.Scene {
@@ -187,6 +187,14 @@ export class IntroScene extends Phaser.Scene {
     if (fade) fade.classList.remove('active');
     if (skipHint) skipHint.classList.remove('visible');
     this._resetText();
+
+    // 序章第一帧即预热主游戏代码，让下载/解析与星图演出并行；
+    // 收场时仍会 await 同一 Promise，因此失败路径与兜底逻辑保持不变。
+    if (!this._returnToBoot) {
+      this._ensureGameplayScenes().catch(error => {
+        console.warn('[IntroScene] 主游戏资源预热未完成，将在收场时重试:', error);
+      });
+    }
 
     // 音频：从标题页点击进入，AudioContext 已解锁，直接起开场 BGM
     this.audio.unlock().then(() => {
@@ -1000,13 +1008,35 @@ export class IntroScene extends Phaser.Scene {
       save.markIntroSeen();
     } catch (e) {}
     const targetKey = this._returnToBoot ? 'BootScene' : 'GameScene';
+    const flashEl = document.getElementById('ui-scene-flash');
+    const gameLoadingEl = document.getElementById('ui-game-loading');
+    let loadingDelay = null;
     if (targetKey === 'GameScene') {
+      // 主游戏代码若尚未准备好，不让白闪停成“卡死白屏”。短等待保持电影式溶解，
+      // 超过 180ms 就切到明确的加载反馈；GameScene 会继续接管真实资源进度。
+      loadingDelay = setTimeout(() => {
+        const introOverlay = document.getElementById('ui-intro-overlay');
+        if (introOverlay) introOverlay.classList.remove('visible');
+        if (flashEl) {
+          flashEl.style.transition = 'opacity 220ms ease-out';
+          flashEl.style.opacity = '0';
+        }
+        if (gameLoadingEl) {
+          const title = gameLoadingEl.querySelector('.app-loading-title');
+          const text = gameLoadingEl.querySelector('.ui-game-loading-text');
+          if (title) title.textContent = '正在展开人生…';
+          if (text) text.textContent = '正在准备你的第一段故事';
+          gameLoadingEl.classList.add('visible');
+        }
+      }, 180);
       try {
         await this._ensureGameplayScenes();
+        clearTimeout(loadingDelay);
       } catch (error) {
+        clearTimeout(loadingDelay);
         console.error('[IntroScene] 主游戏资源加载失败:', error);
-        const flashEl = document.getElementById('ui-scene-flash');
         if (flashEl) { flashEl.style.transition = 'opacity 240ms ease-out'; flashEl.style.opacity = '0'; }
+        if (gameLoadingEl) gameLoadingEl.classList.remove('visible');
         this.scene.start('BootScene');
         return;
       }
@@ -1016,7 +1046,6 @@ export class IntroScene extends Phaser.Scene {
     // 改为监听目标场景 create 生命周期事件：create 完成 + 两帧首渲染后，
     // 白闪 480ms ease-out 退场，"从白光中浮现新人生"。
     // 切换黑缝期间白闪停留满白覆盖（BGM 已淡出，如闪光灯余晖）。
-    const flashEl = document.getElementById('ui-scene-flash');
     if (flashEl && flashEl.style.opacity === '1') {
       const dissolve = () => {
         if (flashEl.style.opacity !== '1') return; // 已被跳过路径复位
@@ -1081,11 +1110,26 @@ export class IntroScene extends Phaser.Scene {
       if (this._returnToBoot) {
         this.scene.start('BootScene');
       } else {
+        const gameLoadingEl = document.getElementById('ui-game-loading');
+        const loadingDelay = setTimeout(() => {
+          const introOverlay = document.getElementById('ui-intro-overlay');
+          if (introOverlay) introOverlay.classList.remove('visible');
+          if (gameLoadingEl) {
+            const title = gameLoadingEl.querySelector('.app-loading-title');
+            const text = gameLoadingEl.querySelector('.ui-game-loading-text');
+            if (title) title.textContent = '正在展开人生…';
+            if (text) text.textContent = '正在准备你的第一段故事';
+            gameLoadingEl.classList.add('visible');
+          }
+        }, 180);
         try {
           await this._ensureGameplayScenes();
+          clearTimeout(loadingDelay);
           this.scene.start('GameScene', {});
         } catch (error) {
+          clearTimeout(loadingDelay);
           console.error('[IntroScene] 主游戏资源加载失败:', error);
+          if (gameLoadingEl) gameLoadingEl.classList.remove('visible');
           if (fade) fade.classList.remove('active');
           this.scene.start('BootScene');
         }

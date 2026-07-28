@@ -155,11 +155,15 @@ function _warmGameplayScenes() {
   const warm = () => ensureGameplayScenes(game).catch(error => {
     console.warn('[Loading] 主游戏资源后台加载失败，将在进入游戏时重试:', error);
   });
-  if ('requestIdleCallback' in window) {
-    window.requestIdleCallback(warm, { timeout: 1200 });
-  } else {
-    setTimeout(warm, 0);
-  }
+  // 先把标题背景和按钮的网络/主线程预算完整留给首屏；随后在玩家阅读标题时预热剧情代码。
+  // 若玩家很快点击开始，这段延迟恰好落在序章演出期间，不增加可感知等待。
+  setTimeout(() => {
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(warm, { timeout: 1600 });
+    } else {
+      warm();
+    }
+  }, 1400);
 }
 
 // BootScene 完整建立标题 DOM 后立即让出首屏，并在浏览器空闲时加载剧情与主游戏。

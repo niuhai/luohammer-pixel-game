@@ -10,6 +10,29 @@ let _sharedMasterGain = null;
 // P0 崩溃防护：Web Audio 构造失败标记（旧 WebView/受限环境），避免反复尝试构造
 let _ctxConstructFailed = false;
 
+// R91：页面可见性与共享音频链路联动——切后台挂起 Web Audio + 暂停 TTS，
+// 回前台恢复。模块级只注册一次；读取模块级 _sharedCtx，不依赖具体场景实例。
+let _visibilityHandlerInstalled = false;
+function _installVisibilityHandler() {
+  if (_visibilityHandlerInstalled || typeof document === 'undefined') return;
+  _visibilityHandlerInstalled = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      try { if (_sharedCtx && _sharedCtx.state === 'running') _sharedCtx.suspend(); } catch(e) {}
+      try {
+        if (window.speechSynthesis && window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+          window.speechSynthesis.pause();
+        }
+      } catch(e) {}
+    } else {
+      try { if (_sharedCtx && _sharedCtx.state === 'suspended') _sharedCtx.resume(); } catch(e) {}
+      try {
+        if (window.speechSynthesis && window.speechSynthesis.paused) window.speechSynthesis.resume();
+      } catch(e) {}
+    }
+  });
+}
+
 /**
  * 朗读风格：通过克制的 rate/pitch 差异调整节奏，不再把同一系统声音
  * 包装成四种固定“音色”。实际发声者始终来自用户设备安装的中文语音。
@@ -158,6 +181,8 @@ export class AudioSystem {
     } catch(e) {}
     // 预加载TTS语音列表
     this._initVoices();
+    // R91：模块级可见性联动（仅首个实例注册一次）
+    _installVisibilityHandler();
 
     // AudioSystem 自己持有的浏览器资源必须跟随场景关闭。
     // 统一在此绑定，覆盖 Scene 提前 return、异常兜底等调用方来不及手动 destroy 的路径。
@@ -232,7 +257,10 @@ export class AudioSystem {
       _sharedMasterGain.gain.setValueAtTime(this.masterVolume, _sharedCtx.currentTime);
     } catch(e) {}
     // 确保AudioContext处于运行状态（浏览器自动暂停策略）
-    if (_sharedCtx.state === 'suspended') {
+    // R91：页面隐藏时不主动 resume——可见性处理器已在后台刻意 suspend，
+    // 此处若唤醒会导致 BGM 在用户切走后继续发声。
+    if (_sharedCtx.state === 'suspended'
+        && !(typeof document !== 'undefined' && document.hidden)) {
       _sharedCtx.resume();
     }
     return _sharedCtx;
@@ -452,6 +480,18 @@ export class AudioSystem {
     if (now - (this.lastAdvanceTime || 0) < 120) return; // 节流：长按快进/AUTO 模式不炸音
     this.lastAdvanceTime = now;
     this._playTone(1100, 0.025, 'square', 0.04);
+  }
+
+  /**
+   * 按钮悬停（桌面端）—— 极轻的高频短音，鼠标扫过选项的触觉化反馈。
+   * 80ms 节流：快速划过一排按钮时不连发。移动端无 hover 不会触发。
+   */
+  playHover() {
+    if (!this.enabled) return;
+    const now = performance.now();
+    if (now - this._lastHoverTime < 80) return;
+    this._lastHoverTime = now;
+    this._playTone(1400, 0.03, 'sine', 0.028);
   }
 
   // ============================================================
@@ -1046,6 +1086,15 @@ export class AudioSystem {
     // _getCtx() 可能返回 null（Web Audio 不可用），必须显式判空并停止 BGM
     const ctx = this._getCtx();
     if (!ctx) { this._bgmPlaying = false; return; }
+    // R91：ctx 非 running（页面后台被 suspend / 中断）时不排音符——
+    // suspend 期间 currentTime 冻结，照排会让多个循环堆在同一时刻，
+    // 恢复可见性瞬间齐响。改为低频轮询，待恢复后下一轮自然接上。
+    if (ctx.state !== 'running') {
+      this._bgmTimer = setTimeout(() => {
+        if (this._bgmPlaying) this._playBGMLoop(patterns);
+      }, 500);
+      return;
+    }
     // 从当前时间稍微前一点开始，但因为Web Audio会自动处理过去的时间，直接从+0.05s开始
     let t = ctx.currentTime + 0.05;
     let totalDur = 0;

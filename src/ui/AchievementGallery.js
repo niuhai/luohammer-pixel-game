@@ -292,6 +292,7 @@ export function showAchievementGallery(options = {}) {
   function close() {
     if (closed) return;
     closed = true;
+    try { options.audio?.playDialogAdvance?.(); } catch (e) {}
     document.removeEventListener('keydown', onKey);
     overlay.classList.remove('visible');
     overlay.classList.add('hiding');
@@ -310,6 +311,8 @@ export function showAchievementGallery(options = {}) {
   });
   document.addEventListener('keydown', onKey);
   overlay.querySelector('.ui-achievement-gallery-close').focus();
+  // R91：图鉴开启确认音
+  try { options.audio?.playChoice?.(); } catch (e) {}
 }
 
 /**

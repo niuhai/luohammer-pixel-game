@@ -306,6 +306,8 @@ export function showSaveLoadPanel(options = {}) {
     : new SaveSystem();
   const onLoad = typeof options.onLoad === 'function' ? options.onLoad : null;
   const onClose = typeof options.onClose === 'function' ? options.onClose : null;
+  // R91：可选音频实例——面板开/关反馈音（调用方场景传入）
+  const audio = options.audio || null;
 
   ensureStyle();
 
@@ -376,6 +378,7 @@ export function showSaveLoadPanel(options = {}) {
   const closePanel = () => {
     if (closed) return;
     closed = true;
+    try { audio?.playDialogAdvance?.(); } catch (e) {}
     overlay.classList.remove('visible');
     document.removeEventListener('keydown', escHandler);
     setTimeout(() => {
@@ -532,6 +535,8 @@ export function showSaveLoadPanel(options = {}) {
   }
 
   renderSlots();
+  // R91：面板开启确认音
+  try { audio?.playChoice?.(); } catch (e) {}
 }
 
 /**

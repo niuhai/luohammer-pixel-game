@@ -129,12 +129,11 @@ export class GameScene extends Phaser.Scene {
     // 懒加载策略：首屏只加载序章 + 第一章必需资源
     // - classroom + standing：序章教室场景
     // - young：第一章少年立绘（年龄保护规则：仅 youth 阶段强制使用 young）
-    // - office：第二章办公室场景（提前预读，避免章节切换卡顿）
-    // 其余资源在 _renderNode 时按需加载 + _preloadAdjacentScenes 后台预读
+    // 第二章办公室及其余资源在 _renderNode 时按需加载 + _preloadAdjacentScenes 后台预读，
+    // 不再为了后续章节阻塞首次进入天赋页。
     this.load.image('bg-classroom', 'assets/characters/scene-classroom-v2.webp');
     this.load.image('char-standing', GameScene._CHAR_URL_BY_POSE.standing);
     this.load.image('char-young', GameScene._CHAR_URL_BY_POSE.young);
-    this.load.image('bg-office', 'assets/characters/scene-office-v2.webp');
 
     // R89：慢网加载反馈——真实下载进度条，杜绝"永久黑屏"错觉
     this._setupGameLoadingUI();
@@ -853,6 +852,7 @@ export class GameScene extends Phaser.Scene {
         mode: 'save',
         saveSystem: this.save,
         currentState: this._serializeState(),
+        audio: this.audio,
         onLoad: (slotId, state) => {
           // 读取存档：以加载的状态重启 GameScene
           try { this.audio.fadeOutBGM(0.4); } catch (e) {}
@@ -1599,8 +1599,11 @@ export class GameScene extends Phaser.Scene {
     if (throttled) return;
 
     // === 听觉：BGM 骤停（仅 Lv.3——世界瞬间安静，比任何音效更窒息）===
+    // R91：Lv.2 剧情崩溃 BGM 继续播放，此前红闪无声——补翻车音效（噪音+下行锯齿）
     if (isFull) {
       try { this.audio.fadeOutBGM(0.2); } catch (e) {}
+    } else {
+      try { this.audio.playCrash(); } catch (e) {}
     }
 
     // === 触觉：双震心悸节奏（咚…咚）===

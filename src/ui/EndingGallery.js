@@ -117,6 +117,7 @@ export function showEndingGallery(options = {}) {
   const closeGallery = () => {
     if (closed) return;
     closed = true;
+    try { options.audio?.playDialogAdvance?.(); } catch (e) {}
     document.removeEventListener('keydown', escHandler);
     overlay.classList.remove('visible');
     setTimeout(() => {
@@ -136,6 +137,8 @@ export function showEndingGallery(options = {}) {
     if (e.key === 'Escape') closeGallery();
   };
   document.addEventListener('keydown', escHandler);
+  // R91：图鉴开启确认音
+  try { options.audio?.playChoice?.(); } catch (e) {}
 }
 
 /**

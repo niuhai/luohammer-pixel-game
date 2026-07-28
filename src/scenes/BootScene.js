@@ -93,7 +93,7 @@ export class BootScene extends Phaser.Scene {
       btn.className = 'ui-boot-btn';
       btn.textContent = `▤ 结局图鉴 ${progress.unlocked}/${progress.total}`;
       btn.addEventListener('click', () => {
-        showEndingGallery();
+        showEndingGallery({ audio: this.audio });
       });
       return btn;
     };
@@ -108,9 +108,11 @@ export class BootScene extends Phaser.Scene {
           const state = save.load();
           // 存档校验失败（节点改名/数据损坏）：提示用户而非静默进入新游戏
           if (!state) {
+            try { this.audio.playError(); } catch (e) {}
             try { toast('存档已损坏或不兼容当前版本，请重新开始', 3500); } catch (e) {}
             return;
           }
+          try { this.audio.playChoice(); } catch (e) {}
           this._startGameplay(overlay, { state }, continueBtn);
         });
         buttonsEl.appendChild(continueBtn);
@@ -124,6 +126,7 @@ export class BootScene extends Phaser.Scene {
         showSaveLoadPanel({
           mode: 'manage',
           saveSystem: save,
+          audio: this.audio,
           onLoad: (slotId, state) => {
             this._startGameplay(overlay, { state });
           }
@@ -136,6 +139,7 @@ export class BootScene extends Phaser.Scene {
       newGameBtn.textContent = '新游戏';
       newGameBtn.addEventListener('click', () => {
         save.clear();
+        try { this.audio.playChoice(); } catch (e) {}
         this.audio.fadeOutBGM(0.5);
         overlay.classList.remove('visible');
         this.scene.start('IntroScene', { returnToBoot: false });
@@ -146,7 +150,7 @@ export class BootScene extends Phaser.Scene {
       const galleryBtn = document.createElement('button');
       galleryBtn.className = 'ui-boot-btn';
       galleryBtn.textContent = '成就图鉴';
-      galleryBtn.addEventListener('click', () => showAchievementGallery());
+      galleryBtn.addEventListener('click', () => showAchievementGallery({ audio: this.audio }));
       buttonsEl.appendChild(galleryBtn);
 
       buttonsEl.appendChild(createVoicePreviewBtn());
@@ -158,6 +162,8 @@ export class BootScene extends Phaser.Scene {
       startBtn.className = 'ui-boot-btn ui-boot-btn-primary';
       startBtn.textContent = '开始游戏';
       startBtn.addEventListener('click', () => {
+        // R91：首次交互已在 pointerdown 解锁音频，点击补确认音（FTUE 第一个听觉反馈）
+        try { this.audio.playChoice(); } catch (e) {}
         this.audio.fadeOutBGM(0.5);
         overlay.classList.remove('visible');
         this.scene.start('IntroScene', { returnToBoot: false });
@@ -170,7 +176,7 @@ export class BootScene extends Phaser.Scene {
       const galleryBtn = document.createElement('button');
       galleryBtn.className = 'ui-boot-btn';
       galleryBtn.textContent = '成就图鉴';
-      galleryBtn.addEventListener('click', () => showAchievementGallery());
+      galleryBtn.addEventListener('click', () => showAchievementGallery({ audio: this.audio }));
       buttonsEl.appendChild(galleryBtn);
 
       buttonsEl.appendChild(createVoicePreviewBtn());
@@ -190,6 +196,10 @@ export class BootScene extends Phaser.Scene {
       if (btn.classList.contains('ui-boot-btn-primary')) {
         btn.style.animationDelay = `${delay}ms, ${delay + 500}ms`;
       }
+      // R91：桌面端悬停轻音（80ms 节流；移动端无 hover 不触发）
+      btn.addEventListener('mouseenter', () => {
+        try { this.audio.playHover(); } catch (e) {}
+      });
     });
 
     // === 隐藏调试开关 + DEBUG 标识 ===
@@ -326,6 +336,7 @@ export class BootScene extends Phaser.Scene {
         triggerBtn.disabled = false;
         triggerBtn.textContent = originalText;
       }
+      try { this.audio.playError(); } catch (e) {}
       try { toast('游戏资源加载失败，请检查网络后重试', 3500); } catch (e) {}
     }
   }
