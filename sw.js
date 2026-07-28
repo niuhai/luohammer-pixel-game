@@ -1,4 +1,5 @@
-const CACHE_VERSION = 'v9-prod';
+// R94：v9→v10——修复离线模块脚本加载失败（Vary: Origin 匹配盲区，见下方 cacheFirst 注释）
+const CACHE_VERSION = 'v10-prod';
 const CACHE_NAME = `luohammer-${CACHE_VERSION}`;
 
 // 预缓存核心 HTML + 首屏关键图（标题背景，避免首屏白屏等待）
@@ -148,7 +149,12 @@ async function networkFirstNavigation(request) {
 
 async function cacheFirst(request) {
   const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(request);
+  // R94：必须 ignoreVary——静态服务器（vite preview / 部分 CDN）对 JS 响应加
+  // "Vary: Origin"，而 Chromium 模块脚本请求一律携带 Origin 头；预缓存键
+  // （prefetch / cache.add，无 Origin）与之 Vary 不匹配 → 离线 MISS →
+  // ERR_FAILED → 主 bundle 全挂（R94 实测：boot 不可见）。内容哈希资源
+  // 的 Vary 无意义，忽略安全。
+  const cached = await cache.match(request, { ignoreVary: true });
   if (cached) return cached;
 
   try {
@@ -169,7 +175,9 @@ async function cacheFirst(request) {
 
 async function staleWhileRevalidate(request, event) {
   const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(request);
+  // R94：ignoreVary 同理——图片经 Phaser XHR/<img> 加载不带 Origin，
+  // 但若响应带 Vary: Origin 且未来请求方变化，保持匹配稳健
+  const cached = await cache.match(request, { ignoreVary: true });
   const refresh = fetch(request)
     .then(async (response) => {
       if (response && response.ok) {
