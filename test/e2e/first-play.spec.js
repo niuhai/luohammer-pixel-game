@@ -24,6 +24,58 @@ test.describe('首次游玩流程', () => {
     await page.reload();
   });
 
+  test('序章应尽早提供清晰的进度与跨端跳过反馈', async ({ page }) => {
+    const startBtn = page.locator('#ui-boot-buttons button', { hasText: '开始游戏' });
+    await expect(startBtn).toBeVisible({ timeout: 15_000 });
+    await startBtn.click();
+
+    const overlay = page.locator('#ui-intro-overlay');
+    const skipBtn = page.locator('#ui-intro-skip-hint');
+    await expect(overlay).toBeVisible({ timeout: 10_000 });
+    await expect(skipBtn).toHaveClass(/visible/, { timeout: 2_000 });
+    await expect(skipBtn).toHaveAttribute('aria-label', '跳过序章');
+    await expect(page.locator('.ui-intro-progress i')).toHaveCount(3);
+    await expect(page.locator('.ui-intro-film-frame')).toBeVisible();
+    await expect(overlay).toHaveAttribute('data-stage', /[1-3]/, { timeout: 2_500 });
+
+    const desktopControl = await skipBtn.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return {
+        opacity: parseFloat(getComputedStyle(element).opacity),
+        height: rect.height,
+        desktopLabelVisible: getComputedStyle(
+          element.querySelector('.ui-intro-skip-desktop')
+        ).display !== 'none'
+      };
+    });
+    expect(desktopControl.opacity).toBeGreaterThanOrEqual(0.7);
+    expect(desktopControl.height).toBeGreaterThanOrEqual(38);
+    expect(desktopControl.desktopLabelVisible).toBe(true);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobileLabels = await skipBtn.evaluate(element => ({
+      desktop: getComputedStyle(element.querySelector('.ui-intro-skip-desktop')).display,
+      mobile: getComputedStyle(element.querySelector('.ui-intro-skip-mobile')).display
+    }));
+    expect(mobileLabels.desktop).toBe('none');
+    expect(mobileLabels.mobile).not.toBe('none');
+    const mobileFrame = await page.locator('.ui-intro-film-frame').evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return {
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight
+      };
+    });
+    expect(mobileFrame.left).toBeGreaterThanOrEqual(0);
+    expect(mobileFrame.top).toBeGreaterThanOrEqual(0);
+    expect(mobileFrame.right).toBeLessThanOrEqual(mobileFrame.viewportWidth);
+    expect(mobileFrame.bottom).toBeLessThanOrEqual(mobileFrame.viewportHeight);
+  });
+
   test('从标题页进入游戏并完成首个选择', async ({ page }) => {
     // === 1. 标题页加载 ===
     await expect(page.locator('#ui-boot-overlay')).toBeVisible({ timeout: 15_000 });

@@ -15,7 +15,7 @@ import { GAME_WIDTH, GAME_HEIGHT, GRID, FONTS } from '../config.js';
  * - 5 条像素光轨逐格延伸（头部星芒 + 沿途火花），远端节点爆发点亮
  * - 节点点亮浮现人生方向词（理想/担当/热爱/自由/平凡），暗合五大结局家族
  * - 节点点亮伴随五声音阶上行音效，情绪逐星抬升；已点亮光轨有微光周期性流过
- * - 相机 7s 缓慢推近（电影感 slow push），L3 出现时 L1/L2 降透明度聚焦
+ * - 相机随 5.4s 时间线缓慢推近（电影感 slow push），L3 出现时 L1/L2 降透明度聚焦
  * - 终局高潮：L3 浮现同刻微白闪，金色波前从中心沿 5 条光轨冲向远端节点，
  *   星光齐明后全图集体"呼吸"一次，相机脉冲推近
  * - 收场（自然看完）：五轨星光向中心回流汇聚，中心爆发白金闪光，白场顶点切入游戏
@@ -38,18 +38,18 @@ const LINES = [
 
 // 情感时间线（ms）
 const TL = {
-  arriveAt: 60,    // 一束旧路星光从画面下方走向路口
-  igniteAt: 560,   // 来路抵达中心，路口星火点燃
-  line1At: 800,    // L1 文案
-  path1At: 1600,   // 第一批光轨（2 条）开始延伸
-  line2At: 2050,   // L2 文案
-  path2At: 2600,   // 第二批光轨（3 条）
-  line3At: 3800,   // L3 文案
-  fadeAt: 6600,    // 自然结束：点题句保留呼吸，但不让开场拖沓
-  skipAt: 700      // 尽早把节奏控制权交给玩家
+  arriveAt: 40,    // 首帧就让旧路星光进入，避免黑场等待
+  igniteAt: 420,   // 更早建立“你在这里”的视觉锚点
+  line1At: 600,    // L1 文案
+  path1At: 1250,   // 第一批光轨（2 条）开始延伸
+  line2At: 1550,   // L2 文案
+  path2At: 2050,   // 第二批光轨（3 条）
+  line3At: 3100,   // L3 文案
+  fadeAt: 5400,    // 高潮完整停留约 1s 后收场，避免等待感回升
+  skipAt: 350      // 尽早把节奏控制权交给玩家
 };
 
-const STEP_MS = 44;      // 光轨每格点亮间隔：更利落地展开五条未来
+const STEP_MS = 38;      // 光轨每格点亮间隔：五条未来更紧凑地展开
 const CENTER = { x: GAME_WIDTH / 2, y: 172 }; // 偏上，下半屏留给文案
 
 // 玩家抵达路口前已经走过的那条路：从画面下方蜿蜒进入中心。
@@ -61,9 +61,9 @@ const ARRIVAL = {
 };
 
 // 终局高潮：金色波前从中心沿 5 条光轨涌出（850ms 冲到头），节点白金闪光。
-// 同步锚点：L3 共 15 字、900ms 逐字浮现，"你"为 index 5 → line3At + 5×60ms = +300ms。
+// 同步锚点：L3 共 15 字、760ms 逐字浮现，"你"为 index 5 → line3At + 5×50.7ms ≈ +250ms。
 // 波前在"你"字显现的同刻从中心涌出——选择由玩家流向所有可能。
-const FINALE = { at: TL.line3At + 300, waveMs: 850 };
+const FINALE = { at: TL.line3At + 250, waveMs: 850 };
 
 // 收场：星光回流中心（480ms）→ 白金爆发切场（240ms）
 const CONVERGE_MS = 480;
@@ -184,6 +184,7 @@ export class IntroScene extends Phaser.Scene {
     }
 
     overlay.classList.add('visible');
+    overlay.dataset.stage = '0';
     if (fade) fade.classList.remove('active');
     if (skipHint) skipHint.classList.remove('visible');
     this._resetText();
@@ -324,7 +325,7 @@ export class IntroScene extends Phaser.Scene {
       def.bends.forEach(([x, y]) => pts.push({ x, y }));
       const cells = this._expandPolyline(pts);
       const end = pts[pts.length - 1];
-      return { ...def, cells, endX: end.x, endY: end.y, litAt: -1, flashAt: -1 };
+      return { ...def, points: pts, cells, endX: end.x, endY: end.y, litAt: -1, flashAt: -1 };
     });
     this._arrivalCells = this._expandPolyline(ARRIVAL.points.map(([x, y]) => ({ x, y })));
   }
@@ -334,27 +335,28 @@ export class IntroScene extends Phaser.Scene {
     // 竖屏移动端：画布 FIT 缩放 ~0.47，15px 方向词显示仅 ~7px 不可读，
     // 放大到 21px（显示 ~10px）+ 加粗描边保住"人生方向"信息载体
     const portrait = this.registry.get('isPortraitMobile') === true;
-    const fontSize = portrait ? '21px' : '15px';
-    const strokeW = portrait ? 4 : 3;
+    const fontSize = portrait ? '20px' : '14px';
+    const strokeW = portrait ? 3 : 2;
     this._nodeLabels = this._paths.map(p => {
       const color = '#' + p.node.toString(16).padStart(6, '0');
       return this.add.text(p.endX + p.labelDx, p.endY + p.labelDy, p.label, {
         fontFamily: FONTS.chinese,
         fontSize,
-        color
-      }).setOrigin(0.5, 0).setAlpha(0).setScale(0.6).setStroke('#0a0a0a', strokeW);
+        color,
+        letterSpacing: portrait ? 3 : 2
+      }).setOrigin(0.5, 0).setAlpha(0).setScale(0.72).setStroke('#07070b', strokeW);
     });
   }
 
   /** 路口中心的玩家站位提示：克制显示，不与方向词争夺视觉层级 */
   _buildCenterLabel() {
     const portrait = this.registry.get('isPortraitMobile') === true;
-    this._centerLabel = this.add.text(CENTER.x, CENTER.y + 25, '你在这里', {
+    this._centerLabel = this.add.text(CENTER.x, CENTER.y + 25, '此刻 · 你', {
       fontFamily: FONTS.chinese,
-      fontSize: portrait ? '18px' : '12px',
+      fontSize: portrait ? '17px' : '11px',
       color: '#fff0c8',
-      letterSpacing: portrait ? 3 : 2
-    }).setOrigin(0.5, 0).setAlpha(0).setScale(0.92).setStroke('#07070b', portrait ? 4 : 3);
+      letterSpacing: portrait ? 4 : 3
+    }).setOrigin(0.5, 0).setAlpha(0).setScale(0.94).setStroke('#07070b', portrait ? 3 : 2);
   }
 
   update(time) {
@@ -626,6 +628,21 @@ export class IntroScene extends Phaser.Scene {
     const breathe = this._reducedMotion ? 1 : 1 + Math.sin(t / 2400 * Math.PI * 2) * 0.12;
     const r = 14 * breathe * grow;
 
+    // 命运罗盘刻度：极慢旋转的方向感，不增加强光，只给中心更多空间层次。
+    const dialRotation = this._reducedMotion ? 0 : t / 14000;
+    const dialAlpha = 0.16 * grow;
+    for (let i = 0; i < 12; i++) {
+      const angle = dialRotation + i / 12 * Math.PI * 2;
+      const cardinal = i % 3 === 0;
+      const inner = cardinal ? 29 : 31;
+      const outer = cardinal ? 38 : 35;
+      g.lineStyle(1, cardinal ? 0xffe0a0 : 0xd8b860, dialAlpha * (cardinal ? 1 : 0.58));
+      g.beginPath();
+      g.moveTo(CENTER.x + Math.cos(angle) * inner, CENTER.y + Math.sin(angle) * inner);
+      g.lineTo(CENTER.x + Math.cos(angle) * outer, CENTER.y + Math.sin(angle) * outer);
+      g.strokePath();
+    }
+
     // 四层光晕渐进，消除圆盘边缘感
     g.fillStyle(0xf0c040, 0.08 * grow);
     g.fillCircle(CENTER.x, CENTER.y, r * 3.6);
@@ -714,6 +731,20 @@ export class IntroScene extends Phaser.Scene {
       const litCount = this._reducedMotion
         ? p.cells.length
         : Math.min(p.cells.length, Math.floor((t - startAt) / STEP_MS) + 1);
+
+      // 低亮连续结构线托住像素光点：远看是一条完整命运轨道，近看仍保留像素颗粒。
+      if (litCount > 1) {
+        const settled = p.flashAt >= 0;
+        g.lineStyle(1, p.color, settled ? 0.2 : 0.1);
+        g.beginPath();
+        g.moveTo(CENTER.x, CENTER.y);
+        for (let c = 1; c < litCount; c += 2) {
+          g.lineTo(p.cells[c].x, p.cells[c].y);
+        }
+        const last = p.cells[litCount - 1];
+        g.lineTo(last.x, last.y);
+        g.strokePath();
+      }
 
       // 终局波前：L3 同刻从中心涌出，front 是波头所在的格 index
       let waveFront = -1;
@@ -863,7 +894,7 @@ export class IntroScene extends Phaser.Scene {
   }
 
   /** 注册一行文案的逐字浮现：由 update() 以场景时钟推进（无动画偏好时直接全亮） */
-  _startReveal(lineEl, duration = 900) {
+  _startReveal(lineEl, duration = 700) {
     if (!lineEl) return;
     const chars = lineEl.querySelectorAll('.ui-intro-char');
     if (chars.length === 0) return;
@@ -878,9 +909,20 @@ export class IntroScene extends Phaser.Scene {
   /** 立即展示一行文案（时刻由单时钟队列控制） */
   _showLine(index) {
     if (this._finished) return;
+    const overlay = document.getElementById('ui-intro-overlay');
+    if (overlay) overlay.dataset.stage = String(index + 1);
     const el = document.getElementById(`ui-intro-line${index + 1}`);
     this._setupText(el, LINES[index]);
-    this._startReveal(el, 900);
+    // 前两句承担世界观说明，整行淡入比左起逐字更安静，也不会短暂留下孤立首字；
+    // 点题句保留逐字浮现，把唯一的戏剧性节奏留给“换你站在十字路口”。
+    if (index < 2 && el) {
+      el.querySelectorAll('.ui-intro-char').forEach(char => char.classList.add('revealed'));
+      requestAnimationFrame(() => {
+        if (!this._finished) el.classList.add('visible');
+      });
+    } else {
+      this._startReveal(el, 760);
+    }
     // L3 是情绪最高点：L1/L2 降透明度，视线聚焦到"他"
     if (index === 2) {
       const layer = document.querySelector('.ui-intro-text-layer');

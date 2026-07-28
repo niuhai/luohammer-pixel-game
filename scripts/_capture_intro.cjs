@@ -105,10 +105,11 @@ async function captureMobile() {
   });
   await page.evaluate(() => document.querySelector('.ui-boot-btn-primary')?.click());
   await page.waitForSelector('#ui-intro-overlay.visible', { timeout: 5000 });
-  await page.evaluate(() => {
-    window.__freezeAt = 6500;
+  const mobileAt = Number(process.env.INTRO_MOBILE_AT || 6500);
+  await page.evaluate((at) => {
+    window.__freezeAt = at;
     if (window.game.loop && window.game.loop.wake) window.game.loop.wake();
-  });
+  }, mobileAt);
   await page.waitForFunction(() => window.__frozen === true, null, { timeout: 15000 });
   await page.screenshot({ path: path.join(OUT_DIR, 'f08-mobile-portrait.png') });
   console.log('captured f08-mobile-portrait');

@@ -179,8 +179,10 @@ function _warmGameAssets() {
   // 省流量模式 / 极慢网络不预热——预热是增强不是必需，绝不牺牲弱网体验
   const conn = navigator.connection;
   if (conn && (conn.saveData || /(^|-)2g$/.test(conn.effectiveType || ''))) return;
-  // 无 SW 环境（dev）预热只会白占带宽，跳过
-  if (!('serviceWorker' in navigator)) return;
+  // 只有页面已经被 SW 控制时，预热请求才会进入运行时缓存。
+  // 首次访问虽然可以注册 SW，但当前页尚未受其控制；此时预热既不能形成离线资产，
+  // 还会与序章后的主游戏资源争抢网络，造成“打开很慢”的真实感受。
+  if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return;
 
   // 角色姿态优先（每节点都在屏，情绪价值最高），场景图其后（config 顺序≈剧情顺序）
   const urls = [];
