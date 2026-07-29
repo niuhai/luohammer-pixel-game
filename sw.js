@@ -1,5 +1,5 @@
-// R94：v9→v10——修复离线模块脚本加载失败（Vary: Origin 匹配盲区，见下方 cacheFirst 注释）
-const CACHE_VERSION = 'v10-prod';
+// R021：v11→v12——标题壳拆分后递归发现构建依赖，保持完整离线可玩链路。
+const CACHE_VERSION = 'v12-prod';
 const CACHE_NAME = `luohammer-${CACHE_VERSION}`;
 
 // 预缓存核心 HTML + 首屏关键图（标题背景，避免首屏白屏等待）
@@ -10,7 +10,8 @@ const PRECACHE_ASSETS = [
   './icon-512.png',
   './og-image.png',
   './share-image.png',
-  './assets/characters/scene-stage-v2.webp'
+  './assets/characters/scene-stage-v2-720.webp',
+  './assets/characters/scene-stage-v2-1440.webp'
 ];
 
 self.addEventListener('install', (event) => {
@@ -86,12 +87,16 @@ async function precacheAppShell() {
   const revisionedAssets = [...html.matchAll(/(?:src|href)=["']([^"']*\/assets\/[^"']+\.(?:js|css))["']/g)]
     .map((match) => match[1]);
 
-  // R84：入口 chunk 内 __vite__mapDeps 持有全部懒加载 chunk（GameScene/EndingScene/
-  // events-random）的 hash 路径。仅预缓存 HTML 引用会让"离线点开始游戏"时动态 import
-  // 失败——评委现场断网只能停在标题屏。抓取入口 JS 文本，提取全部 chunk 一并预缓存。
+  // R021：标题壳成为 HTML 唯一入口后，构建图变为 bootShell → main → 场景懒加载 chunk。
+  // 只扫描第一层会造成标题离线可见、点击后却无法进入游戏，因此递归发现应用 JS 图。
   const entryScripts = revisionedAssets.filter((asset) => asset.endsWith('.js'));
-  const chunkAssets = [];
-  for (const scriptUrl of entryScripts) {
+  const pendingScripts = [...entryScripts];
+  const visitedScripts = new Set();
+  const chunkAssets = new Set();
+  while (pendingScripts.length > 0) {
+    const scriptUrl = pendingScripts.shift();
+    if (visitedScripts.has(scriptUrl)) continue;
+    visitedScripts.add(scriptUrl);
     try {
       const scriptResponse = await fetch(scriptUrl, { cache: 'reload' });
       if (!scriptResponse || !scriptResponse.ok) continue;
@@ -99,10 +104,14 @@ async function precacheAppShell() {
       const matches = scriptText.matchAll(/["'](assets\/[^"']+-[A-Za-z0-9_-]+\.js)["']/g);
       for (const match of matches) {
         // 统一为 ./ 相对路径，与 PRECACHE_ASSETS 键形式一致
-        chunkAssets.push('./' + match[1]);
+        const chunkUrl = './' + match[1];
+        if (chunkAssets.has(chunkUrl)) continue;
+        chunkAssets.add(chunkUrl);
+        // Phaser 自包含且体积最大：纳入缓存，但不额外读取文本扫描依赖。
+        if (!/\/phaser-[^/]+\.js$/.test(chunkUrl)) pendingScripts.push(chunkUrl);
       }
     } catch (error) {
-      // 单个入口抓取失败不阻塞安装；运行时 cacheFirst 仍可兜底
+      // 单个构建节点抓取失败不阻塞安装；失败项仍由 cache.add 单独记录。
     }
   }
 
@@ -194,5 +203,15 @@ async function staleWhileRevalidate(request, event) {
 
   const response = await refresh;
   if (response) return response;
+  // 超大/高密度屏可能选择未预缓存的 2304px 标题图；离线时退回 1440px，
+  // 保证仍有完整构图，而不必让每次 PWA 安装额外下载原图。
+  const url = new URL(request.url);
+  if (/\/assets\/characters\/scene-stage-v2(?:-\d+)?\.webp$/.test(url.pathname)) {
+    const titleFallback = await cache.match(
+      './assets/characters/scene-stage-v2-1440.webp',
+      { ignoreVary: true }
+    );
+    if (titleFallback) return titleFallback;
+  }
   return Response.error();
 }
