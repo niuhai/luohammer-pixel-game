@@ -21,11 +21,16 @@ async function openFreshTitle(page) {
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await page.locator('#rotate-hint-dismiss').click({ force: true }).catch(() => {});
-  await expect(page.locator('#ui-boot-overlay')).toBeVisible({ timeout: 15_000 });
+  const bootOverlay = page.locator('#ui-boot-overlay');
+  await expect(bootOverlay).toBeVisible({ timeout: 15_000 });
+  await expect(bootOverlay).toHaveAttribute('data-boot-phase', 'engine', {
+    timeout: 30_000
+  });
+  await expect(page.locator('#ui-boot-buttons .ui-boot-btn-primary')).toBeEnabled();
 }
 
 async function enterAndSkipIntro(page) {
-  await page.locator('#ui-boot-buttons .ui-boot-btn-primary').click({ force: true });
+  await page.locator('#ui-boot-buttons .ui-boot-btn-primary').click();
   await expect(page.locator('#ui-intro-overlay')).toBeVisible({ timeout: 10_000 });
   const skip = page.locator('#ui-intro-skip-hint');
   await expect(skip).toHaveClass(/visible/, { timeout: 5_000 });

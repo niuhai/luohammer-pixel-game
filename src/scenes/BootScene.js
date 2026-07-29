@@ -131,7 +131,7 @@ export class BootScene extends Phaser.Scene {
           // 存档校验失败（节点改名/数据损坏）：提示用户而非静默进入新游戏
           if (!state) {
             try { this.audio.playError(); } catch (e) {}
-            try { toast('存档已损坏或不兼容当前版本，请重新开始', 3500); } catch (e) {}
+            try { toast.error('存档已损坏或不兼容当前版本，请重新开始', 3500); } catch (e) {}
             return;
           }
           try { this.audio.playChoice(); } catch (e) {}
@@ -180,7 +180,7 @@ export class BootScene extends Phaser.Scene {
         newGameConfirmTimer?.remove(false);
         newGameConfirmTimer = this.time.delayedCall(3_200, resetNewGameConfirmation);
         try {
-          toast('再次点击确认重新开始；手动存档不会被清除', 3000);
+          toast.warning('再次点击确认重新开始；手动存档不会被清除', 3000);
         } catch (e) {}
       };
       newGameBtn.addEventListener('click', () => {
@@ -511,7 +511,7 @@ export class BootScene extends Phaser.Scene {
       } catch (error) {
         console.error('[BootScene] 面板资源加载失败:', error);
         try { this.audio.playError(); } catch (e) {}
-        try { toast('面板加载失败，请检查网络后重试', 3000); } catch (e) {}
+        try { toast.error('面板加载失败，请检查网络后重试', 3000); } catch (e) {}
         requestAnimationFrame(() => button.focus({ preventScroll: true }));
       } finally {
         button.disabled = false;
@@ -544,7 +544,7 @@ export class BootScene extends Phaser.Scene {
         triggerBtn.textContent = originalText;
       }
       try { this.audio.playError(); } catch (e) {}
-      try { toast('游戏资源加载失败，请检查网络后重试', 3500); } catch (e) {}
+      try { toast.error('游戏资源加载失败，请检查网络后重试', 3500); } catch (e) {}
     }
   }
 
@@ -806,7 +806,7 @@ export class BootScene extends Phaser.Scene {
           triggerBtn.setAttribute('aria-label', getVoiceSettingsAriaLabel(this.audio));
         }
         announceAudioState(`朗读风格已切换为${preset.label}`);
-        try { toast(`已应用：${preset.label}`); } catch(e) {}
+        try { toast.success(`已应用：${preset.label}`); } catch(e) {}
       });
       btnGroup.appendChild(applyBtn);
 

@@ -43,6 +43,11 @@ import {
   getSpeechSupportState,
   getVoiceSettingsAriaLabel
 } from '../ui/AudioControlState.js';
+import {
+  buildCheckSnapshot,
+  describeDecisionEffects,
+  escapeDecisionText
+} from '../ui/DecisionPresentation.js';
 
 // 关键冲击场景集合：进入这些场景时触发白闪，增强转场冲击感
 // 落实项目硬约束：冰箱砸碎/法庭/脱口秀等关键场景转场应有 1-2 帧白闪
@@ -861,7 +866,7 @@ export class GameScene extends Phaser.Scene {
     if (!('ontouchstart' in window) && !localStorage.getItem('luohammer_kbd_hint_shown')) {
       localStorage.setItem('luohammer_kbd_hint_shown', '1');
       this._trackedTimeout(() => {
-        try { toast('键盘：1–9 选择 · A 自动播放 · S 速度 · 空格继续', 3500); } catch (e) {}
+        try { toast.info('键盘：1–9 选择 · A 自动播放 · S 速度 · 空格继续', 3500); } catch (e) {}
       }, 2500);
     }
 
@@ -3300,52 +3305,143 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * 显示检定动画
-   * 全屏遮罩 + 旋转骰子 + 结果展示，动画结束后调用 callback
-   * @param {object} check - 检定定义
-   * @param {boolean} passed - 是否通过检定
-   * @param {string} attrLabel - 属性中文名
-   * @param {number} attrValue - 当前属性值
-   * @param {Function} callback - 动画结束回调
+   * 显示属性检定的核对与结果层；结果保留到玩家显式确认。
    */
-  _showCheckAnimation(check, passed, attrLabel, attrValue, callback) {
+  _showCheckAnimation(check, passed, attrLabel, attrValue, callback, context = {}) {
+    const previousFocus = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const rawValue = Number.isFinite(context.rawValue) ? context.rawValue : attrValue;
+    const bonus = Number.isFinite(context.bonus) ? context.bonus : Math.max(0, attrValue - rawValue);
+    const uid = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+    const resultId = `check-animation-title-${uid}`;
+    const descriptionId = `check-animation-description-${uid}`;
     const overlay = document.createElement('div');
     overlay.className = 'check-animation-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', resultId);
+    overlay.setAttribute('aria-describedby', descriptionId);
     overlay.innerHTML = `
-      <div class="check-animation-content">
-        <div class="check-animation-dice">◊</div>
-        <div class="check-animation-text">属性检定中...</div>
-        <div class="check-animation-info">${attrLabel} ${attrValue}/${check.min}</div>
+      <div class="check-animation-content" tabindex="-1">
+        <div class="check-animation-kicker">◊ ${escapeDecisionText(attrLabel)}检定</div>
+        <div class="check-animation-dice" aria-hidden="true">◊</div>
+        <div class="check-animation-text" id="${resultId}">正在核对门槛</div>
+        <div class="check-animation-info" id="${descriptionId}">
+          当前 ${attrValue} · 需要 ${check.min}
+        </div>
       </div>
     `;
     document.body.appendChild(overlay);
+    const initialContent = overlay.querySelector('.check-animation-content');
+    initialContent?.focus({ preventScroll: true });
 
-    // 触发淡入
     requestAnimationFrame(() => {
       overlay.classList.add('visible');
     });
 
-    // 1秒后显示结果
-    this._trackedTimeout(() => {
-      const content = overlay.querySelector('.check-animation-content');
-      if (!content) return;
-      const resultText = passed ? '检定成功！' : '检定失败';
-      const resultClass = passed ? 'success' : 'fail';
-      content.innerHTML = `
-        <div class="check-animation-result ${resultClass}">${resultText}</div>
-        <div class="check-animation-info">${attrLabel} ${attrValue}/${check.min}</div>
-      `;
-    }, 1000);
-
-    // 1.8秒后淡出并调用回调（总时长不超过2秒）
-    this._trackedTimeout(() => {
+    let actionButton = null;
+    let completed = false;
+    const complete = () => {
+      if (completed) return;
+      completed = true;
+      overlay.removeEventListener('keydown', onKeyDown);
       overlay.classList.remove('visible');
       overlay.classList.add('closing');
       this._trackedTimeout(() => {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
         callback();
-      }, 200);
-    }, 1800);
+      }, reducedMotion ? 0 : 180);
+    };
+    const onKeyDown = (event) => {
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        (actionButton || initialContent)?.focus({ preventScroll: true });
+      } else if (event.key === 'Escape' && actionButton) {
+        event.preventDefault();
+        complete();
+      }
+    };
+    overlay.addEventListener('keydown', onKeyDown);
+
+    this._trackedTimeout(() => {
+      const content = overlay.querySelector('.check-animation-content');
+      if (!content) return;
+      const resultText = passed ? '检定成功' : '检定未通过';
+      const resultClass = passed ? 'success' : 'fail';
+      const consequenceText = passed
+        ? check.successText || '这次判断把你带向了有利的结果。'
+        : check.failText || '门槛未满足，剧情将沿另一条路径继续。';
+      const outcomeEntries = describeDecisionEffects(
+        context.outcomeEffects || (passed ? check.successEffects : check.failEffects)
+      );
+      const choiceLabel = context.choiceLabel || check.label || '当前选择';
+      const equation = bonus
+        ? `
+          <span class="check-animation-equation-part"><strong>${rawValue}</strong><small>基础</small></span>
+          <span class="check-animation-equation-symbol">+</span>
+          <span class="check-animation-equation-part bonus"><strong>${bonus}</strong><small>加成</small></span>
+          <span class="check-animation-equation-symbol">=</span>
+          <span class="check-animation-equation-part total"><strong>${attrValue}</strong><small>检定值</small></span>
+        `
+        : `
+          <span class="check-animation-equation-part total"><strong>${attrValue}</strong><small>当前值</small></span>
+        `;
+      content.innerHTML = `
+        <div class="check-animation-kicker">◊ ${escapeDecisionText(attrLabel)}检定</div>
+        <div class="check-animation-result ${resultClass}" id="${resultId}">${resultText}</div>
+        <div class="check-animation-choice">“${escapeDecisionText(choiceLabel)}”</div>
+        <div class="check-animation-equation" aria-label="基础 ${rawValue}${bonus ? `，加成 ${bonus}` : ''}，检定值 ${attrValue}，目标 ${check.min}">
+          ${equation}
+          <span class="check-animation-equation-symbol target-divider">/</span>
+          <span class="check-animation-equation-part target"><strong>${check.min}</strong><small>门槛</small></span>
+        </div>
+        <div class="check-animation-consequence" id="${descriptionId}">
+          <span class="check-animation-consequence-label">剧情后果</span>
+          <span>${escapeDecisionText(consequenceText)}</span>
+        </div>
+        <div class="check-animation-effects" aria-label="属性结果">
+          ${outcomeEntries.length > 0
+            ? outcomeEntries.map(effect => `
+              <span class="check-animation-effect ${effect.tone}">
+                ${escapeDecisionText(effect.text)}
+              </span>
+            `).join('')
+            : '<span class="check-animation-effect neutral">属性暂未改变</span>'}
+        </div>
+        <button class="check-animation-continue" type="button">
+          接受结果并继续 <span aria-hidden="true">→</span>
+        </button>
+      `;
+      actionButton = content.querySelector('.check-animation-continue');
+      actionButton?.addEventListener('click', complete, { once: true });
+      actionButton?.focus({ preventScroll: true });
+    }, reducedMotion ? 0 : 650);
+  }
+
+  _resolveCheckOutcomeEffects(check, passed) {
+    if (passed) return { ...(check.successEffects || {}) };
+    const actualFailEffects = { ...(check.failEffects || {}) };
+    const mitigate = this.meta ? this.meta.getEffect('check_fail_mitigate') : null;
+    if (mitigate) {
+      for (const key of Object.keys(actualFailEffects)) {
+        if (typeof actualFailEffects[key] === 'number' && actualFailEffects[key] < 0) {
+          actualFailEffects[key] = Math.ceil(actualFailEffects[key] * mitigate.value);
+        }
+      }
+    }
+    if (this.state._trustFailMitigate && (this.state.trust || 0) >= 7) {
+      for (const key of Object.keys(actualFailEffects)) {
+        if (typeof actualFailEffects[key] === 'number' && actualFailEffects[key] < 0) {
+          actualFailEffects[key] = Math.ceil(
+            actualFailEffects[key] * this.state._trustFailMitigate
+          );
+        }
+      }
+    }
+    return actualFailEffects;
   }
 
   /**
@@ -3354,24 +3450,15 @@ export class GameScene extends Phaser.Scene {
    */
   _performCheck(choice, currentNode) {
     const check = choice.check;
-    const rawAttrValue = this.state[check.attr] || 0;
-    // === 跨周目技能：一呼百应 — 名声≥7 时检定值 +1 ===
-    let checkBonus = 0;
-    if (this.state._reputationCheckBonus && (this.state.reputation || 0) >= 7) {
-      checkBonus = this.state._reputationCheckBonus;
-    }
-    // === 天赋：人脉编织者 — 信任≥5 时检定值 +1 ===
-    if (this.state.talentSpecials && this.state.talentSpecials.includes('trust_check_bonus') && (this.state.trust || 0) >= 5) {
-      checkBonus += 1;
+    const snapshot = buildCheckSnapshot(check, this.state);
+    const rawAttrValue = snapshot.rawValue;
+    const checkBonus = snapshot.bonus;
+    if (snapshot.bonusSources.some(source => source.label === '人脉编织者')) {
       this._recordDirectTalentTrigger('trust_check_bonus');
     }
-    // === 里程碑奖励：成就猎人 — 所有检定 +1 ===
-    if (this.state._achievementHunter) {
-      checkBonus += 1;
-    }
-    const attrValue = rawAttrValue + checkBonus;
-    let passed = attrValue >= check.min;
-    const attrLabel = ChoiceSystem.STAT_LABELS[check.attr] || check.attr;
+    const attrValue = snapshot.value;
+    let passed = snapshot.passed;
+    const attrLabel = snapshot.attrLabel;
 
     // === 跨周目技能：免费重试 ===
     if (!passed && this.state._freeRetry && this.state._freeRetry > 0) {
@@ -3394,34 +3481,11 @@ export class GameScene extends Phaser.Scene {
     // 检定音效
     try { this.audio.playThresholdTrigger(); } catch(e) {}
 
-    // 显示检定动画，动画结束后应用效果并跳转
+    const outcomeEffects = this._resolveCheckOutcomeEffects(check, passed);
+    // 结果由玩家确认后再应用，呈现值与最终落地值保持一致。
     this._showCheckAnimation(check, passed, attrLabel, attrValue, () => {
-      // 应用检定结果效果
-      if (passed && check.successEffects) {
-        this._applyEffectsWithTalentFeedback(check.successEffects);
-        this.stats.update(this.state);
-      } else if (!passed && check.failEffects) {
-        // === 跨周目技能：检定失败惩罚减半 ===
-        let actualFailEffects = check.failEffects;
-        const mitigate = this.meta ? this.meta.getEffect('check_fail_mitigate') : null;
-        if (mitigate && actualFailEffects) {
-          actualFailEffects = { ...actualFailEffects };
-          for (const key of Object.keys(actualFailEffects)) {
-            if (typeof actualFailEffects[key] === 'number' && actualFailEffects[key] < 0) {
-              actualFailEffects[key] = Math.ceil(actualFailEffects[key] * mitigate.value);
-            }
-          }
-        }
-        // === 跨周目技能：患难之交 — 信任≥7 时失败惩罚再减半 ===
-        if (this.state._trustFailMitigate && (this.state.trust || 0) >= 7 && actualFailEffects) {
-          actualFailEffects = { ...actualFailEffects };
-          for (const key of Object.keys(actualFailEffects)) {
-            if (typeof actualFailEffects[key] === 'number' && actualFailEffects[key] < 0) {
-              actualFailEffects[key] = Math.ceil(actualFailEffects[key] * this.state._trustFailMitigate);
-            }
-          }
-        }
-        this._applyEffectsWithTalentFeedback(actualFailEffects);
+      if (Object.keys(outcomeEffects).length > 0) {
+        this._applyEffectsWithTalentFeedback(outcomeEffects);
         this.stats.update(this.state);
       }
 
@@ -3429,6 +3493,12 @@ export class GameScene extends Phaser.Scene {
       const nextNode = passed ? check.successNext : check.failNext;
       try { this.debug.logCheck(check.attr, check.min, attrValue, passed, nextNode); } catch(e) {}
       this._proceedToNode(choice, nextNode, currentNode);
+    }, {
+      rawValue: rawAttrValue,
+      bonus: checkBonus,
+      bonusSources: snapshot.bonusSources,
+      choiceLabel: choice.label,
+      outcomeEffects
     });
   }
 
@@ -3934,7 +4004,7 @@ export class GameScene extends Phaser.Scene {
             this._syncPauseMenuSettings();
             announceAudioState(`朗读风格已切换为${preset.label}`);
             this._closeQuickVoicePanel();
-            try { toast(`已切换：${preset.label}`, { type: 'info' }); } catch(e) {}
+            try { toast.info(`已切换：${preset.label}`); } catch(e) {}
           }
         });
       }

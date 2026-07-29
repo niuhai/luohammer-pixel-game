@@ -1938,8 +1938,8 @@ export class EndingScene extends Phaser.Scene {
   /**
    * 显示提示消息（委托给全局 ToastSystem）
    */
-  showToast(message) {
-    toast.success(message);
+  showToast(message, type = 'success') {
+    toast.showToast(message, type);
   }
 
   /**
@@ -2021,9 +2021,12 @@ export class EndingScene extends Phaser.Scene {
         ta.select();
         const ok = document.execCommand('copy');
         document.body.removeChild(ta);
-        this.showToast(ok ? '分享文案已复制' : '复制失败，请手动复制');
+        this.showToast(
+          ok ? '分享文案已复制' : '复制失败，请手动复制',
+          ok ? 'success' : 'error'
+        );
       } catch (e) {
-        this.showToast('复制失败，请手动复制');
+        this.showToast('复制失败，请手动复制', 'error');
       }
     });
   }
@@ -2046,7 +2049,7 @@ export class EndingScene extends Phaser.Scene {
       navigator.clipboard.writeText(text).then(() => {
         this.showToast('已复制到剪贴板');
       }).catch(() => {
-        this.showToast('已复制到剪贴板');
+        this.showToast('复制失败，请手动复制', 'error');
       });
     } else {
       this.showToast('已复制到剪贴板');

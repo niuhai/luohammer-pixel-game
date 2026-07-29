@@ -1,4 +1,5 @@
 import { SaveSystem, AUTO_SLOT } from '../systems/SaveSystem.js';
+import { toast } from '../systems/ToastSystem.js';
 
 /**
  * 存档/读档面板
@@ -570,9 +571,9 @@ export function showSaveLoadPanel(options = {}) {
           const ok = save.saveToSlot(info.slotId, currentState);
           if (ok) {
             renderSlots();
-            _toast('已保存到 ' + info.label);
+            toast.success('已保存到 ' + info.label);
           } else {
-            _toast('保存失败，请重试');
+            toast.error('保存失败，请重试');
           }
           saveBtn.disabled = false;
         };
@@ -600,7 +601,7 @@ export function showSaveLoadPanel(options = {}) {
       loadBtn.addEventListener('click', () => {
         const state = save.loadFromSlot(info.slotId);
         if (!state) {
-          _toast('读取失败：存档已损坏');
+          toast.error('读取失败：存档已损坏');
           return;
         }
         if (onLoad) {
@@ -611,7 +612,7 @@ export function showSaveLoadPanel(options = {}) {
             onLoad(info.slotId, state);
           }, 180);
         } else {
-          _toast('已读取 ' + info.label);
+          toast.success('已读取 ' + info.label);
         }
       });
       actions.appendChild(loadBtn);
@@ -632,7 +633,7 @@ export function showSaveLoadPanel(options = {}) {
           action: () => {
             save.clear(info.slotId);
             renderSlots();
-            _toast('已删除 ' + info.label);
+            toast.success('已删除 ' + info.label);
           }
         });
       });
@@ -652,37 +653,4 @@ export function showSaveLoadPanel(options = {}) {
   renderSlots();
   // R91：面板开启确认音
   try { audio?.playChoice?.(); } catch (e) {}
-}
-
-/**
- * 轻量级 toast 提示（与 ToastSystem 解耦，避免额外依赖）
- */
-function _toast(msg) {
-  let el = document.getElementById('ui-saveload-toast');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'ui-saveload-toast';
-    el.style.cssText = `
-      position: fixed;
-      left: 50%;
-      bottom: 12vh;
-      transform: translateX(-50%);
-      background: rgba(10,10,26,0.92);
-      border: 1px solid var(--color-gold);
-      color: var(--color-gold);
-      padding: 8px 16px;
-      font-size: 13px;
-      font-family: 'Luohammer UI', "Microsoft YaHei", monospace;
-      z-index: 220;
-      opacity: 0;
-      transition: opacity 0.2s;
-      pointer-events: none;
-      letter-spacing: 1px;
-    `;
-    document.body.appendChild(el);
-  }
-  el.textContent = msg;
-  el.style.opacity = '1';
-  clearTimeout(el._t);
-  el._t = setTimeout(() => { el.style.opacity = '0'; }, 1800);
 }
