@@ -285,6 +285,47 @@ export class AudioSystem {
   }
 
   /**
+   * 当前设备的系统朗读能力。区分“浏览器根本不支持”和“没有中文语音但可用默认
+   * 语音”，避免 UI 把不可试听误报成会使用默认声音。
+   */
+  getSpeechSupportInfo() {
+    const supported = Boolean(
+      typeof window !== 'undefined' &&
+      window.speechSynthesis &&
+      typeof window.SpeechSynthesisUtterance === 'function'
+    );
+    if (!supported) {
+      return {
+        state: 'unsupported',
+        supported: false,
+        canPreview: false,
+        hasChineseVoice: false,
+        label: '当前浏览器不支持系统朗读',
+        detail: '朗读偏好会保留；换用支持系统语音的浏览器或设备后生效'
+      };
+    }
+    const hasChineseVoice = this.getVoiceList().length > 0;
+    if (!hasChineseVoice) {
+      return {
+        state: 'default-fallback',
+        supported: true,
+        canPreview: true,
+        hasChineseVoice: false,
+        label: '未检测到中文系统语音',
+        detail: '将尝试使用设备默认语音；可在系统设置中安装中文语音'
+      };
+    }
+    return {
+      state: 'ready',
+      supported: true,
+      canPreview: true,
+      hasChineseVoice: true,
+      label: '中文系统朗读可用',
+      detail: '完全使用当前设备的中文系统语音，不上传文本'
+    };
+  }
+
+  /**
    * 猜测语音是男声还是女声（启发式）
    */
   _isMaleVoice(name) {

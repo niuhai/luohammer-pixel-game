@@ -7,6 +7,7 @@ const SETTINGS_KEY = 'luohammer_dialog_settings';
 // 按 S 键循环切换三档。情绪化打字速度在此基础上动态调整。
 const TYPING_SPEEDS = [60, 30, 12];
 const TYPING_SPEED_LABELS = ['慢', '中', '快'];
+const TYPING_SPEED_KEYS = ['slow', 'medium', 'fast'];
 
 export class DialogSystem {
   // === 长文本拆分阈值 ===
@@ -32,6 +33,7 @@ export class DialogSystem {
     this._segments = null;       // 拆分后的段落数组，null 表示不拆分
     this._segmentIndex = 0;      // 当前段落索引
     this._finalOnComplete = null; // 最后一段完成后的回调
+    this._segmentTransitioning = false; // 段落切换锁，避免一次输入跨过两段
     // === 自动播放状态（T28）：默认开启，仅控制文字是否自动逐字打出 ===
     this._settings = this._loadSettings();
     this._autoPlay = this._settings.autoPlay;
@@ -55,6 +57,7 @@ export class DialogSystem {
     this.textEl = document.getElementById('ui-dialog-text');
     this.continueEl = document.getElementById('ui-dialog-continue');
     this.autoBtn = document.getElementById('ui-dialog-auto');
+    this.speedBtn = document.getElementById('ui-dialog-speed');
     this.overlayEl = document.getElementById('ui-overlay');
 
     // === 读屏支持（R93 F1）：sr-only aria-live 镜像 ===
@@ -78,6 +81,8 @@ export class DialogSystem {
 
     // Click handler for advancing text
     this._onDialogClick = () => {
+      // 段落 150ms 切换动画期间锁住推进，避免连击或合成 click 跨过内容。
+      if (this._segmentTransitioning) return;
       // 推进反馈音：跳过打字/下一段/完成共用（评委全程最高频操作的听觉闭环）
       if (this.audio && this.audio.playDialogAdvance) {
         try { this.audio.playDialogAdvance(); } catch(e) {}
@@ -164,6 +169,12 @@ export class DialogSystem {
         this._toggleAutoPlay();
       }, signalOpts);
     }
+    if (this.speedBtn) {
+      this.speedBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._cycleTypingSpeed();
+      }, signalOpts);
+    }
 
     // === 自动播放 & 速度快捷键（T28） ===
     this._keyHandler = (e) => {
@@ -172,6 +183,9 @@ export class DialogSystem {
         && this.scene.isGameplayInputBlocked()) {
         return;
       }
+      // 进入选择态后把键盘控制权完整交给原生按钮：
+      // 否则 document 级 Space/Enter preventDefault 会吞掉按钮的原生激活。
+      if (this._isChoicesVisible()) return;
       const key = e.key.toLowerCase();
       if (key === 'a') {
         e.preventDefault();
@@ -180,6 +194,15 @@ export class DialogSystem {
         e.preventDefault();
         this._cycleTypingSpeed();
       } else if (key === ' ' || key === 'enter' || e.code === 'Space') {
+        // 原生按钮会自行把 Enter / Space 转成一次 click。若这里也推进，
+        // 键盘激活继续、自动播放或速度按钮时会出现双重动作。
+        const target = e.target;
+        if (target instanceof HTMLButtonElement ||
+            target instanceof HTMLInputElement ||
+            target instanceof HTMLSelectElement ||
+            target instanceof HTMLTextAreaElement) {
+          return;
+        }
         e.preventDefault();
         if (this.scene && typeof this.scene.vibrate === 'function') this.scene.vibrate(12);
         this._onDialogClick();
@@ -190,6 +213,7 @@ export class DialogSystem {
 
     // 初始化 UI 状态
     this._applyAutoPlayState();
+    this._setContinueControlState('hidden');
 
     // === 移动端手势支持（左滑回退 / 右滑继续）===
     this._setupGestures();
@@ -579,6 +603,9 @@ export class DialogSystem {
     // 标记正在多段叙事中，供 _updateContinueHint 使用
     this._inSegmentMode = true;
     this._isLastSegment = isLast;
+    this._segmentTransitioning = true;
+    this._setContinueControlState('typing');
+    this._stopPulse();
 
     // 旧文字向上滑出
     this.textEl.style.transition = 'opacity 0.15s ease-out, transform 0.15s ease-out';
@@ -587,6 +614,7 @@ export class DialogSystem {
 
     // 150ms 后替换文字并从下方滑入（R25 P2-1：改用 _trackedTimeout 统一跟踪）
     this._trackedTimeout(() => {
+      this._segmentTransitioning = false;
       this._showTextDirect(this.currentCharacterName, segmentText, segmentOnComplete);
       // _showTextDirect 会设置 opacity:1、transition:none 并清空 textContent，
       // 同时启动打字机（若自动播放开启，首字已追加到 textContent）。
@@ -652,7 +680,15 @@ export class DialogSystem {
     this._typingActive = true;
     this.el.classList.remove('hiding');
     this.el.classList.add('visible');
-    this.continueEl.style.display = 'none';
+    if (this._restoreFocusOnNextShow) {
+      this._restoreFocusOnNextShow = false;
+      requestAnimationFrame(() => {
+        if (!this.el || !this.el.classList.contains('visible')) return;
+        if (!this.el.hasAttribute('tabindex')) this.el.setAttribute('tabindex', '-1');
+        this.el.focus({ preventScroll: true });
+      });
+    }
+    this._setContinueControlState('typing');
     this._stopPulse();
 
     // 重置对话框位置（选项未显示时在底部）
@@ -709,7 +745,7 @@ export class DialogSystem {
     const choicesVisible = this.choicesEl.classList.contains('visible');
     if (choicesVisible) {
       // 选项显示时隐藏"点击继续"提示
-      this.continueEl.style.display = 'none';
+      this._setContinueControlState('hidden');
       this._stopPulse();
     }
 
@@ -739,7 +775,22 @@ export class DialogSystem {
    * 通知对话框选项面板状态变化（由 ChoiceSystem 调用）
    */
   notifyChoicesVisible(_visible) {
+    this.el.classList.toggle('awaiting-choice', Boolean(_visible));
+    if (_visible) {
+      this._setContinueControlState('hidden');
+      this._stopPulse();
+    } else if (this.el.classList.contains('visible')) {
+      this._updateContinueHint();
+    }
     this._updateDialogPosition();
+  }
+
+  /**
+   * ChoiceSystem 在键盘焦点位于选项时退场会调用此方法。
+   * 下一段剧情真正显示后再归还焦点，避免落到已删除按钮或 body。
+   */
+  requestFocusOnNextShow() {
+    this._restoreFocusOnNextShow = true;
   }
 
   /**
@@ -865,7 +916,6 @@ export class DialogSystem {
       const name = this.currentCharacterName ? this.currentCharacterName + '：' : '';
       this._srLiveEl.textContent = name + (this._plainText || '');
     }
-    this.continueEl.style.display = 'block';
     this._startPulse();
     this._updateContinueHint();
     // 打字完成后更新对话框高度变量，确保选项定位准确
@@ -1009,31 +1059,85 @@ export class DialogSystem {
    * 更新自动播放按钮与提示文案（T28）
    */
   _applyAutoPlayState() {
+    const speedLabel = TYPING_SPEED_LABELS[this._typingSpeedIdx];
     if (this.autoBtn) {
-      this.autoBtn.textContent = this._autoPlay
-        ? `AUTO · ${TYPING_SPEED_LABELS[this._typingSpeedIdx]}`
-        : 'AUTO';
+      const stateLabel = this._autoPlay ? '开' : '关';
+      this.autoBtn.textContent = `自动 · ${stateLabel}`;
       this.autoBtn.classList.toggle('active', this._autoPlay);
+      this.autoBtn.dataset.state = this._autoPlay ? 'on' : 'off';
+      this.autoBtn.setAttribute('aria-pressed', String(this._autoPlay));
+      this.autoBtn.setAttribute(
+        'aria-label',
+        `自动播放：${this._autoPlay ? '已开启' : '已关闭'}。点击切换；快捷键 A`
+      );
+      this.autoBtn.title = `自动播放：${this._autoPlay ? '开启' : '关闭'}（A）`;
+    }
+    if (this.speedBtn) {
+      this.speedBtn.textContent = `${speedLabel}速`;
+      this.speedBtn.dataset.speed = TYPING_SPEED_KEYS[this._typingSpeedIdx];
+      this.speedBtn.setAttribute(
+        'aria-label',
+        `文字速度：${speedLabel}速。点击切换；快捷键 S`
+      );
+      this.speedBtn.title = `文字速度：${speedLabel}速（S）`;
     }
     this._updateContinueHint();
   }
 
   /**
-   * 更新「继续」提示文字（根据自动播放状态和多段叙事状态显示不同文案）
+   * 设置显式剧情推进控件的状态、可见性与可访问名称。
+   * @param {'hidden'|'typing'|'next-segment'|'continue'|'auto'} state
+   */
+  _setContinueControlState(state) {
+    if (!this.continueEl) return;
+    const hidden = state === 'hidden';
+    this.continueEl.hidden = hidden;
+    this.continueEl.dataset.state = state;
+    if (hidden) return;
+
+    const segmentCount = this._segments?.length || 1;
+    const currentSegment = Math.min(this._segmentIndex + 1, segmentCount);
+    const content = {
+      typing: {
+        text: '显示全文',
+        label: '显示当前剧情的完整文字'
+      },
+      'next-segment': {
+        text: `下一段 · ${currentSegment}/${segmentCount}`,
+        label: `继续到第 ${Math.min(currentSegment + 1, segmentCount)} 段，共 ${segmentCount} 段`
+      },
+      auto: {
+        text: '自动中 · 立即继续',
+        label: '自动播放已开启；立即继续剧情'
+      },
+      continue: {
+        text: '继续剧情 ▶',
+        label: '继续剧情'
+      }
+    }[state] || {
+      text: '继续剧情 ▶',
+      label: '继续剧情'
+    };
+    this.continueEl.textContent = content.text;
+    this.continueEl.setAttribute('aria-label', `${content.label}；快捷键空格或回车`);
+    this.continueEl.title = content.label;
+  }
+
+  /**
+   * 根据打字、自动播放和多段叙事状态更新剧情推进控件。
    */
   _updateContinueHint() {
-    const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-    const hint = isTouchDevice ? '点击继续 ▶' : '空格 / 点击继续 ▶';
-    // 多段叙事中间段：显示"点击继续"提示
-    if (this._inSegmentMode && !this._isLastSegment) {
-      this.continueEl.textContent = hint;
-      return;
-    }
-    // 多段叙事最后一段或普通文本
-    if (this._autoPlay) {
-      this.continueEl.textContent = isTouchDevice ? '自动播放中...点击继续 ▶' : '自动播放中...空格/点击继续 ▶';
+    if (!this.continueEl) return;
+    if (this._isChoicesVisible()) {
+      this._setContinueControlState('hidden');
+    } else if (this.isTyping || this._segmentTransitioning) {
+      this._setContinueControlState('typing');
+    } else if (this._inSegmentMode && !this._isLastSegment) {
+      this._setContinueControlState('next-segment');
+    } else if (this._autoPlay) {
+      this._setContinueControlState('auto');
     } else {
-      this.continueEl.textContent = hint;
+      this._setContinueControlState('continue');
     }
   }
 
@@ -1074,9 +1178,9 @@ export class DialogSystem {
    * 完成隐藏后的状态清理
    */
   _finishHide() {
-    this.el.classList.remove('visible', 'hiding');
+    this.el.classList.remove('visible', 'hiding', 'awaiting-choice');
     if (this.touchLayer) this.touchLayer.classList.remove('visible');
-    this.continueEl.style.display = 'none';
+    this._setContinueControlState('hidden');
     this._stopPulse();
     this._updateSeenBadge(true);
     this.onComplete = null;
@@ -1086,6 +1190,7 @@ export class DialogSystem {
     this._finalOnComplete = null;
     this._inSegmentMode = false;
     this._isLastSegment = false;
+    this._segmentTransitioning = false;
     // 恢复文本透明度与位置
     this.textEl.style.opacity = '';
     this.textEl.style.transition = '';
@@ -1111,10 +1216,14 @@ export class DialogSystem {
       if (!badge) {
         badge = document.createElement('div');
         badge.className = 'ui-dialog-seen-badge';
-        badge.textContent = '◈ 已读·快进中';
-        this.el.appendChild(badge);
+        badge.setAttribute('role', 'status');
+        badge.setAttribute('aria-label', '已读内容，正在快进');
+        badge.textContent = '◈ 已读快进';
+        const controls = this.el.querySelector('.ui-dialog-reading-controls');
+        if (controls) controls.insertBefore(badge, controls.firstChild);
+        else this.el.appendChild(badge);
       }
-      badge.style.display = 'block';
+      badge.style.display = 'inline-flex';
     } else if (badge) {
       badge.style.display = 'none';
     }
@@ -1407,6 +1516,7 @@ export class DialogSystem {
     this._finalOnComplete = null;
     this._inSegmentMode = false;
     this._isLastSegment = false;
+    this._segmentTransitioning = false;
     // 恢复文本透明度与位置
     if (this.textEl) {
       this.textEl.style.opacity = '';

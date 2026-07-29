@@ -94,9 +94,12 @@ describe('Service Worker - 评委访问版本新鲜度', () => {
   it('首次安装会从构建后的 HTML 发现并预缓存哈希入口', async () => {
     harness.fetchMock.mockImplementation(async (url) => {
       const u = String(url);
-      // R84：入口 chunk 内 __vite__mapDeps 持有懒加载 chunk 哈希，SW 会抓取入口 JS 文本提取
+      // R021：HTML 只引用轻量壳；壳再引用 main，场景 chunk 位于 main 的第二层。
       if (u.includes('index-SCRIPT99.js')) {
-        return new FakeResponse('const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/GameScene-CHUNK77.js","assets/phaser-ENGINE88.js"])))=>i.map(i=>d[i]);');
+        return new FakeResponse('const deps=["assets/main-APP9988.js","assets/phaser-ENGINE88.js"];');
+      }
+      if (u.includes('main-APP9988.js')) {
+        return new FakeResponse('const lazy=["assets/GameScene-CHUNK77.js","assets/events-random-EVENT66.js"];');
       }
       if (u.includes('phaser-ENGINE88.js')) return new FakeResponse('phaser bundle');
       return new FakeResponse(`
@@ -116,8 +119,10 @@ describe('Service Worker - 评委访问版本新鲜度', () => {
     expect(harness.cache.add).toHaveBeenCalledWith('/luohammer-pixel-game/assets/index-STYLE123.css');
     expect(harness.cache.add).toHaveBeenCalledWith('/luohammer-pixel-game/assets/index-SCRIPT99.js');
     expect(harness.cache.add).toHaveBeenCalledWith('/luohammer-pixel-game/assets/phaser-ENGINE88.js');
-    // 懒加载 chunk（GameScene）从入口 JS 文本提取并预缓存——评委断网点"开始游戏"不再卡标题屏
+    expect(harness.cache.add).toHaveBeenCalledWith('./assets/main-APP9988.js');
+    // 第二层场景依赖也被发现，离线点击标题主操作后仍可完成动态加载。
     expect(harness.cache.add).toHaveBeenCalledWith('./assets/GameScene-CHUNK77.js');
+    expect(harness.cache.add).toHaveBeenCalledWith('./assets/events-random-EVENT66.js');
   });
 
   it('单项预缓存失败不阻塞安装，失败项写入调试键', async () => {

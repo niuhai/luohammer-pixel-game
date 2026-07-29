@@ -3,8 +3,6 @@ import { describe, it, expect } from 'vitest';
 import {
   applyEffects,
   checkPressureCrash,
-  checkThresholdTriggers,
-  checkComboTriggers,
   createInitialState,
   ATTRIBUTES
 } from '../../src/data/effects.js';

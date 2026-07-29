@@ -195,6 +195,32 @@ export class ChoiceSystem {
     this.el.innerHTML = '';
     this.choices = choices;
     this._choiceLock = false;
+    const state = this.scene.state || {};
+    const enabledCount = choices.filter(choice =>
+      !this._getChoiceLock(choice, state, choices).locked
+    ).length;
+    const isTouch = window.matchMedia('(pointer: coarse)').matches ||
+      navigator.maxTouchPoints > 0;
+
+    // 把“剧情阅读”切换为“轮到玩家行动”明确说出来，避免视线从底部对话框
+    // 跳到选项时失去上下文；同一行也承担键盘/触控操作说明。
+    const context = document.createElement('div');
+    context.className = 'ui-choice-context';
+    context.setAttribute('role', 'status');
+    context.setAttribute('aria-live', 'polite');
+    context.innerHTML = `
+      <span class="ui-choice-context-main" id="ui-choice-context-title">
+        <span aria-hidden="true">◆</span> 做出你的选择
+      </span>
+      <span class="ui-choice-context-meta" id="ui-choice-context-meta"></span>
+    `;
+    context.querySelector('.ui-choice-context-meta').textContent = isTouch
+      ? `${enabledCount} 个可选方向 · 轻触选择，长按预览影响`
+      : `${enabledCount} 个可选方向 · ↑↓ 切换 · Enter 确认 · 数字键 1–${Math.min(choices.length, 9)}`;
+    this.el.appendChild(context);
+    this.el.setAttribute('role', 'group');
+    this.el.setAttribute('aria-labelledby', 'ui-choice-context-title');
+    this.el.setAttribute('aria-label', `剧情选择，共 ${choices.length} 项，${enabledCount} 项可选`);
 
     // 任务1：创建天平元素（选择天平动画）
     const balance = document.createElement('div');
@@ -249,7 +275,6 @@ export class ChoiceSystem {
     this._currentBtns = [];
 
     choices.forEach((choice, i) => {
-      const state = this.scene.state || {};
       const { locked, hint: lockHint } = this._getChoiceLock(choice, state, choices);
       const marker = String(i + 1);
 
@@ -272,6 +297,9 @@ export class ChoiceSystem {
       const btn = document.createElement('button');
       btn.className = 'ui-choice-btn' + (locked ? ' locked' : '');
       btn.type = 'button';
+      btn.setAttribute('aria-describedby', 'ui-choice-context-meta');
+      btn.setAttribute('aria-posinset', String(i + 1));
+      btn.setAttribute('aria-setsize', String(choices.length));
       if (!locked && i < 9) btn.setAttribute('aria-keyshortcuts', marker);
       // 任务1：选项逐个 stagger 入场，每个按钮延迟 80ms 出现
       btn.style.animationDelay = `${i * 80}ms`;
@@ -384,6 +412,24 @@ export class ChoiceSystem {
         return;
       }
       const key = String(event.key || '');
+      const available = this._currentBtns.filter(button => !button.disabled);
+      if (['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft', 'Home', 'End'].includes(key)) {
+        if (available.length === 0) return;
+        if (event.preventDefault) event.preventDefault();
+        const currentIndex = available.indexOf(document.activeElement);
+        let nextIndex = currentIndex;
+        if (key === 'Home') nextIndex = 0;
+        else if (key === 'End') nextIndex = available.length - 1;
+        else if (key === 'ArrowDown' || key === 'ArrowRight') {
+          nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % available.length;
+        } else {
+          nextIndex = currentIndex < 0
+            ? available.length - 1
+            : (currentIndex - 1 + available.length) % available.length;
+        }
+        available[nextIndex].focus({ preventScroll: true });
+        return;
+      }
       const idx = /^[1-9]$/.test(key) ? Number(key) - 1 : -1;
       if (idx >= 0 && idx < choices.length) {
         if (this._choiceLock) return;
@@ -406,8 +452,13 @@ export class ChoiceSystem {
     this.el.classList.add('visible');
     balance.classList.add('visible');
 
-    // 选项渲染完成后测量是否溢出（ stagger 动画不影响 scrollHeight 测量 ）
-    requestAnimationFrame(() => this._updateScrollHint());
+    // 选项渲染完成后测量溢出，并把焦点交给第一个可选动作。
+    // 此刻剧情已明确进入选择态，主动聚焦不会打断输入框等其他任务。
+    requestAnimationFrame(() => {
+      this._updateScrollHint();
+      const firstAvailable = this._currentBtns.find(button => !button.disabled);
+      if (firstAvailable) firstAvailable.focus({ preventScroll: true });
+    });
 
     // 通知 DialogSystem 选项面板已显示，对话框需要上移
     if (this.scene.dialog && this.scene.dialog.notifyChoicesVisible) {
@@ -576,6 +627,10 @@ export class ChoiceSystem {
   }
 
   hide(immediate = false) {
+    if (this.el && this.el.contains(document.activeElement) &&
+        this.scene.dialog && this.scene.dialog.requestFocusOnNextShow) {
+      this.scene.dialog.requestFocusOnNextShow();
+    }
     // Remove keyboard handler
     if (this._keyHandler) {
       this.scene.input.keyboard.off('keydown', this._keyHandler);

@@ -35,7 +35,7 @@ if (import.meta.env.DEV) {
   }).catch(error => console.warn('[Endings] 开发期一致性检查未完成:', error));
 }
 
-// 主游戏与结局场景不阻塞标题首屏；标题可操作后在空闲时后台加载。
+// 主游戏与结局场景不阻塞标题首屏；仅在玩家明确开始/继续后加载。
 let gameplayScenesPromise = null;
 function ensureGameplayScenes(game) {
   if (game.scene.keys.GameScene && game.scene.keys.EndingScene) {
@@ -54,6 +54,47 @@ function ensureGameplayScenes(game) {
     });
   }
   return gameplayScenesPromise;
+}
+
+const _assetWarmPromises = new Map();
+function _warmAsset(url) {
+  if (_assetWarmPromises.has(url)) return _assetWarmPromises.get(url);
+  const promise = fetch(url, { priority: 'low' })
+    .then(response => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.blob();
+    })
+    .catch(error => {
+      _assetWarmPromises.delete(url);
+      throw error;
+    });
+  _assetWarmPromises.set(url, promise);
+  return promise;
+}
+
+function _warmFirstGameplayAssets() {
+  const firstSceneUrls = [
+    'assets/characters/scene-classroom-v2.webp',
+    'assets/characters/luo-standing-v4-nobg.webp',
+    'assets/characters/luo-young-v4-nobg.webp'
+  ];
+  for (const url of firstSceneUrls) {
+    _warmAsset(url).catch(() => {
+      // Phaser 进入 GameScene 后仍会按需加载并提供 Graphics 兜底。
+    });
+  }
+}
+
+let _gameplayIntentPrepared = false;
+function prepareGameplay(game) {
+  if (!_gameplayIntentPrepared) {
+    _gameplayIntentPrepared = true;
+    // 点击开始即并行准备首章图片；下载发生在序章演出内，不再占用标题首屏带宽。
+    _warmFirstGameplayAssets();
+    // 完整离线资源只在玩家已表达游玩意图后渐进缓存。
+    setTimeout(_warmGameAssets, 3200);
+  }
+  return ensureGameplayScenes(game);
 }
 
 // === 全局错误捕获 ===
@@ -98,7 +139,7 @@ function getResponsiveConfig() {
     callbacks: {
       preBoot: (game) => {
         game.registry.set('isPortraitMobile', mobilePortrait);
-        game.registry.set('ensureGameplayScenes', () => ensureGameplayScenes(game));
+        game.registry.set('ensureGameplayScenes', () => prepareGameplay(game));
       }
     }
   };
@@ -151,26 +192,8 @@ function _hideLoading() {
   });
 }
 
-function _warmGameplayScenes() {
-  const warm = () => ensureGameplayScenes(game).catch(error => {
-    console.warn('[Loading] 主游戏资源后台加载失败，将在进入游戏时重试:', error);
-  });
-  // 先把标题背景和按钮的网络/主线程预算完整留给首屏；随后在玩家阅读标题时预热剧情代码。
-  // 若玩家很快点击开始，这段延迟恰好落在序章演出期间，不增加可感知等待。
-  setTimeout(() => {
-    if ('requestIdleCallback' in window) {
-      window.requestIdleCallback(warm, { timeout: 1600 });
-    } else {
-      warm();
-    }
-  }, 1400);
-}
-
-// === R94：PWA 离线完整性——空闲时全量图片资源预热 ===
-// 缺口：index.html prefetch 仅覆盖首章 3 张，其余场景/姿态图只能在在线游玩时
-// 被 SW 的 staleWhileRevalidate 顺手缓存；评委"打开一次→断网→重玩"会在第二章后
-// 退回 Graphics 兜底。此处空闲串行低优先级拉取全部图片，经过 SW 自动入缓存，
-// 之后断网重玩全程视觉可用（约 5.4MB，后台渐进完成，不阻塞任何交互）。
+// === PWA 离线完整性——玩家开始后空闲时全量图片资源预热 ===
+// 首屏只承担标题资源；明确开始后再串行低优先级拉取全部图片并写入 SW 运行时缓存。
 let _assetsWarmStarted = false;
 function _warmGameAssets() {
   if (_assetsWarmStarted) return;
@@ -217,8 +240,7 @@ function _warmGameAssets() {
         await visible();   // 页面隐藏时暂停，回前台续传
         await idle();      // 每张之间让出主线程与网络优先级
         // 低优先级串行拉取；SW staleWhileRevalidate 会把响应写入离线缓存
-        const res = await fetch(url, { priority: 'low' });
-        if (res && res.ok) await res.blob(); // 消费响应体，确保连接释放
+        await _warmAsset(url);
       } catch (error) {
         // 单张失败不阻塞后续；游玩时仍会按需加载
       }
@@ -226,20 +248,15 @@ function _warmGameAssets() {
   })();
 }
 
-// BootScene 完整建立标题 DOM 后立即让出首屏，并在浏览器空闲时加载剧情与主游戏。
+// BootScene 完整建立标题 DOM 后立即让出首屏；标题空闲期不下载玩法资源。
 game.events.once('boot-ui-ready', () => {
   _hideLoading();
-  _warmGameplayScenes();
-  // 图片预热排在代码预热（1.4s）之后，避免与首屏/剧情代码抢带宽
-  setTimeout(_warmGameAssets, 3200);
 });
 
 // 生命周期兜底：若自定义就绪信号未触发，Phaser ready 后仍可快速进入标题。
 game.events.once('ready', () => {
   setTimeout(() => {
     _hideLoading();
-    _warmGameplayScenes();
-    setTimeout(_warmGameAssets, 3200);
   }, 300);
 });
 
@@ -250,27 +267,75 @@ setTimeout(() => {
 
 // Service Worker 注册已由 index.html 负责（含开发环境判断），此处不再重复注册
 
-// === 全局横屏提示（所有场景生效）===
+// === 竖屏建议：仅标题页首次短暂出现，不阻断已完整支持的竖屏游玩 ===
 (function setupGlobalOrientationHint() {
   const hint = document.getElementById('rotate-hint');
   if (!hint) return;
-  let userDismissed = false;
+  const storageKey = 'luohammer_orientation_hint_seen';
+  const bootOverlay = document.getElementById('ui-boot-overlay');
+  let canShow = true;
+  let isShowing = false;
+  let autoHideTimer = null;
+  try {
+    canShow = localStorage.getItem(storageKey) !== '1';
+  } catch (e) {}
+
+  const restoreSceneFocus = () => {
+    requestAnimationFrame(() => {
+      const focusTarget = document.querySelector([
+        '#ui-boot-overlay.visible .ui-boot-btn-primary',
+        '#ui-intro-overlay.visible #ui-intro-skip-hint.visible',
+        '#ui-talent-overlay.visible .ui-talent-card:not([disabled])',
+        '#ui-choices.visible .ui-choice-btn:not([disabled])',
+        '#ui-dialog.visible',
+        '#ui-ending-overlay.visible .ui-ending-content'
+      ].join(','));
+      focusTarget?.focus({ preventScroll: true });
+    });
+  };
+
+  const hide = ({ restoreFocus = false } = {}) => {
+    if (autoHideTimer) {
+      clearTimeout(autoHideTimer);
+      autoHideTimer = null;
+    }
+    isShowing = false;
+    hint.classList.add('hidden');
+    hint.setAttribute('aria-hidden', 'true');
+    if (restoreFocus) restoreSceneFocus();
+  };
+
   const update = () => {
-    if (userDismissed) return;
     const isPortrait = window.matchMedia('(orientation: portrait)').matches;
-    if (isPortrait && window.innerWidth < 768) {
+    const isBootVisible = bootOverlay?.classList.contains('visible');
+    if (isShowing && (!isPortrait || window.innerWidth >= 768 || !isBootVisible)) {
+      hide();
+      return;
+    }
+    if (canShow && isPortrait && window.innerWidth < 768 && isBootVisible) {
+      canShow = false;
+      isShowing = true;
+      try { localStorage.setItem(storageKey, '1'); } catch (e) {}
       hint.classList.remove('hidden');
-    } else {
-      hint.classList.add('hidden');
+      hint.setAttribute('aria-hidden', 'false');
+      autoHideTimer = setTimeout(() => hide(), 7000);
     }
   };
+
   const dismissBtn = document.getElementById('rotate-hint-dismiss');
   if (dismissBtn) {
     dismissBtn.addEventListener('click', () => {
-      userDismissed = true;
-      hint.classList.add('hidden');
-    }, { once: true });
+      hide({ restoreFocus: true });
+    });
   }
+
+  if (bootOverlay) {
+    new MutationObserver(update).observe(bootOverlay, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+  }
+  game.events.on('boot-ui-ready', update);
   update();
   window.addEventListener('resize', update);
   window.addEventListener('orientationchange', update);

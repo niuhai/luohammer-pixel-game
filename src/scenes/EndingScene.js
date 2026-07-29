@@ -720,9 +720,10 @@ export class EndingScene extends Phaser.Scene {
 
     // Buttons —— 收敛为 3 个主按钮 + "更多"折叠菜单，降低首屏信息密度
     buttonsEl.innerHTML = '';
+    buttonsEl.classList.remove('menu-open');
 
     const retryBtn = document.createElement('button');
-    retryBtn.className = 'ui-ending-btn ui-ending-btn-primary';
+    retryBtn.className = 'ui-ending-btn ui-ending-btn-secondary';
     retryBtn.textContent = '再来一次';
     retryBtn.addEventListener('click', () => {
       this.audio.fadeOutBGM(0.5);
@@ -734,7 +735,7 @@ export class EndingScene extends Phaser.Scene {
 
     // === AI 人生复盘按钮（主按钮：运行时 AI 能力展示） ===
     const aiReviewBtn = document.createElement('button');
-    aiReviewBtn.className = 'ui-ending-btn ui-ending-btn-ai';
+    aiReviewBtn.className = 'ui-ending-btn ui-ending-btn-ai ui-ending-btn-primary';
     aiReviewBtn.textContent = '◈ AI 人生复盘';
     aiReviewBtn.addEventListener('click', () => {
       const review = new AIReviewSystem({
@@ -749,18 +750,29 @@ export class EndingScene extends Phaser.Scene {
     const moreBtn = document.createElement('button');
     moreBtn.className = 'ui-ending-btn ui-ending-btn-more';
     moreBtn.textContent = '更多 ▾';
+    moreBtn.setAttribute('aria-expanded', 'false');
+    moreBtn.setAttribute('aria-controls', 'ui-ending-more-menu');
 
     const moreMenu = document.createElement('div');
+    moreMenu.id = 'ui-ending-more-menu';
     moreMenu.className = 'ui-ending-more-menu';
+    moreMenu.setAttribute('role', 'group');
+    moreMenu.setAttribute('aria-label', '更多结局操作');
     moreMenu.style.display = 'none';
+
+    const setMoreMenuOpen = isOpen => {
+      moreMenu.style.display = isOpen ? 'flex' : 'none';
+      moreBtn.textContent = isOpen ? '收起 ▴' : '更多 ▾';
+      moreBtn.setAttribute('aria-expanded', String(isOpen));
+      buttonsEl.classList.toggle('menu-open', isOpen);
+    };
 
     const addMoreItem = (label, onClick) => {
       const btn = document.createElement('button');
       btn.className = 'ui-ending-btn ui-ending-btn-sub';
       btn.textContent = label;
       btn.addEventListener('click', () => {
-        moreMenu.style.display = 'none';
-        moreBtn.textContent = '更多 ▾';
+        setMoreMenuOpen(false);
         onClick();
       });
       moreMenu.appendChild(btn);
@@ -782,8 +794,7 @@ export class EndingScene extends Phaser.Scene {
     historyBtn.className = 'ui-ending-btn ui-ending-btn-sub' + (unreadCount > 0 ? ' has-unread' : '');
     historyBtn.textContent = historyBtnLabel;
     historyBtn.addEventListener('click', () => {
-      moreMenu.style.display = 'none';
-      moreBtn.textContent = '更多 ▾';
+      setMoreMenuOpen(false);
       this._showHistoryReview();
     });
     if (unreadCount > 0) {
@@ -801,16 +812,21 @@ export class EndingScene extends Phaser.Scene {
 
     moreBtn.addEventListener('click', () => {
       const isOpen = moreMenu.style.display === 'flex';
-      moreMenu.style.display = isOpen ? 'none' : 'flex';
-      moreBtn.textContent = isOpen ? '更多 ▾' : '收起 ▴';
+      setMoreMenuOpen(!isOpen);
     });
 
-    buttonsEl.appendChild(retryBtn);
     buttonsEl.appendChild(aiReviewBtn);
+    buttonsEl.appendChild(retryBtn);
     buttonsEl.appendChild(moreBtn);
     buttonsEl.appendChild(moreMenu);
 
     overlay.classList.add('visible');
+    const contentEl = overlay.querySelector('.ui-ending-content');
+    requestAnimationFrame(() => {
+      if (overlay.classList.contains('visible')) {
+        contentEl?.focus({ preventScroll: true });
+      }
+    });
 
     // === R38: 新结局解锁仪式感动画 ===
     // 评委第一次通关（或解锁新结局）时，在结局页顶部显示金色横幅+粒子爆发

@@ -17,7 +17,10 @@
 
 - 浏览真实页面，而不是仅阅读 CSS。
 - 桌面主验收：Chromium 1440×900。
-- 手机护栏：Chromium 390×844、375×812。
+- 桌面扩展护栏：Chromium 1366×768、1920×1080。
+- 手机护栏：Chromium 390×844、375×812、360×800。
+- 入口、布局、响应式或跨屏幕变化必须覆盖上述六档；局部低风险改动可按相关性
+  缩减，但不得省略 1440×900 主验收和 390×844 / 375×812 手机护栏。
 - 动效任务必须覆盖开始帧、中间帧和完成帧。
 - 记录问题出现在哪个用户动作、哪个视口、造成什么理解或操作成本。
 
@@ -66,6 +69,27 @@ L2 包含 lint、全量 unit 和 production build。L3 额外包含 Playwright E
 
 ### 7. SETTLE
 
+结算字段由 `scripts/ui-iteration.mjs close` 机器强制。缺少任一字段、字段冲突，
+或用 E0 支撑 IMPROVED 时，命令必须拒绝关单。必填字段：
+
+- `Outcome`：IMPROVED / NEUTRAL / REGRESSED；
+- `Value`：V0–V3；
+- `Evidence Grade`：E0–E2；
+- `Guardrails`：PASS / FAIL；
+- `Counterevidence`：本轮最强反证、限制或最大不确定性；
+- `Capability Delta`：SEED / PROVEN / COMPOUNDING / NONE + 具体说明；
+- `Verification Cost`：统一换算为秒；
+- `Decision`：CONTINUE / PIVOT / RE-FRAME / FREEZE / ROLLBACK。
+
+交叉约束：
+
+- IMPROVED 必须是 V1–V3、至少 E1 且护栏 PASS；
+- V3 必须有 E2；
+- NEUTRAL 只能是 V0/V1，且护栏 PASS；
+- REGRESSED 必须是 V0、护栏 FAIL，并进入 PIVOT / RE-FRAME / ROLLBACK；
+- FREEZE 前护栏必须 PASS；
+- “无”“待补充”不能充当反证；能力没有增长时也要写明 `NONE：原因`。
+
 只有满足以下条件才能标记 `IMPROVED`：
 
 - Outcome Contract 的用户结果已在真实页面中出现；
@@ -103,7 +127,7 @@ npm run iterate:ui
 npm run iterate:ui:start
 npm run iterate:ui:verify
 npm run iterate:ui:verify:full
-node scripts/ui-iteration.mjs close --outcome=IMPROVED --summary="..." --evidence="path-a,path-b"
+node scripts/ui-iteration.mjs close --outcome=IMPROVED --value=V2 --evidence-grade=E1 --guardrails=PASS --counterevidence="尚无真实目标用户数据" --capability-delta="SEED：新增跨端可读性断言" --verification-cost=6m --decision=CONTINUE --summary="..." --evidence="path-a,path-b"
 ```
 
 `start` 会创建当前轮次合同并激活队列任务。`close` 需要通过的验证证据和

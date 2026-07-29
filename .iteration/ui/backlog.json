@@ -1,11 +1,14 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-28",
+  "updatedAt": "2026-07-29",
   "policy": {
     "primaryViewport": "1440x900",
     "guardrailViewports": [
+      "1366x768",
+      "1920x1080",
       "390x844",
-      "375x812"
+      "375x812",
+      "360x800"
     ],
     "maxPrimaryTasksPerRound": 1,
     "maxSupportingTasksPerRound": 2,
@@ -38,7 +41,7 @@
       "impact": 5,
       "confidence": 4,
       "effort": 3,
-      "status": "queued",
+      "status": "done",
       "corePath": true,
       "lastEvidenceAt": "2026-07-28",
       "evidenceRequired": [
@@ -46,7 +49,17 @@
         "mobile_guardrail",
         "ending_interaction_flow"
       ],
-      "minimumVerification": "L3"
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R006/before/desktop-ending.png",
+        ".iteration/ui/evidence/R006/after/desktop-ending.png",
+        ".iteration/ui/evidence/R006/before/mobile-ending.png",
+        ".iteration/ui/evidence/R006/after/mobile-ending.png",
+        ".iteration/ui/evidence/R006/after/report.json",
+        ".iteration/ui/evidence/R006-verify.json"
+      ]
     },
     {
       "id": "UI-006",
@@ -56,7 +69,7 @@
       "impact": 5,
       "confidence": 4,
       "effort": 2,
-      "status": "active",
+      "status": "done",
       "corePath": true,
       "lastEvidenceAt": "2026-07-28",
       "evidenceRequired": [
@@ -65,7 +78,12 @@
         "keyboard_focus_flow"
       ],
       "minimumVerification": "L3",
-      "startedAt": "2026-07-28T15:28:44.205Z"
+      "lastOutcome": "IMPROVED",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R005/before",
+        ".iteration/ui/evidence/R005/after"
+      ]
     },
     {
       "id": "UI-007",
@@ -75,7 +93,7 @@
       "impact": 4,
       "confidence": 4,
       "effort": 4,
-      "status": "queued",
+      "status": "done",
       "corePath": true,
       "lastEvidenceAt": "2026-07-28",
       "evidenceRequired": [
@@ -83,7 +101,16 @@
         "request_waterfall",
         "offline_guardrail"
       ],
-      "minimumVerification": "L3"
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R008/before/cold-load.png",
+        ".iteration/ui/evidence/R008/after/cold-load.png",
+        ".iteration/ui/evidence/R008/before/report.json",
+        ".iteration/ui/evidence/R008/after/report.json",
+        ".iteration/ui/evidence/R008/after/offline-boot.png"
+      ]
     },
     {
       "id": "UI-008",
@@ -93,7 +120,7 @@
       "impact": 4,
       "confidence": 3,
       "effort": 2,
-      "status": "queued",
+      "status": "done",
       "corePath": false,
       "lastEvidenceAt": "2026-07-28",
       "evidenceRequired": [
@@ -101,7 +128,576 @@
         "reduced_motion_journey",
         "automated_a11y_probe"
       ],
-      "minimumVerification": "L3"
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R007/after/keyboard-report.json",
+        ".iteration/ui/evidence/R007/after/keyboard-intro.png",
+        ".iteration/ui/evidence/R007/after/keyboard-talent.png",
+        ".iteration/ui/evidence/R007/after/reduced-motion-report.json",
+        ".iteration/ui/evidence/R007/after/reduced-motion-boot.png",
+        ".iteration/ui/evidence/R007/after/reduced-motion-talent.png",
+        ".iteration/ui/evidence/R007-verify.json"
+      ]
+    },
+    {
+      "id": "UI-009",
+      "area": "performance",
+      "title": "标题背景响应式资源与首屏画质护栏",
+      "hypothesis": "按实际视口分发标题背景尺寸，可以在不牺牲大屏画质的前提下继续缩短桌面与手机冷启动。",
+      "impact": 4,
+      "confidence": 5,
+      "effort": 2,
+      "status": "done",
+      "corePath": true,
+      "lastEvidenceAt": "2026-07-28",
+      "evidenceRequired": [
+        "responsive_asset_before_after",
+        "cold_load_before_after",
+        "desktop_mobile_visual_guardrail"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R009/before/cold-load.png",
+        ".iteration/ui/evidence/R009/after/cold-load.png",
+        ".iteration/ui/evidence/R009/after/desktop-title.png",
+        ".iteration/ui/evidence/R009/after/mobile-title-1x.png",
+        ".iteration/ui/evidence/R009/after/mobile-title-3x.png",
+        ".iteration/ui/evidence/R009/after/report.json",
+        ".iteration/ui/evidence/R009/after/responsive-report.json"
+      ]
+    },
+    {
+      "id": "UI-010",
+      "area": "mobile",
+      "title": "竖屏方向提示降噪与首屏空间归还",
+      "hypothesis": "把横屏建议限制为标题页首次出现的非阻塞提示，并归还长期预留的顶部空间，可以降低移动端首屏干扰且增加剧情画面可见面积。",
+      "impact": 4,
+      "confidence": 5,
+      "effort": 2,
+      "status": "done",
+      "corePath": true,
+      "lastEvidenceAt": "2026-07-28",
+      "evidenceRequired": [
+        "mobile_before_after",
+        "orientation_hint_persistence",
+        "gameplay_canvas_space_guardrail"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R010/before/mobile-boot.png",
+        ".iteration/ui/evidence/R010/after/mobile-boot.png",
+        ".iteration/ui/evidence/R010/before/mobile-intro.png",
+        ".iteration/ui/evidence/R010/after/mobile-intro.png",
+        ".iteration/ui/evidence/R010/before/report.json",
+        ".iteration/ui/evidence/R010/after/report.json"
+      ]
+    },
+    {
+      "id": "UI-011",
+      "area": "gameplay",
+      "title": "移动端常驻控制收纳与暂停菜单层级",
+      "hypothesis": "把低频朗读控制收进暂停菜单，并让继续游戏成为明确主操作，可以减少移动端画面遮挡和误退风险，同时不牺牲设置能力。",
+      "impact": 4,
+      "confidence": 5,
+      "effort": 3,
+      "status": "done",
+      "corePath": true,
+      "lastEvidenceAt": "2026-07-28",
+      "evidenceRequired": [
+        "mobile_controls_before_after",
+        "pause_action_hierarchy",
+        "pause_keyboard_and_setting_flow"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R011/before/mobile-gameplay.png",
+        ".iteration/ui/evidence/R011/after/mobile-gameplay.png",
+        ".iteration/ui/evidence/R011/before/mobile-pause-menu.png",
+        ".iteration/ui/evidence/R011/after/mobile-pause-menu.png",
+        ".iteration/ui/evidence/R011/after/report.json",
+        ".iteration/ui/evidence/R011-verify.json"
+      ]
+    },
+    {
+      "id": "UI-012",
+      "area": "boot",
+      "title": "返回玩家标题页操作层级与窄屏容量",
+      "hypothesis": "围绕“继续游戏”建立返回玩家的主操作层级，并将低频入口做清晰分组，可以让多存档状态下的窄屏标题页保持完整可达且更快进入游戏。",
+      "impact": 4,
+      "confidence": 4,
+      "effort": 3,
+      "status": "done",
+      "corePath": true,
+      "lastEvidenceAt": "2026-07-28",
+      "evidenceRequired": [
+        "saved_title_mobile_before_after",
+        "primary_action_hierarchy",
+        "short_viewport_reachability"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R012/before/saved-title-375x667.png",
+        ".iteration/ui/evidence/R012/after/saved-title-375x667.png",
+        ".iteration/ui/evidence/R012/after/saved-title-more-options.png",
+        ".iteration/ui/evidence/R012/before/report.json",
+        ".iteration/ui/evidence/R012/after/report.json",
+        ".iteration/ui/evidence/R012-verify.json"
+      ]
+    },
+    {
+      "id": "UI-013",
+      "area": "boot",
+      "title": "新游戏防误触与存档安全交接",
+      "hypothesis": "把会清除自动存档的新游戏操作改为轻量二次确认，并在确认前保持存档不变，可以降低返回玩家误触丢进度的风险而不引入重型弹窗。",
+      "impact": 4,
+      "confidence": 5,
+      "effort": 2,
+      "status": "done",
+      "corePath": true,
+      "lastEvidenceAt": "2026-07-28",
+      "evidenceRequired": [
+        "new_game_first_click_guard",
+        "save_preserved_before_confirmation",
+        "keyboard_cancel_and_timeout"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R013/before/new-game-first-click.png",
+        ".iteration/ui/evidence/R013/after/new-game-first-click.png",
+        ".iteration/ui/evidence/R013/before/report.json",
+        ".iteration/ui/evidence/R013/after/report.json",
+        ".iteration/ui/evidence/R013-verify.json"
+      ]
+    },
+    {
+      "id": "UI-014",
+      "area": "save",
+      "title": "存档确认弹窗的动作语义与危险层级",
+      "hypothesis": "让覆盖与删除确认使用匹配的按钮文案、色彩和焦点层级，可以减少玩家在高风险存档操作中的误判。",
+      "impact": 4,
+      "confidence": 5,
+      "effort": 2,
+      "status": "done",
+      "corePath": true,
+      "lastEvidenceAt": "2026-07-28",
+      "evidenceRequired": [
+        "confirm_action_label_by_intent",
+        "destructive_action_visual_hierarchy",
+        "confirm_focus_and_cancel_flow"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R014/before/delete-confirm.png",
+        ".iteration/ui/evidence/R014/after/delete-confirm.png",
+        ".iteration/ui/evidence/R014/before/overwrite-confirm.png",
+        ".iteration/ui/evidence/R014/after/overwrite-confirm.png",
+        ".iteration/ui/evidence/R014/after/report.json",
+        ".iteration/ui/evidence/R014-verify.json"
+      ]
+    },
+    {
+      "id": "UI-015",
+      "area": "gameplay",
+      "title": "阶段结算的阅读控制与可访问焦点",
+      "hypothesis": "把阶段结算声明为可控对话框、聚焦继续操作，并在用户交互后暂停自动倒计时，可以让键盘和读屏用户完整阅读阶段结果而不被自动跳过。",
+      "impact": 4,
+      "confidence": 4,
+      "effort": 3,
+      "status": "done",
+      "corePath": true,
+      "lastEvidenceAt": "2026-07-28",
+      "evidenceRequired": [
+        "settlement_dialog_semantics",
+        "countdown_pause_on_interaction",
+        "desktop_mobile_readability"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R015/before/desktop-settlement.png",
+        ".iteration/ui/evidence/R015/after/desktop-settlement.png",
+        ".iteration/ui/evidence/R015/after/desktop-settlement-paused.png",
+        ".iteration/ui/evidence/R015/before/mobile-settlement.png",
+        ".iteration/ui/evidence/R015/after/mobile-settlement.png",
+        ".iteration/ui/evidence/R015/after/mobile-settlement-paused.png",
+        ".iteration/ui/evidence/R015/after/report.json",
+        ".iteration/ui/evidence/R015-verify.json"
+      ]
+    },
+    {
+      "id": "UI-016",
+      "area": "gameplay",
+      "title": "对话播放控制与已读快进状态整合",
+      "hypothesis": "把自动播放、文字速度和已读快进整合成一个不重叠的状态控制区，并暴露准确的按钮语义，可以让玩家始终知道当前阅读模式且在桌面和手机上都能可靠切换。",
+      "impact": 4,
+      "confidence": 5,
+      "effort": 3,
+      "status": "done",
+      "corePath": true,
+      "lastEvidenceAt": "2026-07-28",
+      "evidenceRequired": [
+        "auto_speed_state_visibility",
+        "seen_badge_control_collision",
+        "keyboard_mobile_control_flow"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R016/before/desktop-reading-controls.png",
+        ".iteration/ui/evidence/R016/after/desktop-reading-controls.png",
+        ".iteration/ui/evidence/R016/before/mobile-reading-controls.png",
+        ".iteration/ui/evidence/R016/after/mobile-reading-controls.png",
+        ".iteration/ui/evidence/R016/before/report.json",
+        ".iteration/ui/evidence/R016/after/report.json",
+        ".iteration/ui/evidence/R016-verify.json"
+      ]
+    },
+    {
+      "id": "UI-017",
+      "area": "accessibility",
+      "title": "朗读设置弹窗的移动布局与焦点闭环",
+      "hypothesis": "把朗读设置从固定四列和内联小按钮改为响应式控制面板，并补全 Tab 焦点循环，可以让手机和键盘玩家可靠选择朗读内容、设备语音与风格。",
+      "impact": 3,
+      "confidence": 5,
+      "effort": 3,
+      "status": "done",
+      "corePath": false,
+      "lastEvidenceAt": "2026-07-28",
+      "evidenceRequired": [
+        "voice_panel_mobile_layout",
+        "voice_action_touch_targets",
+        "voice_panel_focus_trap"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R017/before/desktop-voice-panel.png",
+        ".iteration/ui/evidence/R017/before/mobile-voice-panel.png",
+        ".iteration/ui/evidence/R017/after/desktop-voice-panel.png",
+        ".iteration/ui/evidence/R017/after/mobile-voice-panel.png",
+        ".iteration/ui/evidence/R017/after/report.json",
+        ".iteration/ui/evidence/R017-verify.json"
+      ]
+    },
+    {
+      "id": "UI-018",
+      "area": "gameplay",
+      "title": "剧情继续提示的显式操作与状态语义",
+      "hypothesis": "把非语义的继续提示升级为可识别的剧情推进操作，并同步打字、自动播放与多段叙事状态，可以让触控、键盘和读屏玩家清楚理解下一步，同时避免一次输入触发两次推进。",
+      "impact": 4,
+      "confidence": 4,
+      "effort": 3,
+      "status": "done",
+      "corePath": true,
+      "lastEvidenceAt": "2026-07-28",
+      "evidenceRequired": [
+        "continue_control_semantics",
+        "typing_auto_segment_state",
+        "keyboard_touch_single_advance"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R018/before/desktop-continue-control.png",
+        ".iteration/ui/evidence/R018/before/mobile-continue-control.png",
+        ".iteration/ui/evidence/R018/after/desktop-typing-control.png",
+        ".iteration/ui/evidence/R018/after/desktop-continue-control.png",
+        ".iteration/ui/evidence/R018/after/mobile-continue-control.png",
+        ".iteration/ui/evidence/R018/after/mobile-375-continue-control.png",
+        ".iteration/ui/evidence/R018/after/report.json",
+        ".iteration/ui/evidence/R018-verify.json"
+      ]
+    },
+    {
+      "id": "UI-019",
+      "area": "talent",
+      "title": "天赋翻牌节奏与选择反馈的跨端视觉验收",
+      "hypothesis": "用开始、错峰翻牌中间帧和完成帧重新校准牌背、揭晓节奏、可选状态与确认反馈，可以让开局仪式感在桌面和手机上都清晰成立，并补上当前只有自动化断言、没有视觉证据的缺口。",
+      "impact": 5,
+      "confidence": 5,
+      "effort": 3,
+      "status": "done",
+      "corePath": true,
+      "lastEvidenceAt": "2026-07-28",
+      "evidenceRequired": [
+        "deal_back_mid_reveal_final_frames",
+        "desktop_mobile_five_card_capacity",
+        "selection_confirmation_focus_state"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R019/before/desktop-deal-start.png",
+        ".iteration/ui/evidence/R019/before/desktop-deal-mid.png",
+        ".iteration/ui/evidence/R019/before/desktop-deal-end.png",
+        ".iteration/ui/evidence/R019/before/mobile-375-selected.png",
+        ".iteration/ui/evidence/R019/after/desktop-deal-start.png",
+        ".iteration/ui/evidence/R019/after/desktop-deal-backs.png",
+        ".iteration/ui/evidence/R019/after/desktop-deal-mid.png",
+        ".iteration/ui/evidence/R019/after/desktop-deal-end.png",
+        ".iteration/ui/evidence/R019/after/desktop-selected.png",
+        ".iteration/ui/evidence/R019/after/mobile-selected.png",
+        ".iteration/ui/evidence/R019/after/mobile-375-selected.png",
+        ".iteration/ui/evidence/R019/after/report.json",
+        ".iteration/ui/evidence/R019-verify.json"
+      ]
+    },
+    {
+      "id": "UI-020",
+      "area": "ending-gallery",
+      "title": "结局图鉴的可展开详情与键盘浏览",
+      "hypothesis": "把已解锁结局从静态截断卡片升级为可聚焦、可展开的完整详情，并为收集进度和锁定提示补充准确语义，可以让玩家真正回顾已达成结局，而不只是看到一个无法操作的缩略清单。",
+      "impact": 4,
+      "confidence": 5,
+      "effort": 3,
+      "status": "done",
+      "corePath": false,
+      "lastEvidenceAt": "2026-07-29",
+      "evidenceRequired": [
+        "ending_gallery_card_semantics",
+        "unlocked_detail_reveal",
+        "mobile_grid_keyboard_focus"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E2",
+      "lastDecision": "CONTINUE",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R020/before/desktop-gallery.png",
+        ".iteration/ui/evidence/R020/before/mobile-390-gallery.png",
+        ".iteration/ui/evidence/R020/after/desktop-gallery.png",
+        ".iteration/ui/evidence/R020/after/desktop-detail.png",
+        ".iteration/ui/evidence/R020/after/mobile-390-gallery.png",
+        ".iteration/ui/evidence/R020/after/mobile-390-detail.png",
+        ".iteration/ui/evidence/R020/after/mobile-375-gallery.png",
+        ".iteration/ui/evidence/R020/after/report.json"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E2",
+        "guardrails": "PASS",
+        "counterevidence": "确定性三结局探针与 Chromium 尚不能替代真实读屏器，以及全部结局解锁后的长期浏览行为。",
+        "capabilityDelta": "COMPOUNDING：关键帧探针扩展到结局图鉴，并由视觉闸门发现和修复自动化未识别的摘要裁切。",
+        "verificationCostSeconds": 534,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-29T06:06:47.448Z"
+      }
+    },
+    {
+      "id": "UI-021",
+      "area": "performance",
+      "title": "标题首屏从 Phaser 启动中解耦",
+      "hypothesis": "让可操作的标题 DOM 在约 1.48MB Phaser 包下载和初始化之前独立就绪，并在标题空闲期或明确游玩意图后完成引擎接管，可以显著缩短弱网首次可操作等待，同时不牺牲开场、返回玩家和离线链路。",
+      "impact": 5,
+      "confidence": 5,
+      "effort": 5,
+      "status": "done",
+      "corePath": true,
+      "lastEvidenceAt": "2026-07-29",
+      "evidenceRequired": [
+        "cold_start_interactive_before_phaser",
+        "weak_network_title_shell",
+        "engine_handoff_and_returning_player",
+        "offline_start_guardrail"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V3",
+      "lastEvidenceGrade": "E2",
+      "lastDecision": "CONTINUE",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R021/before/cold-load.png",
+        ".iteration/ui/evidence/R021/after/desktop-1440-shell.png",
+        ".iteration/ui/evidence/R021/after/mobile-390-shell.png",
+        ".iteration/ui/evidence/R021/after/mobile-360-shell.png",
+        ".iteration/ui/evidence/R021/after/offline-intro.png",
+        ".iteration/ui/evidence/R021/after/report.json"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V3",
+        "evidenceGrade": "E2",
+        "guardrails": "PASS",
+        "counterevidence": "数据来自本地 Chromium 的合成弱网与离线场景，尚无真实目标用户 RUM、Safari 或低端实体设备数据；Phaser 仍会在标题空闲后加载。",
+        "capabilityDelta": "COMPOUNDING：首屏探针扩展到 pre-Phaser 可交互、网络瀑布、六视口延迟接管与离线点击，并用视觉闸门识别并修复指标可交互但内容仍透明的虚高。",
+        "verificationCostSeconds": 2400,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-29T08:45:23.906Z"
+      }
+    },
+    {
+      "id": "UI-022",
+      "area": "loading-accessibility",
+      "title": "游戏资源加载层的状态隔离与阶段语义",
+      "hypothesis": "让隐藏的游戏资源加载层完全退出无障碍树，并只在真实 preload 期间暴露准确的阶段与进度，可以避免标题页提前播报无关状态，同时让进入游戏的等待更可理解。",
+      "impact": 4,
+      "confidence": 5,
+      "effort": 2,
+      "status": "done",
+      "corePath": true,
+      "lastEvidenceAt": "2026-07-29",
+      "evidenceRequired": [
+        "title_accessibility_tree_without_game_loader",
+        "active_game_loading_progress_semantics",
+        "desktop_mobile_loading_transition"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E2",
+      "lastDecision": "CONTINUE",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R022/before/desktop-1440-loading.png",
+        ".iteration/ui/evidence/R022/before/mobile-390-loading.png",
+        ".iteration/ui/evidence/R022/after/desktop-1440-loading.png",
+        ".iteration/ui/evidence/R022/after/mobile-390-loading.png",
+        ".iteration/ui/evidence/R022/after/report.json"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E2",
+        "guardrails": "PASS",
+        "counterevidence": "证据来自本地 Chromium 的人工资源延迟与成功加载，尚未覆盖真实读屏器、Safari、低端实体机以及 chunk 或纹理真实失败后的恢复行为。",
+        "capabilityDelta": "COMPOUNDING：走查探针与确定性截图能力扩展到六视口瞬态加载生命周期、真实进度和 accessibility snapshot，并由标题页反证直接生成高置信修复。",
+        "verificationCostSeconds": 1080,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-29T09:41:31.113Z"
+      }
+    },
+    {
+      "id": "UI-023",
+      "area": "loading-recovery",
+      "title": "资源失败后的可恢复反馈与重试闭环",
+      "hypothesis": "在动态场景代码或首章资源真实失败时，保留明确失败原因、无损返回说明和可聚焦重试动作，并区分可降级纹理与必须重试的代码失败，可以让玩家从网络异常中自行恢复，而不是只看到短暂提示后猜测下一步。",
+      "impact": 5,
+      "confidence": 4,
+      "effort": 3,
+      "status": "done",
+      "corePath": true,
+      "dependsOn": [
+        "UI-022"
+      ],
+      "lastEvidenceAt": "2026-07-29",
+      "evidenceRequired": [
+        "chunk_failure_return_and_retry",
+        "asset_failure_fallback_semantics",
+        "keyboard_mobile_recovery_action"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E2",
+      "lastDecision": "CONTINUE",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R023/before/desktop-1440-chunk-error.png",
+        ".iteration/ui/evidence/R023/before/mobile-390-chunk-error.png",
+        ".iteration/ui/evidence/R023/before/desktop-asset-fallback.png",
+        ".iteration/ui/evidence/R023/after/desktop-1440-chunk-error.png",
+        ".iteration/ui/evidence/R023/after/mobile-390-chunk-error.png",
+        ".iteration/ui/evidence/R023/after/desktop-asset-fallback.png",
+        ".iteration/ui/evidence/R023/after/mobile-390-asset-fallback.png",
+        ".iteration/ui/evidence/R023/after/report.json"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E2",
+        "guardrails": "PASS",
+        "counterevidence": "证据来自本地 Chromium 的合成 HTTP 503；尚未覆盖真实离线与断续网络、Safari 的模块失败缓存、真实读屏器，以及进入剧情后简化 Graphics 舞台的长期可读性。",
+        "capabilityDelta": "PROVEN：R022 的瞬态加载状态模式在 R023 的代码失败对话框与图片降级通知中完成第二个真实任务复用，并新增六视口故障注入与键盘重载证据。",
+        "verificationCostSeconds": 1320,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-29T10:20:08.816Z"
+      }
+    },
+    {
+      "id": "UI-024",
+      "area": "audio-controls",
+      "title": "声音、朗读与配音状态的跨场景一致性",
+      "hypothesis": "让标题页、游戏顶栏、暂停菜单与朗读设置共享同一组可见状态、持久化结果和读屏反馈，并在系统语音不可用时解释原因，可以减少玩家在多个声音入口之间反复确认和误操作。",
+      "impact": 4,
+      "confidence": 4,
+      "effort": 3,
+      "status": "done",
+      "corePath": true,
+      "lastEvidenceAt": "2026-07-29",
+      "evidenceRequired": [
+        "title_game_pause_audio_state_sync",
+        "narration_unavailable_reason",
+        "desktop_mobile_keyboard_feedback"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E2",
+      "lastDecision": "CONTINUE",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R024/before/desktop-1440-title-audio.png",
+        ".iteration/ui/evidence/R024/before/mobile-unsupported-speech.png",
+        ".iteration/ui/evidence/R024/after/desktop-1440-title-audio.png",
+        ".iteration/ui/evidence/R024/after/desktop-1440-pause-audio.png",
+        ".iteration/ui/evidence/R024/after/mobile-390-title-audio.png",
+        ".iteration/ui/evidence/R024/after/mobile-390-pause-audio.png",
+        ".iteration/ui/evidence/R024/after/mobile-unsupported-speech.png",
+        ".iteration/ui/evidence/R024/after/report.json"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E2",
+        "guardrails": "PASS",
+        "counterevidence": "证据来自本地 Chromium、Windows 系统语音和合成的无 speechSynthesis 环境；尚未覆盖真实读屏器、Safari/iOS、音频权限与硬件静音，也没有验证不同设备语音列表的实际听感。",
+        "capabilityDelta": "COMPOUNDING：A-PROBE 扩展到六视口标题→游戏→暂停→标题状态持久化、共享 live region 和无 TTS 能力注入，并在 L3 压力下消除了两个旧旅程的时序竞态。",
+        "verificationCostSeconds": 1800,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-29T13:26:20.005Z"
+      }
+    },
+    {
+      "id": "UI-025",
+      "area": "notifications",
+      "title": "跨场景通知的优先级、队列与可访问生命周期",
+      "hypothesis": "让成功、提示、警告和错误通知通过同一队列按优先级呈现，并在悬停、聚焦和读屏播报期间暂停消失，可以避免多个 Toast 互相覆盖或玩家尚未读完就消失，同时不遮挡核心操作。",
+      "impact": 4,
+      "confidence": 4,
+      "effort": 3,
+      "status": "active",
+      "corePath": true,
+      "lastEvidenceAt": "2026-07-29",
+      "evidenceRequired": [
+        "multi_notification_priority_and_queue",
+        "desktop_mobile_non_overlap",
+        "keyboard_screenreader_lifecycle"
+      ],
+      "minimumVerification": "L3",
+      "startedAt": "2026-07-29T13:27:53.232Z"
     },
     {
       "id": "UI-FREEZE-INTRO",

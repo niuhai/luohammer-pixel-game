@@ -156,7 +156,8 @@ test.describe('存档/读档', () => {
 
     // 损坏的主存档不应导致页面崩溃
     const continueBtn = page.locator('#ui-boot-buttons button', { hasText: '继续游戏' });
-    const hasContinue = await continueBtn.isVisible({ timeout: 3000 }).catch(() => false);
+    // 探测继续游戏按钮是否存在（结果无需断言，仅确保查询不抛错）
+    await continueBtn.isVisible({ timeout: 3000 }).catch(() => false);
     // 即使没有继续游戏按钮，页面也不应崩溃（BootScene 应正常渲染）
     expect(await page.locator('#ui-boot-overlay').isVisible()).toBeTruthy();
   });

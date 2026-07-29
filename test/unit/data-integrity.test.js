@@ -1,7 +1,7 @@
 // 数据完整性测试：talents/skillTree/endings 三大数据源
 import { describe, it, expect } from 'vitest';
 import { TALENTS } from '../../src/data/talents.js';
-import { SKILL_TREES, ALL_SKILLS, getSkill } from '../../src/data/skillTree.js';
+import { SKILL_TREES, ALL_SKILLS } from '../../src/data/skillTree.js';
 import { ENDINGS } from '../../src/data/endings.js';
 import { ATTRIBUTES } from '../../src/data/effects.js';
 import {

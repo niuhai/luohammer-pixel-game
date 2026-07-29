@@ -3,6 +3,7 @@ import { AudioSystem } from '../systems/AudioSystem.js';
 import { SaveSystem } from '../systems/SaveSystem.js';
 import { MetaProgression } from '../systems/MetaProgression.js';
 import { GAME_WIDTH, GAME_HEIGHT, GRID, FONTS } from '../config.js';
+import { showGameLoadingStage } from '../ui/GameLoadingUI.js';
 
 /**
  * 开场动画「星图 · 人生路口」
@@ -114,7 +115,7 @@ export class IntroScene extends Phaser.Scene {
             .then(() => this.scene.start('GameScene', {}))
             .catch(error => {
               console.error('[IntroScene] 主游戏资源加载失败:', error);
-              this.scene.start('BootScene');
+              this.scene.start('BootScene', { gameplayLoadFailed: true });
             });
           return;
         }
@@ -982,7 +983,7 @@ export class IntroScene extends Phaser.Scene {
       this.time.delayedCall(900, () => this._showLine(2));
       this.time.delayedCall(TL.skipAt, () => {
         this._skipEnabled = true;
-        if (skipHint) skipHint.classList.add('visible');
+        this._revealSkip(skipHint);
       });
       this.time.delayedCall(2500, () => this._finish(fade));
       return;
@@ -1027,7 +1028,7 @@ export class IntroScene extends Phaser.Scene {
     });
     Q(TL.skipAt, () => {
       this._skipEnabled = true;
-      if (skipHint) skipHint.classList.add('visible');
+      this._revealSkip(skipHint);
     });
     this._tlQueue.sort((a, b) => a.at - b.at);
 
@@ -1085,7 +1086,6 @@ export class IntroScene extends Phaser.Scene {
     } catch (e) {}
     const targetKey = this._returnToBoot ? 'BootScene' : 'GameScene';
     const flashEl = document.getElementById('ui-scene-flash');
-    const gameLoadingEl = document.getElementById('ui-game-loading');
     let loadingDelay = null;
     if (targetKey === 'GameScene') {
       // 主游戏代码若尚未准备好，不让白闪停成“卡死白屏”。短等待保持电影式溶解，
@@ -1097,13 +1097,7 @@ export class IntroScene extends Phaser.Scene {
           flashEl.style.transition = 'opacity 220ms ease-out';
           flashEl.style.opacity = '0';
         }
-        if (gameLoadingEl) {
-          const title = gameLoadingEl.querySelector('.app-loading-title');
-          const text = gameLoadingEl.querySelector('.ui-game-loading-text');
-          if (title) title.textContent = '正在展开人生…';
-          if (text) text.textContent = '正在准备你的第一段故事';
-          gameLoadingEl.classList.add('visible');
-        }
+        showGameLoadingStage('preparing');
       }, 180);
       try {
         await this._ensureGameplayScenes();
@@ -1112,8 +1106,7 @@ export class IntroScene extends Phaser.Scene {
         clearTimeout(loadingDelay);
         console.error('[IntroScene] 主游戏资源加载失败:', error);
         if (flashEl) { flashEl.style.transition = 'opacity 240ms ease-out'; flashEl.style.opacity = '0'; }
-        if (gameLoadingEl) gameLoadingEl.classList.remove('visible');
-        this.scene.start('BootScene');
+        this.scene.start('BootScene', { gameplayLoadFailed: true });
         return;
       }
     }
@@ -1144,15 +1137,28 @@ export class IntroScene extends Phaser.Scene {
     this.scene.start(targetKey, {});
   }
 
+  _revealSkip(skipHint) {
+    if (!skipHint) return;
+    skipHint.classList.add('visible');
+    requestAnimationFrame(() => {
+      if (skipHint.classList.contains('visible')) {
+        skipHint.focus({ preventScroll: true });
+      }
+    });
+  }
+
   _setupSkip(overlay, skipHint, fade) {
     const onPointer = () => this._finish(fade);
+    const onClick = () => this._finish(fade);
     const onKey = (e) => {
       if (e.code === 'Space') this._finish(fade);
     };
 
     overlay.addEventListener('pointerdown', onPointer);
+    skipHint?.addEventListener('click', onClick);
     window.addEventListener('keydown', onKey);
     this._skipPointerHandler = onPointer;
+    this._skipClickHandler = onClick;
     this._skipKeyHandler = onKey;
   }
 
@@ -1187,17 +1193,10 @@ export class IntroScene extends Phaser.Scene {
       if (this._returnToBoot) {
         this.scene.start('BootScene');
       } else {
-        const gameLoadingEl = document.getElementById('ui-game-loading');
         const loadingDelay = setTimeout(() => {
           const introOverlay = document.getElementById('ui-intro-overlay');
           if (introOverlay) introOverlay.classList.remove('visible');
-          if (gameLoadingEl) {
-            const title = gameLoadingEl.querySelector('.app-loading-title');
-            const text = gameLoadingEl.querySelector('.ui-game-loading-text');
-            if (title) title.textContent = '正在展开人生…';
-            if (text) text.textContent = '正在准备你的第一段故事';
-            gameLoadingEl.classList.add('visible');
-          }
+          showGameLoadingStage('preparing');
         }, 180);
         try {
           await this._ensureGameplayScenes();
@@ -1206,9 +1205,8 @@ export class IntroScene extends Phaser.Scene {
         } catch (error) {
           clearTimeout(loadingDelay);
           console.error('[IntroScene] 主游戏资源加载失败:', error);
-          if (gameLoadingEl) gameLoadingEl.classList.remove('visible');
           if (fade) fade.classList.remove('active');
-          this.scene.start('BootScene');
+          this.scene.start('BootScene', { gameplayLoadFailed: true });
         }
       }
     });
@@ -1221,6 +1219,11 @@ export class IntroScene extends Phaser.Scene {
     if (this._skipKeyHandler) {
       window.removeEventListener('keydown', this._skipKeyHandler);
     }
+    const skipHint = document.getElementById('ui-intro-skip-hint');
+    if (this._skipClickHandler && skipHint) {
+      skipHint.removeEventListener('click', this._skipClickHandler);
+    }
+    this._skipClickHandler = null;
     if (overlay) overlay.classList.remove('visible');
     this._srClear();
 

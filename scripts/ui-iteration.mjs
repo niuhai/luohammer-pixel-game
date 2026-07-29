@@ -16,6 +16,12 @@ const EVIDENCE_DIR = path.join(UI_DIR, 'evidence');
 const RUNS_DIR = path.join(ITERATION_DIR, 'runs');
 
 const LEVEL_RANK = Object.freeze({ L1: 1, L2: 2, L3: 3 });
+const OUTCOMES = new Set(['IMPROVED', 'NEUTRAL', 'REGRESSED']);
+const VALUES = new Set(['V0', 'V1', 'V2', 'V3']);
+const EVIDENCE_GRADES = new Set(['E0', 'E1', 'E2']);
+const GUARDRAIL_RESULTS = new Set(['PASS', 'FAIL']);
+const DECISIONS = new Set(['CONTINUE', 'PIVOT', 'RE-FRAME', 'FREEZE', 'ROLLBACK']);
+const CAPABILITY_STATES = /^(SEED|PROVEN|COMPOUNDING|NONE)[：:]\s*(\S[\s\S]*)$/i;
 const CHECKS = Object.freeze({
   L1: [
     {
@@ -94,6 +100,165 @@ export function incrementRound(round) {
 
 export function verificationLevelMeets(actual, required) {
   return (LEVEL_RANK[actual] || 0) >= (LEVEL_RANK[required] || Number.POSITIVE_INFINITY);
+}
+
+export function parseVerificationCost(value) {
+  const match = /^(\d+(?:\.\d+)?)\s*(s|m|h)$/i.exec(String(value || '').trim());
+  if (!match) {
+    throw new Error('close 的 --verification-cost 必须使用 90s、6m 或 1.5h 格式');
+  }
+  const amount = Number(match[1]);
+  const multiplier = { s: 1, m: 60, h: 3600 }[match[2].toLowerCase()];
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error('close 的 --verification-cost 必须大于 0');
+  }
+  return Math.round(amount * multiplier);
+}
+
+function requiredArg(args, name) {
+  const value = getArg(args, name)?.trim();
+  if (!value) throw new Error(`close 需要 --${name}=...`);
+  return value;
+}
+
+function requireEnum(value, allowed, message) {
+  if (!allowed.has(value)) throw new Error(message);
+}
+
+export function parseSettlementArgs(args) {
+  const settlement = {
+    outcome: requiredArg(args, 'outcome').toUpperCase(),
+    value: requiredArg(args, 'value').toUpperCase(),
+    evidenceGrade: requiredArg(args, 'evidence-grade').toUpperCase(),
+    guardrails: requiredArg(args, 'guardrails').toUpperCase(),
+    counterevidence: requiredArg(args, 'counterevidence'),
+    capabilityDelta: requiredArg(args, 'capability-delta'),
+    verificationCostSeconds: parseVerificationCost(requiredArg(args, 'verification-cost')),
+    decision: requiredArg(args, 'decision').toUpperCase(),
+    summary: requiredArg(args, 'summary')
+  };
+
+  requireEnum(
+    settlement.outcome,
+    OUTCOMES,
+    'close 的 --outcome 必须是 IMPROVED|NEUTRAL|REGRESSED'
+  );
+  requireEnum(settlement.value, VALUES, 'close 的 --value 必须是 V0|V1|V2|V3');
+  requireEnum(
+    settlement.evidenceGrade,
+    EVIDENCE_GRADES,
+    'close 的 --evidence-grade 必须是 E0|E1|E2'
+  );
+  requireEnum(
+    settlement.guardrails,
+    GUARDRAIL_RESULTS,
+    'close 的 --guardrails 必须是 PASS|FAIL'
+  );
+  requireEnum(
+    settlement.decision,
+    DECISIONS,
+    'close 的 --decision 必须是 CONTINUE|PIVOT|RE-FRAME|FREEZE|ROLLBACK'
+  );
+
+  if (settlement.counterevidence.length < 8 ||
+      /^(无|没有|none|n\/a|不适用|待补充)[。.!！]?$/i.test(settlement.counterevidence)) {
+    throw new Error('close 的 --counterevidence 必须写出具体反证、限制或最大不确定性');
+  }
+  if (!CAPABILITY_STATES.test(settlement.capabilityDelta)) {
+    throw new Error(
+      'close 的 --capability-delta 必须使用 SEED/PROVEN/COMPOUNDING/NONE：具体说明'
+    );
+  }
+
+  if (settlement.outcome === 'IMPROVED') {
+    if (!['V1', 'V2', 'V3'].includes(settlement.value)) {
+      throw new Error('IMPROVED 只能结算为 V1|V2|V3');
+    }
+    if (settlement.evidenceGrade === 'E0') {
+      throw new Error('IMPROVED 至少需要 E1；E0 只能继续探测或结算为 NEUTRAL');
+    }
+    if (settlement.guardrails !== 'PASS') {
+      throw new Error('IMPROVED 要求关键护栏 PASS');
+    }
+  }
+  if (settlement.outcome === 'NEUTRAL') {
+    if (!['V0', 'V1'].includes(settlement.value)) {
+      throw new Error('NEUTRAL 只能结算为 V0|V1');
+    }
+    if (settlement.guardrails !== 'PASS') {
+      throw new Error('关键护栏 FAIL 时必须结算为 REGRESSED');
+    }
+  }
+  if (settlement.outcome === 'REGRESSED') {
+    if (settlement.value !== 'V0') {
+      throw new Error('REGRESSED 的净价值必须结算为 V0');
+    }
+    if (settlement.guardrails !== 'FAIL') {
+      throw new Error('REGRESSED 要求明确记录关键护栏 FAIL');
+    }
+    if (!['PIVOT', 'RE-FRAME', 'ROLLBACK'].includes(settlement.decision)) {
+      throw new Error('REGRESSED 的决策必须是 PIVOT|RE-FRAME|ROLLBACK');
+    }
+  }
+  if (settlement.value === 'V3' && settlement.evidenceGrade !== 'E2') {
+    throw new Error('V3 必须由 E2 证据支持');
+  }
+  if (settlement.decision === 'ROLLBACK' && settlement.outcome !== 'REGRESSED') {
+    throw new Error('只有 REGRESSED 可以选择 ROLLBACK');
+  }
+  if (settlement.decision === 'FREEZE' && settlement.guardrails !== 'PASS') {
+    throw new Error('FREEZE 前关键护栏必须 PASS');
+  }
+
+  return settlement;
+}
+
+function settlementBlock(settlement) {
+  return `## 结算
+
+- Outcome：${settlement.outcome}
+- 价值结算：${settlement.value}
+- 证据等级：${settlement.evidenceGrade}
+- 关键护栏：${settlement.guardrails}
+- 最强反证：${settlement.counterevidence}
+- 能力变化：${settlement.capabilityDelta}
+- 验证成本：${settlement.verificationCostSeconds}s
+- 决策：${settlement.decision}
+- 摘要：${settlement.summary}
+- 自动化证据：${settlement.automationEvidence}
+- 视觉证据：${settlement.visualEvidence.join('、')}
+- 结算时间：${settlement.closedAt}
+`;
+}
+
+export function settleRunRecord(source, settlement) {
+  const normalized = typeof settlement === 'string'
+    ? {
+        outcome: settlement,
+        value: 'PENDING',
+        evidenceGrade: 'PENDING',
+        guardrails: 'PENDING',
+        counterevidence: 'PENDING',
+        capabilityDelta: 'PENDING',
+        verificationCostSeconds: 0,
+        decision: 'PENDING',
+        summary: 'PENDING',
+        automationEvidence: 'PENDING',
+        visualEvidence: ['PENDING'],
+        closedAt: 'PENDING'
+      }
+    : settlement;
+  const block = settlementBlock(normalized);
+  const sectionPattern = /## 结算\r?\n[\s\S]*?(?=\r?\n## |\s*$)/;
+  const closed = source.replace(/^- 状态：ACTIVE$/m, '- 状态：CLOSED');
+  if (!sectionPattern.test(closed)) {
+    throw new Error('运行记录缺少“## 结算”区块');
+  }
+  return closed.replace(sectionPattern, block.trimEnd());
+}
+
+function portableRelative(filePath) {
+  return path.relative(ROOT, filePath).split(path.sep).join('/');
 }
 
 function loadState() {
@@ -215,6 +380,13 @@ ${requiredEvidence}
 ## 结算
 
 - Outcome：PENDING
+- 价值结算：PENDING
+- 证据等级：PENDING
+- 关键护栏：PENDING
+- 最强反证：PENDING
+- 能力变化：PENDING
+- 验证成本：PENDING
+- 决策：PENDING
 `;
 }
 
@@ -261,7 +433,7 @@ function startRound() {
   fs.writeFileSync(runPath, createRoundTemplate(state.roundNext, state, task, snapshot), 'utf8');
 
   console.log(`已启动 ${state.roundNext}：${task.id} / ${task.title}`);
-  console.log(`Outcome Contract：${path.relative(ROOT, runPath)}`);
+  console.log(`Outcome Contract：${portableRelative(runPath)}`);
 }
 
 function checksForLevel(level) {
@@ -313,7 +485,7 @@ function verify(level) {
     ? path.join(EVIDENCE_DIR, `${round}-verify.json`)
     : path.join(EVIDENCE_DIR, 'latest-verify.json');
   writeJson(reportPath, report);
-  console.log(`\n验证结果：${passed ? 'PASS' : 'FAIL'} / ${path.relative(ROOT, reportPath)}`);
+  console.log(`\n验证结果：${passed ? 'PASS' : 'FAIL'} / ${portableRelative(reportPath)}`);
   if (!passed) process.exitCode = 1;
 }
 
@@ -321,16 +493,12 @@ function closeRound(args) {
   const current = loadCurrent();
   if (!current || current.status !== 'active') throw new Error('没有进行中的 UI 轮次');
 
-  const outcome = String(getArg(args, 'outcome') || '').toUpperCase();
-  const summary = getArg(args, 'summary');
+  const settlement = parseSettlementArgs(args);
+  const { outcome } = settlement;
   const evidence = String(getArg(args, 'evidence') || '')
     .split(',')
     .map(item => item.trim())
     .filter(Boolean);
-  if (!['IMPROVED', 'NEUTRAL', 'REGRESSED'].includes(outcome)) {
-    throw new Error('close 需要 --outcome=IMPROVED|NEUTRAL|REGRESSED');
-  }
-  if (!summary) throw new Error('close 需要 --summary=...');
 
   const missingEvidence = evidence.filter(item => !fs.existsSync(path.resolve(ROOT, item)));
   if (missingEvidence.length) {
@@ -354,9 +522,23 @@ function closeRound(args) {
   const closedAt = new Date().toISOString();
   task.status = outcome === 'IMPROVED' ? 'done' : 'queued';
   task.lastOutcome = outcome;
+  task.lastValue = settlement.value;
+  task.lastEvidenceGrade = settlement.evidenceGrade;
+  task.lastDecision = settlement.decision;
   task.lastEvidenceAt = closedAt.slice(0, 10);
   task.attempts = Number(task.attempts || 0) + 1;
   task.evidence = [...new Set([...(task.evidence || []), ...evidence])];
+  task.lastSettlement = {
+    outcome,
+    value: settlement.value,
+    evidenceGrade: settlement.evidenceGrade,
+    guardrails: settlement.guardrails,
+    counterevidence: settlement.counterevidence,
+    capabilityDelta: settlement.capabilityDelta,
+    verificationCostSeconds: settlement.verificationCostSeconds,
+    decision: settlement.decision,
+    closedAt
+  };
   delete task.startedAt;
   backlog.policy.consecutiveNeutralRounds = outcome === 'NEUTRAL'
     ? Number(backlog.policy.consecutiveNeutralRounds || 0) + 1
@@ -365,21 +547,25 @@ function closeRound(args) {
   writeJson(BACKLOG_PATH, backlog);
 
   const runPath = path.join(RUNS_DIR, `${current.round}.md`);
-  const settlement = `
-
-## 循环结算
-
-- Outcome：${outcome}
-- 摘要：${summary}
-- 自动化证据：${verifyReport ? path.relative(ROOT, verifyPath) : '未生成'}
-- 视觉证据：${evidence.length ? evidence.join('、') : '无'}
-- 结算时间：${closedAt}
-`;
-  fs.appendFileSync(runPath, settlement, 'utf8');
+  const runSource = fs.readFileSync(runPath, 'utf8');
+  const settlementRecord = {
+    ...settlement,
+    automationEvidence: verifyReport ? portableRelative(verifyPath) : '未生成',
+    visualEvidence: evidence,
+    closedAt
+  };
+  fs.writeFileSync(runPath, `${settleRunRecord(runSource, settlementRecord)}\n`, 'utf8');
 
   current.status = 'closed';
   current.outcome = outcome;
-  current.summary = summary;
+  current.value = settlement.value;
+  current.evidenceGrade = settlement.evidenceGrade;
+  current.guardrails = settlement.guardrails;
+  current.counterevidence = settlement.counterevidence;
+  current.capabilityDelta = settlement.capabilityDelta;
+  current.verificationCostSeconds = settlement.verificationCostSeconds;
+  current.decision = settlement.decision;
+  current.summary = settlement.summary;
   current.evidence = evidence;
   current.closedAt = closedAt;
   writeJson(CURRENT_PATH, current);
@@ -403,7 +589,7 @@ function printHelp() {
   node scripts/ui-iteration.mjs status
   node scripts/ui-iteration.mjs start
   node scripts/ui-iteration.mjs verify --level=L1|L2|L3
-  node scripts/ui-iteration.mjs close --outcome=IMPROVED --summary="..." --evidence="path-a,path-b"`);
+  node scripts/ui-iteration.mjs close --outcome=IMPROVED --value=V2 --evidence-grade=E1 --guardrails=PASS --counterevidence="尚无真实用户数据" --capability-delta="SEED：新增跨端可读性断言" --verification-cost=6m --decision=CONTINUE --summary="..." --evidence="path-a,path-b"`);
 }
 
 export function main(args = process.argv.slice(2)) {

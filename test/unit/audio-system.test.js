@@ -156,6 +156,39 @@ describe('AudioSystem - 跨场景生命周期', () => {
     expect(Object.values(VOICE_PRESETS).every(preset => preset.pitch >= 0.9 && preset.pitch <= 1.1)).toBe(true);
   });
 
+  it('区分系统朗读不支持、默认语音降级和中文语音就绪', () => {
+    delete window.speechSynthesis;
+    delete window.SpeechSynthesisUtterance;
+    const unsupported = new AudioSystem({ events: new SceneEvents() });
+    expect(unsupported.getSpeechSupportInfo()).toMatchObject({
+      state: 'unsupported',
+      supported: false,
+      canPreview: false,
+      hasChineseVoice: false
+    });
+    unsupported.destroy();
+
+    installSpeechSynthesis(() => []);
+    const fallback = new AudioSystem({ events: new SceneEvents() });
+    expect(fallback.getSpeechSupportInfo()).toMatchObject({
+      state: 'default-fallback',
+      supported: true,
+      canPreview: true,
+      hasChineseVoice: false
+    });
+    fallback.destroy();
+
+    installSpeechSynthesis(() => [{ name: '普通话', lang: 'zh-CN' }]);
+    const ready = new AudioSystem({ events: new SceneEvents() });
+    expect(ready.getSpeechSupportInfo()).toMatchObject({
+      state: 'ready',
+      supported: true,
+      canPreview: true,
+      hasChineseVoice: true
+    });
+    ready.destroy();
+  });
+
   it('新用户默认只朗读富文本中的金句', () => {
     const synth = installSpeechSynthesis(() => [{ name: '普通话', lang: 'zh-CN', localService: true }]);
     const audio = new AudioSystem({ events: new SceneEvents() });

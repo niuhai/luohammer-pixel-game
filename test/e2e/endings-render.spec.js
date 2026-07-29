@@ -95,6 +95,64 @@ test.describe('结局场景渲染', () => {
     expect(descVisible || statsVisible).toBeTruthy();
   });
 
+  test('结局页应先呈现身份与金句，并提供清晰可访问的收口操作', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => {
+      const state = {
+        pride: 7, wealth: 6, reputation: 5, failures: 2, pressure: 4, trust: 6,
+        pressureMax: 10, failurePenalty: 1, successBonus: 1,
+        talentSpecials: [], currentStageId: 'youth', currentNode: 'ending_scholar',
+        flags: [], triggeredEvents: [], history: [], achievements: [],
+        gameStartTime: Date.now() - 60000
+      };
+      localStorage.setItem('luohammer_save', JSON.stringify(state));
+      localStorage.setItem('luohammer_save_backup', JSON.stringify(state));
+    });
+
+    await page.reload();
+    await expect(page.locator('#ui-boot-overlay')).toBeVisible({ timeout: 15_000 });
+    await page.locator('#ui-boot-buttons button', { hasText: '继续游戏' }).click();
+    const overlay = page.locator('#ui-ending-overlay');
+    await expect(overlay).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('#ui-ending-title')).not.toBeEmpty({ timeout: 15_000 });
+
+    await expect(overlay).toHaveAttribute('role', 'dialog');
+    await expect(overlay).toHaveAttribute('aria-labelledby', 'ui-ending-title');
+    await expect(page.locator('.ui-ending-content')).toBeFocused();
+    await expect(page.locator('.ui-ending-quote-label')).toHaveText('本局金句');
+    await expect(page.locator('.ui-ending-section-heading')).toContainText('人生复盘');
+    await expect(page.locator('.ui-ending-copy-kicker')).toHaveText('选择回声');
+    await page.waitForTimeout(1800);
+
+    const hierarchy = await page.evaluate(() => {
+      const top = selector => document.querySelector(selector).getBoundingClientRect().top;
+      const buttons = [...document.querySelectorAll('#ui-ending-buttons > .ui-ending-btn')];
+      const buttonTops = buttons.map(button => Math.round(button.getBoundingClientRect().top));
+      const actionsRect = document.getElementById('ui-ending-buttons').getBoundingClientRect();
+      return {
+        titleTop: top('#ui-ending-title'),
+        quoteTop: top('.ui-ending-quote-frame'),
+        reviewTop: top('.ui-ending-section-heading'),
+        primaryText: document.querySelector('.ui-ending-btn-primary').textContent,
+        buttonRows: new Set(buttonTops).size,
+        actionsVisible: actionsRect.top >= 0 && actionsRect.bottom <= innerHeight,
+        buttonHeights: buttons.map(button => button.getBoundingClientRect().height)
+      };
+    });
+    expect(hierarchy.titleTop).toBeLessThan(hierarchy.quoteTop);
+    expect(hierarchy.quoteTop).toBeLessThan(hierarchy.reviewTop);
+    expect(hierarchy.primaryText).toContain('AI 人生复盘');
+    expect(hierarchy.buttonRows).toBe(1);
+    expect(hierarchy.actionsVisible).toBeTruthy();
+    expect(hierarchy.buttonHeights.every(height => height >= 44)).toBeTruthy();
+
+    const moreBtn = page.locator('.ui-ending-btn-more');
+    await expect(moreBtn).toHaveAttribute('aria-expanded', 'false');
+    await moreBtn.click();
+    await expect(moreBtn).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('#ui-ending-more-menu')).toBeVisible();
+  });
+
   test('六类结局使用匹配的背景、音乐与粒子情绪', async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(error.message));
@@ -102,16 +160,27 @@ test.describe('结局场景渲染', () => {
       if (message.type() === 'error') pageErrors.push(message.text());
     });
 
-    const waitForEndingSceneReady = () => page.waitForFunction(() => {
-      const bootScene = window.game?.scene?.getScene('BootScene');
-      return Boolean(
-        bootScene?.scene?.isActive() &&
-        window.game?.scene?.keys?.EndingScene
-      );
-    }, null, { timeout: 30_000 });
+    const prepareEndingScene = async () => {
+      await page.waitForFunction(() => {
+        const bootScene = window.game?.scene?.getScene('BootScene');
+        return Boolean(bootScene?.scene?.isActive());
+      }, null, { timeout: 30_000 });
+      await page.evaluate(async () => {
+        const bootScene = window.game?.scene?.getScene('BootScene');
+        const ensureScenes = bootScene?.registry?.get('ensureGameplayScenes');
+        if (typeof ensureScenes === 'function') await ensureScenes();
+      });
+      await page.waitForFunction(() => {
+        const bootScene = window.game?.scene?.getScene('BootScene');
+        return Boolean(
+          bootScene?.scene?.isActive() &&
+          window.game?.scene?.keys?.EndingScene
+        );
+      }, null, { timeout: 30_000 });
+    };
 
     await expect(page.locator('#ui-boot-overlay')).toBeVisible({ timeout: 15_000 });
-    await waitForEndingSceneReady();
+    await prepareEndingScene();
 
     const cases = [
       {
@@ -170,7 +239,7 @@ test.describe('结局场景渲染', () => {
       if (index > 0) {
         await page.reload();
         await expect(page.locator('#ui-boot-overlay')).toBeVisible({ timeout: 15_000 });
-        await waitForEndingSceneReady();
+        await prepareEndingScene();
       }
 
       await page.evaluate(({ ending, state: endingState }) => {

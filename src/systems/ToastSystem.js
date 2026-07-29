@@ -4,9 +4,11 @@
  * 设计要点：
  * - 动态创建 DOM 与 CSS，无需在 index.html 中预定义
  * - 固定底部居中、像素风样式，与项目整体视觉一致
- * - 支持队列：多个 Toast 依次显示，每个间隔 100ms
+ * - 优先级队列：error > warning > success > info，同级 FIFO，间隔 100ms（R025）
  * - 4 种类型（info / success / warning / error），各自配色与图标
- * - 淡入淡出 0.3s，默认 3s 自动消失，可配置；点击可提前关闭
+ * - 淡入淡出 0.3s，默认 3s 自动消失，可配置；点击/Escape/Enter/Space 可提前关闭
+ * - 悬停或聚焦期间暂停消失倒计时，离开后用剩余时间恢复（R025 可访问生命周期）
+ * - 同屏最多 3 条，溢出在队列等待；对话框/选项可见时自动锚定到其上方（R025）
  */
 
 const TOAST_STYLES = `
@@ -66,6 +68,12 @@ const TOAST_TYPES = {
 
 const DEFAULT_DURATION = 3000;
 const QUEUE_INTERVAL = 100;
+// R025：跨场景通知优先级——错误 > 警告 > 成功 > 提示；同级保持 FIFO
+const TOAST_PRIORITY = { error: 3, warning: 2, success: 1, info: 0 };
+// R025：同屏可见上限，防止突发通知铺满屏幕遮挡操作区
+const MAX_VISIBLE = 3;
+// R025：恢复消失倒计时时的最小剩余时间，避免 hover 掠过即闪退
+const MIN_RESUME_MS = 300;
 
 export class ToastSystem {
   constructor() {
@@ -114,7 +122,15 @@ export class ToastSystem {
   showToast(message, type = 'info', duration = DEFAULT_DURATION) {
     if (this._destroyed) return;
     this._init();
-    this._queue.push({ message, type, duration });
+    // R025：按优先级插入（同级 FIFO，插到第一个更低优先级之前）
+    const item = { message, type, duration };
+    const pri = TOAST_PRIORITY[type] ?? TOAST_PRIORITY.info;
+    let idx = this._queue.length;
+    for (let i = 0; i < this._queue.length; i++) {
+      const qPri = TOAST_PRIORITY[this._queue[i].type] ?? TOAST_PRIORITY.info;
+      if (qPri < pri) { idx = i; break; }
+    }
+    this._queue.splice(idx, 0, item);
     this._processQueue();
   }
 
@@ -135,12 +151,15 @@ export class ToastSystem {
   }
 
   /**
-   * 处理队列：依次显示 Toast，每个间隔 100ms
+   * 处理队列：按优先级依次显示 Toast，每个间隔 100ms
+   * R025：同屏可见数达 MAX_VISIBLE 时暂停出队，有关闭空位再继续
    */
   _processQueue() {
     if (this._processing) return;
     if (this._queue.length === 0) return;
+    if (this._visibleCount() >= MAX_VISIBLE) return;
 
+    this._updateAnchor();
     this._processing = true;
     const item = this._queue.shift();
     this._renderToast(item);
@@ -152,6 +171,29 @@ export class ToastSystem {
         this._processQueue();
       }
     }, QUEUE_INTERVAL);
+  }
+
+  /** 当前同屏可见 Toast 数 */
+  _visibleCount() {
+    return this._container ? this._container.childElementCount : 0;
+  }
+
+  /**
+   * R025：避让核心操作区——对话框/选项面板可见时，把 Toast 锚定到其上方，
+   * 不再固定 bottom:80px（会压在对白文字上）；两者都隐藏时回到默认 80px。
+   */
+  _updateAnchor() {
+    if (!this._container || typeof document === 'undefined') return;
+    let offset = 80;
+    const choices = document.getElementById('ui-choices');
+    const dialog = document.getElementById('ui-dialog');
+    const visible = (el) => !!(el && el.classList.contains('visible') && el.offsetHeight > 0);
+    if (visible(choices)) {
+      offset = Math.max(offset, Math.ceil(choices.getBoundingClientRect().height) + 12);
+    } else if (visible(dialog)) {
+      offset = Math.max(offset, Math.ceil(dialog.getBoundingClientRect().height) + 12);
+    }
+    this._container.style.bottom = `calc(env(safe-area-inset-bottom, 0px) + ${offset}px)`;
   }
 
   /**
@@ -172,12 +214,21 @@ export class ToastSystem {
 
   /**
    * 渲染单个 Toast 元素
+   * R025 可访问生命周期：
+   * - 可聚焦（tabIndex=0），Escape/Enter/Space 关闭
+   * - 悬停（pointerenter）或聚焦（focusin）期间暂停自动消失倒计时，
+   *   离开后用剩余时间恢复——读屏/细读场景不会"还没读完就消失"
    */
   _renderToast({ message, type, duration }) {
     const config = TOAST_TYPES[type] || TOAST_TYPES.info;
 
     const item = document.createElement('div');
     item.className = 'toast-item';
+    item.dataset.toastType = type;
+    item.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    item.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
+    item.setAttribute('aria-atomic', 'true');
+    item.tabIndex = 0;
     item.style.borderColor = config.color;
     // 确保 border-left-color 按类型正确设置（覆盖 border-left 简写重置）
     item.style.borderLeftColor = config.color;
@@ -194,21 +245,68 @@ export class ToastSystem {
     item.appendChild(icon);
     item.appendChild(text);
 
+    // === 自动消失倒计时（可暂停/恢复） ===
     let closed = false;
+    let remaining = duration || DEFAULT_DURATION;
+    let startedAt = 0;
+    let dismissTimer = null;
+
+    const clearDismissTimer = () => {
+      if (dismissTimer !== null) {
+        clearTimeout(dismissTimer);
+        this._activeTimers.delete(dismissTimer);
+        dismissTimer = null;
+      }
+    };
+
     const close = () => {
       if (closed) return;
       closed = true;
+      clearDismissTimer();
       item.classList.remove('show');
       // 等淡出动画结束后移除节点（R23 P1-3：纳入 _activeTimers 跟踪）
       this._trackedTimeout(() => {
         if (item.parentNode) {
           item.parentNode.removeChild(item);
         }
+        // R025：腾出可见空位后继续出队
+        this._processQueue();
       }, 300);
     };
 
+    const startCountdown = (ms) => {
+      clearDismissTimer();
+      startedAt = Date.now();
+      dismissTimer = this._trackedTimeout(close, ms);
+    };
+
+    const pauseCountdown = () => {
+      if (closed || dismissTimer === null) return;
+      remaining = Math.max(0, remaining - (Date.now() - startedAt));
+      clearDismissTimer();
+    };
+
+    const resumeCountdown = () => {
+      if (closed || dismissTimer !== null) return;
+      // R025：恢复时给足最小剩余时间，避免指针/焦点掠过导致闪退
+      startCountdown(Math.max(remaining, MIN_RESUME_MS));
+    };
+
+    // 悬停暂停 / 离开恢复
+    item.addEventListener('pointerenter', pauseCountdown);
+    item.addEventListener('pointerleave', resumeCountdown);
+    // 聚焦暂停 / 失焦恢复（键盘与读屏浏览共用此路径）
+    item.addEventListener('focusin', pauseCountdown);
+    item.addEventListener('focusout', resumeCountdown);
     // 点击提前关闭
     item.addEventListener('click', close);
+    // 键盘关闭：Escape / Enter / Space
+    item.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        close();
+      }
+    });
 
     this._container.appendChild(item);
 
@@ -219,22 +317,20 @@ export class ToastSystem {
       });
     });
 
-    // 自动消失（R23 P1-3：纳入 _activeTimers 跟踪）
-    const autoCloseTimer = this._trackedTimeout(close, duration || DEFAULT_DURATION);
-
-    // 点击时清除自动定时器，避免重复触发
-    item.addEventListener('click', () => {
-      clearTimeout(autoCloseTimer);
-      this._activeTimers.delete(autoCloseTimer);
-    });
+    startCountdown(remaining);
   }
 
   /**
-   * 销毁 Toast 系统：清空队列并移除容器
+   * 销毁 Toast 系统：清空队列、清理全部定时器并移除容器
+   * R025：补齐 _activeTimers 批量清理（旧实现只摘容器，倒计时仍会在后台空跑）
    */
   destroy() {
     this._destroyed = true;
     this._queue = [];
+    for (const id of this._activeTimers) {
+      clearTimeout(id);
+    }
+    this._activeTimers.clear();
     if (this._container && this._container.parentNode) {
       this._container.parentNode.removeChild(this._container);
     }
@@ -244,5 +340,9 @@ export class ToastSystem {
 
 // 全局单例
 export const toast = new ToastSystem();
+
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  window.__luohammerToastDebug = { ToastSystem, toast };
+}
 
 export default toast;

@@ -67,3 +67,37 @@ describe('BootScene 玩法指引', () => {
     secondScene._cleanupGuide();
   });
 });
+
+describe('BootScene 按需面板', () => {
+  test('悬停只预热一次，点击复用模块并呈现加载状态', async () => {
+    const scene = createSceneHarness();
+    const button = document.createElement('button');
+    button.textContent = '成就图鉴';
+    document.body.appendChild(button);
+
+    let resolveModule;
+    const load = vi.fn(() => new Promise(resolve => {
+      resolveModule = resolve;
+    }));
+    const open = vi.fn();
+
+    scene._attachLazyPanelAction(button, { load, open });
+    button.dispatchEvent(new Event('pointerenter'));
+    button.dispatchEvent(new Event('pointerenter'));
+    expect(load).toHaveBeenCalledTimes(1);
+
+    button.click();
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute('aria-busy')).toBe('true');
+    expect(button.textContent).toBe('正在打开…');
+
+    const loadedModule = { showAchievementGallery: vi.fn() };
+    resolveModule(loadedModule);
+    await vi.waitFor(() => expect(open).toHaveBeenCalledWith(loadedModule));
+
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(button.disabled).toBe(false);
+    expect(button.hasAttribute('aria-busy')).toBe(false);
+    expect(button.textContent).toBe('成就图鉴');
+  });
+});

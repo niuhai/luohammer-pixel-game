@@ -26,10 +26,11 @@ const ATTR_NAMES = Object.freeze({
   successBonus: '正面收益'
 });
 
-const TALENT_DEAL_STAGGER_MS = 65;
-const TALENT_FLIP_LEAD_MS = 260;
-const TALENT_REVEAL_STAGGER_MS = 110;
-const TALENT_FLIP_DURATION_MS = 680;
+const TALENT_DEAL_STAGGER_MS = 45;
+const TALENT_DEAL_DURATION_MS = 320;
+const TALENT_BACK_HOLD_MS = 120;
+const TALENT_REVEAL_STAGGER_MS = 80;
+const TALENT_FLIP_DURATION_MS = 500;
 
 export function formatTalentEffect(key, value) {
   const name = ATTR_NAMES[key] || key;
@@ -64,6 +65,8 @@ export class TalentSystem {
     this._rerollBtn = null;
     this._confirmTimer = null;  // 确认淡出定时器（destroy 时清理）
     this._revealTimers = new Set();
+    this._isRevealing = false;
+    this._revealedCount = 0;
     this._rerollClickHandler = () => this._performReroll();
 
     // 切换周目会重建 TalentSystem；动态按钮不能复用旧实例遗留的闭包监听。
@@ -98,20 +101,30 @@ export class TalentSystem {
     this._onReroll = opts.onReroll || null;
     this._rerollCount = opts.rerollCount || 0;
     this.offerCount = talents.length;
+    const reducedMotion = typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const revealLead = TALENT_DEAL_DURATION_MS +
+      Math.max(0, talents.length - 1) * TALENT_DEAL_STAGGER_MS +
+      TALENT_BACK_HOLD_MS;
+    this._isRevealing = !reducedMotion;
+    this._revealedCount = reducedMotion ? this.offerCount : 0;
+    this.overlay.classList.remove('reveal-complete');
 
     if (this.subtitleEl) {
-      this.subtitleEl.textContent = `本局获得 ${this.offerCount} 个天赋，选择 ${this.maxSelection} 个组合你的人生底色`;
+      this._readySubtitle =
+        `本局获得 ${this.offerCount} 个天赋，选择 ${this.maxSelection} 个组合你的人生底色`;
+      this.subtitleEl.textContent = this._isRevealing
+        ? '命运正在发牌 · 全部揭晓后即可选择'
+        : this._readySubtitle;
     }
-    this._updateSelectionSummary();
+    if (this._isRevealing) this._updateRevealProgress();
+    else this._updateSelectionSummary();
 
     // === 里程碑奖励：刷新按钮 ===
     this._updateRerollButton();
 
     const rarityLabels = { common: '普通', rare: '稀有', legendary: '传说' };
     const specialLabels = SPECIAL_LABELS;
-
-    const reducedMotion = typeof window.matchMedia === 'function' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     talents.forEach((talent, _i) => {
       const card = document.createElement('button');
@@ -121,12 +134,18 @@ export class TalentSystem {
         : 'ui-talent-card is-dealing';
       card.setAttribute('data-rarity', talent.rarity);
       card.setAttribute('data-position', `${_i + 1}/${talents.length}`);
+      card.setAttribute('data-talent-id', talent.id);
       card.setAttribute('aria-pressed', 'false');
-      card.setAttribute('aria-label', `${talent.name}，${rarityLabels[talent.rarity]}天赋`);
+      const baseAriaLabel =
+        `第 ${_i + 1} 张，共 ${talents.length} 张；${talent.name}，${rarityLabels[talent.rarity]}天赋`;
+      card.dataset.baseAriaLabel = baseAriaLabel;
+      card.setAttribute('aria-label', baseAriaLabel);
       const dealDelay = _i * TALENT_DEAL_STAGGER_MS;
-      const revealDelay = TALENT_FLIP_LEAD_MS + _i * TALENT_REVEAL_STAGGER_MS;
+      const revealDelay = revealLead + _i * TALENT_REVEAL_STAGGER_MS;
       card.style.setProperty('--talent-deal-delay', `${dealDelay}ms`);
+      card.style.setProperty('--talent-deal-duration', `${TALENT_DEAL_DURATION_MS}ms`);
       card.style.setProperty('--talent-reveal-delay', `${revealDelay}ms`);
+      card.style.setProperty('--talent-flip-duration', `${TALENT_FLIP_DURATION_MS}ms`);
       if (!reducedMotion) {
         // 翻牌完成前不允许误选，也不让键盘焦点落到尚未揭晓的卡牌上。
         card.disabled = true;
@@ -175,23 +194,27 @@ export class TalentSystem {
 
       if (!reducedMotion) {
         this._scheduleRevealTask(() => {
-          card.disabled = false;
-          card.removeAttribute('aria-disabled');
-          card.tabIndex = 0;
-          card.classList.remove('is-dealing');
-          card.classList.add('is-revealed');
+          this._revealedCount = Math.max(this._revealedCount, _i + 1);
+          if (this._revealedCount >= this.offerCount) {
+            this._completeReveal();
+          } else {
+            this._updateRevealProgress();
+          }
         }, revealDelay + TALENT_FLIP_DURATION_MS);
       }
     });
 
     this.overlay.classList.add('visible');
+    if (reducedMotion) {
+      this._completeReveal();
+    }
 
     // 音效落在翻牌经过 90° 的瞬间，视觉与听觉共用同一个 stagger 节奏。
     try {
       const audio = this.scene && this.scene.audio;
       if (!reducedMotion && audio && audio.enabled) {
         for (let i = 0; i < talents.length; i++) {
-          const delay = TALENT_FLIP_LEAD_MS + i * TALENT_REVEAL_STAGGER_MS +
+          const delay = revealLead + i * TALENT_REVEAL_STAGGER_MS +
             Math.round(TALENT_FLIP_DURATION_MS * 0.48);
           const isLegendary = talents[i].rarity === 'legendary';
           const isRare = talents[i].rarity === 'rare';
@@ -256,13 +279,20 @@ export class TalentSystem {
     btn.style.display = 'inline-block';
     btn.textContent = `↻ 刷新天赋 (${this._rerollCount})`;
     btn.classList.add('visible');
+    btn.disabled = this._isRevealing;
+    btn.setAttribute(
+      'aria-label',
+      this._isRevealing
+        ? `天赋揭晓完成后可刷新，剩余 ${this._rerollCount} 次`
+        : `刷新天赋，剩余 ${this._rerollCount} 次`
+    );
   }
 
   /**
    * 执行刷新：调用 onReroll 回调获取新天赋，然后重新渲染
    */
   _performReroll() {
-    if (!this._onReroll || this._rerollCount <= 0) return;
+    if (this._isRevealing || !this._onReroll || this._rerollCount <= 0) return;
     const newTalents = this._onReroll();
     if (!Array.isArray(newTalents)) return;
     this._rerollCount = Math.max(0, this._rerollCount - 1);
@@ -293,13 +323,88 @@ export class TalentSystem {
     }
   }
 
+  _updateRevealProgress() {
+    this.overlay.setAttribute('aria-busy', 'true');
+    this.overlay.dataset.phase = 'revealing';
+    if (this.hintEl) {
+      this.hintEl.innerHTML =
+        `天赋揭晓中 · <span>${this._revealedCount}/${this.offerCount}</span>`;
+    }
+    this.confirmBtn.disabled = true;
+    this.confirmBtn.classList.remove('visible');
+    this.confirmBtn.textContent = `请等待天赋揭晓 ${this._revealedCount}/${this.offerCount}`;
+    if (this._rerollBtn) this._rerollBtn.disabled = true;
+  }
+
+  _completeReveal(cards = null) {
+    if (!this.overlay || !this.scene) return;
+    const talentCards = cards || [...this.cardsEl.querySelectorAll('.ui-talent-card')];
+    for (const card of talentCards) {
+      card.disabled = false;
+      card.removeAttribute('aria-disabled');
+      card.tabIndex = 0;
+      card.classList.remove('is-dealing');
+      card.classList.add('is-revealed');
+    }
+    this._isRevealing = false;
+    this._revealedCount = this.offerCount;
+    this.overlay.setAttribute('aria-busy', 'false');
+    this.overlay.dataset.phase = 'choosing';
+    this.overlay.classList.add('reveal-complete');
+    if (this.subtitleEl && this._readySubtitle) {
+      this.subtitleEl.textContent = this._readySubtitle;
+    }
+    this.confirmBtn.disabled = true;
+    this.confirmBtn.textContent = `请选择 ${this.maxSelection} 个天赋`;
+    if (this._rerollBtn) {
+      this._rerollBtn.disabled = false;
+      this._rerollBtn.setAttribute(
+        'aria-label',
+        `刷新天赋，剩余 ${this._rerollCount} 次`
+      );
+    }
+    this._updateSelectionSummary();
+    this._focusFirstAvailableCard();
+  }
+
+  _syncSelectedCardState() {
+    const cards = [...this.cardsEl.querySelectorAll('.ui-talent-card')];
+    for (const card of cards) {
+      const front = card.querySelector('.ui-talent-card-front');
+      const order = this.selectedTalents.findIndex(
+        talent => talent.id === card.dataset.talentId
+      );
+      const selected = order >= 0;
+      card.classList.toggle('selected', selected);
+      card.setAttribute('aria-pressed', String(selected));
+      if (selected) {
+        card.dataset.selectionOrder = String(order + 1);
+        if (front) front.dataset.selectionOrder = String(order + 1);
+        card.setAttribute(
+          'aria-label',
+          `${card.dataset.baseAriaLabel}，已选第 ${order + 1} 个`
+        );
+      } else {
+        delete card.dataset.selectionOrder;
+        if (front) delete front.dataset.selectionOrder;
+        card.setAttribute('aria-label', card.dataset.baseAriaLabel || '');
+      }
+    }
+  }
+
+  _focusFirstAvailableCard() {
+    if (!this.overlay?.classList.contains('visible')) return;
+    if (this.overlay.contains(document.activeElement)) return;
+    const firstCard = this.cardsEl.querySelector('.ui-talent-card:not([disabled])');
+    firstCard?.focus({ preventScroll: true });
+  }
+
   _toggleTalent(talent, cardEl) {
+    if (this._isRevealing || cardEl.disabled) return;
     const idx = this.selectedTalents.indexOf(talent);
     if (idx >= 0) {
       // Deselect
       this.selectedTalents.splice(idx, 1);
-      cardEl.classList.remove('selected');
-      cardEl.setAttribute('aria-pressed', 'false');
     } else {
       // Select (max 2)
       if (this.selectedTalents.length >= this.maxSelection) {
@@ -310,9 +415,8 @@ export class TalentSystem {
         return;
       }
       this.selectedTalents.push(talent);
-      cardEl.classList.add('selected');
-      cardEl.setAttribute('aria-pressed', 'true');
     }
+    this._syncSelectedCardState();
 
     const remaining = this.maxSelection - this.selectedTalents.length;
     const complete = remaining === 0;
@@ -353,6 +457,11 @@ export class TalentSystem {
     this.confirmBtn.disabled = true;
     this.confirmBtn.textContent = `请选择 ${this.maxSelection} 个天赋`;
     this.selectedTalents = [];
+    this._isRevealing = false;
+    this._revealedCount = 0;
+    this.overlay.setAttribute('aria-busy', 'false');
+    delete this.overlay.dataset.phase;
+    this.overlay.classList.remove('reveal-complete');
     if (this.comboEl) {
       this.comboEl.textContent = '';
       this.comboEl.classList.remove('visible');

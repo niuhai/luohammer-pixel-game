@@ -54,6 +54,7 @@ export function showEndingGallery(options = {}) {
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
   overlay.setAttribute('aria-labelledby', 'ui-ending-gallery-title');
+  overlay.setAttribute('aria-describedby', 'ui-ending-gallery-intro');
 
   overlay.innerHTML = `
     <div class="ui-ending-gallery-card">
@@ -65,13 +66,57 @@ export function showEndingGallery(options = {}) {
         <div class="ui-ending-gallery-count">${unlockedCount} / ${totalCount}</div>
         <button class="ui-ending-gallery-close" aria-label="关闭">✕</button>
       </div>
-      <div class="ui-ending-gallery-progress">
+      <div
+        class="ui-ending-gallery-progress"
+        role="progressbar"
+        aria-label="结局收集进度"
+        aria-valuemin="0"
+        aria-valuemax="${totalCount}"
+        aria-valuenow="${unlockedCount}"
+        aria-valuetext="已解锁 ${unlockedCount} / ${totalCount} 个结局"
+      >
         <div class="ui-ending-gallery-progress-fill" style="width: ${pct}%"></div>
       </div>
-      <div class="ui-ending-gallery-intro">
-        每一种选择，都通往不同的命运。已收集 <b style="color: var(--color-gold);">${unlockedCount}</b> / ${totalCount} 种结局。
+      <div class="ui-ending-gallery-intro" id="ui-ending-gallery-intro">
+        每一种选择，都通往不同的命运。已收集 <b style="color: var(--color-gold);">${unlockedCount}</b> / ${totalCount} 种结局。${unlockedCount > 0 ? '<span>选择已解锁结局查看完整回顾。</span>' : ''}
       </div>
-      <div class="ui-ending-gallery-grid" id="ui-ending-gallery-grid"></div>
+      <section
+        class="ui-ending-gallery-detail"
+        id="ui-ending-gallery-detail"
+        role="region"
+        aria-labelledby="ui-ending-gallery-detail-name"
+        hidden
+      >
+        <div class="ui-ending-gallery-detail-header">
+          <div class="ui-ending-gallery-detail-identity">
+            <span class="ui-ending-gallery-detail-icon" aria-hidden="true"></span>
+            <div>
+              <div class="ui-ending-gallery-detail-kicker">已解锁结局</div>
+              <h3
+                class="ui-ending-gallery-detail-name"
+                id="ui-ending-gallery-detail-name"
+              ></h3>
+              <div class="ui-ending-gallery-detail-subtitle"></div>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="ui-ending-gallery-detail-close"
+            aria-label="收起结局详情"
+          >收起</button>
+        </div>
+        <p class="ui-ending-gallery-detail-desc"></p>
+        <blockquote class="ui-ending-gallery-detail-respect">
+          <span>值得尊重</span>
+          <q></q>
+        </blockquote>
+      </section>
+      <div
+        class="ui-ending-gallery-grid"
+        id="ui-ending-gallery-grid"
+        role="list"
+        aria-label="结局列表，已解锁 ${unlockedCount} 个，共 ${totalCount} 个"
+      ></div>
     </div>
   `;
 
@@ -81,6 +126,55 @@ export function showEndingGallery(options = {}) {
   requestAnimationFrame(() => overlay.classList.add('visible'));
 
   const grid = overlay.querySelector('#ui-ending-gallery-grid');
+  const detailPanel = overlay.querySelector('#ui-ending-gallery-detail');
+  const detailIcon = detailPanel.querySelector('.ui-ending-gallery-detail-icon');
+  const detailName = detailPanel.querySelector('.ui-ending-gallery-detail-name');
+  const detailSubtitle = detailPanel.querySelector(
+    '.ui-ending-gallery-detail-subtitle'
+  );
+  const detailDesc = detailPanel.querySelector('.ui-ending-gallery-detail-desc');
+  const detailRespect = detailPanel.querySelector(
+    '.ui-ending-gallery-detail-respect q'
+  );
+  const detailClose = detailPanel.querySelector(
+    '.ui-ending-gallery-detail-close'
+  );
+  let activeToggle = null;
+
+  const collapseDetail = (restoreFocus = true) => {
+    if (detailPanel.hidden) return false;
+    detailPanel.hidden = true;
+    detailPanel.removeAttribute('data-ending-id');
+    if (activeToggle) {
+      activeToggle.setAttribute('aria-expanded', 'false');
+      if (restoreFocus && activeToggle.isConnected) {
+        activeToggle.focus({ preventScroll: true });
+      }
+    }
+    activeToggle = null;
+    return true;
+  };
+
+  const revealDetail = (ending, toggle) => {
+    if (!detailPanel.hidden &&
+      detailPanel.getAttribute('data-ending-id') === ending.id) {
+      collapseDetail();
+      return;
+    }
+
+    if (activeToggle) activeToggle.setAttribute('aria-expanded', 'false');
+    activeToggle = toggle;
+    activeToggle.setAttribute('aria-expanded', 'true');
+    detailPanel.setAttribute('data-ending-id', ending.id);
+    detailIcon.textContent = ending.icon || '★';
+    detailName.textContent = ending.name;
+    detailSubtitle.textContent = ending.subtitle || '';
+    detailDesc.textContent = (ending.desc || '').replace(/罗远/g, '老罗');
+    detailRespect.textContent = (ending.respect || '').replace(/罗远/g, '老罗');
+    detailClose.setAttribute('aria-label', `收起“${ending.name}”结局详情`);
+    detailPanel.hidden = false;
+    try { options.audio?.playDialogAdvance?.(); } catch (e) {}
+  };
 
   // 渲染结局卡片
   ENDINGS.forEach((ending, idx) => {
@@ -89,22 +183,40 @@ export function showEndingGallery(options = {}) {
     card.className = isUnlocked
       ? 'ui-ending-gallery-card-item ui-ending-gallery-card-unlocked'
       : 'ui-ending-gallery-card-item ui-ending-gallery-card-locked';
+    card.setAttribute('role', 'listitem');
     // R38: stagger 入场动画延迟（前 12 张卡片错开入场，强化"揭晓感"）
     card.style.setProperty('--card-index', Math.min(idx, 12));
 
     if (isUnlocked) {
       const desc = (ending.desc || '').replace(/罗远/g, '老罗');
-      const shortDesc = desc.length > 80 ? desc.substring(0, 80) + '…' : desc;
+      const shortDesc = desc.length > 58 ? desc.substring(0, 58) + '…' : desc;
       card.innerHTML = `
-        <div class="ui-ending-gallery-card-icon">${ending.icon || '★'}</div>
-        <div class="ui-ending-gallery-card-name">${ending.name}</div>
-        <div class="ui-ending-gallery-card-subtitle">${ending.subtitle || ''}</div>
-        <div class="ui-ending-gallery-card-desc">${shortDesc}</div>
+        <button
+          type="button"
+          class="ui-ending-gallery-card-toggle"
+          aria-expanded="false"
+          aria-controls="ui-ending-gallery-detail"
+          aria-label="${ending.name}，${ending.subtitle || '已解锁'}。查看完整结局"
+        >
+          <span class="ui-ending-gallery-card-icon" aria-hidden="true">${ending.icon || '★'}</span>
+          <span class="ui-ending-gallery-card-name">${ending.name}</span>
+          <span class="ui-ending-gallery-card-subtitle">${ending.subtitle || ''}</span>
+          <span class="ui-ending-gallery-card-desc">${shortDesc}</span>
+          <span class="ui-ending-gallery-card-action">
+            查看完整结局 <span aria-hidden="true">↓</span>
+          </span>
+        </button>
       `;
+      const toggle = card.querySelector('.ui-ending-gallery-card-toggle');
+      toggle.addEventListener('click', () => revealDetail(ending, toggle));
     } else {
       const hint = ENDING_HINTS[ending.id] || '尝试不同的属性组合';
+      card.setAttribute(
+        'aria-label',
+        `第 ${idx + 1} 个结局，未解锁。提示：${hint}`
+      );
       card.innerHTML = `
-        <div class="ui-ending-gallery-card-icon">◑</div>
+        <div class="ui-ending-gallery-card-icon" aria-hidden="true">◑</div>
         <div class="ui-ending-gallery-card-name">???</div>
         <div class="ui-ending-gallery-card-subtitle">未解锁</div>
         <div class="ui-ending-gallery-card-hint">提示：${hint}</div>
@@ -112,6 +224,30 @@ export function showEndingGallery(options = {}) {
     }
 
     grid.appendChild(card);
+  });
+
+  detailClose.addEventListener('click', () => collapseDetail());
+  grid.addEventListener('keydown', (e) => {
+    const current = e.target.closest('.ui-ending-gallery-card-toggle');
+    if (!current) return;
+    const toggles = [...grid.querySelectorAll(
+      '.ui-ending-gallery-card-toggle'
+    )];
+    const currentIndex = toggles.indexOf(current);
+    let nextIndex = currentIndex;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      nextIndex = (currentIndex + 1) % toggles.length;
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      nextIndex = (currentIndex - 1 + toggles.length) % toggles.length;
+    } else if (e.key === 'Home') {
+      nextIndex = 0;
+    } else if (e.key === 'End') {
+      nextIndex = toggles.length - 1;
+    } else {
+      return;
+    }
+    e.preventDefault();
+    toggles[nextIndex].focus({ preventScroll: false });
   });
 
   // 关闭按钮
@@ -145,6 +281,7 @@ export function showEndingGallery(options = {}) {
   // 对齐 AchievementGallery onKey 模式，防监听器泄漏）
   const escHandler = (e) => {
     if (e.key === 'Escape') {
+      if (collapseDetail()) return;
       closeGallery();
       return;
     }
@@ -169,8 +306,11 @@ export function showEndingGallery(options = {}) {
     }
   };
   document.addEventListener('keydown', escHandler);
-  // 初始焦点移入弹窗（关闭按钮）
-  closeBtn.focus();
+  // 初始焦点进入第一个可回顾的结局；全锁定时仍落在关闭按钮。
+  const firstEndingToggle = grid.querySelector(
+    '.ui-ending-gallery-card-toggle'
+  );
+  (firstEndingToggle || closeBtn).focus();
   // R91：图鉴开启确认音
   try { options.audio?.playChoice?.(); } catch (e) {}
 }

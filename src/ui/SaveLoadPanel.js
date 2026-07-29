@@ -232,33 +232,66 @@ const PANEL_CSS = `
     color: var(--color-danger);
     background: rgba(224,64,64,0.08);
   }
+  .ui-saveload-btn.danger {
+    border-color: rgba(224,64,64,0.62);
+    color: #f2a0a0;
+    background: rgba(154,38,48,0.1);
+  }
   .ui-saveload-confirm {
     position: absolute;
     inset: 0;
     display: none;
     align-items: center;
     justify-content: center;
-    background: rgba(0,0,0,0.7);
+    background:
+      radial-gradient(circle at 50% 44%, rgba(37,42,76,0.24), transparent 42%),
+      rgba(0,0,0,0.8);
+    backdrop-filter: blur(3px);
     z-index: 210;
+    padding: 14px;
   }
   .ui-saveload-confirm.visible { display: flex; }
   .ui-saveload-confirm-box {
-    background: var(--color-bg-panel);
-    border: 2px solid var(--color-gold);
-    padding: clamp(18px, 3vw, 26px);
-    max-width: min(90vw, 340px);
+    position: relative;
+    width: min(100%, 380px);
+    box-sizing: border-box;
+    background: linear-gradient(145deg, rgba(24,31,63,0.99), rgba(10,12,28,0.99));
+    border: 1px solid rgba(240,192,64,0.75);
+    box-shadow:
+      0 22px 64px rgba(0,0,0,0.62),
+      inset 0 0 0 1px rgba(240,192,64,0.07);
+    padding: clamp(20px, 3vw, 28px);
     text-align: center;
+  }
+  .ui-saveload-confirm[data-intent="delete"] .ui-saveload-confirm-box {
+    border-color: rgba(224,64,64,0.82);
+    box-shadow:
+      0 22px 64px rgba(0,0,0,0.66),
+      inset 0 0 0 1px rgba(224,64,64,0.08);
+  }
+  .ui-saveload-confirm-kicker {
+    margin-bottom: 9px;
+    color: rgba(240,192,64,0.78);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+  }
+  .ui-saveload-confirm[data-intent="delete"] .ui-saveload-confirm-kicker {
+    color: #ef9696;
   }
   .ui-saveload-confirm-text {
     color: var(--color-text-primary);
     font-size: clamp(13px, 1.8vw, 15px);
-    margin-bottom: 16px;
-    line-height: 1.6;
+    margin-bottom: 20px;
+    line-height: 1.7;
   }
   .ui-saveload-confirm-btns {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
-    justify-content: center;
+  }
+  .ui-saveload-confirm-btns .ui-saveload-btn {
+    min-height: 44px;
   }
 `;
 
@@ -341,12 +374,15 @@ export function showSaveLoadPanel(options = {}) {
         <button class="ui-saveload-close" aria-label="关闭">✕</button>
       </div>
       <div class="ui-saveload-grid" id="ui-saveload-grid"></div>
-      <div class="ui-saveload-confirm" id="ui-saveload-confirm">
+      <div class="ui-saveload-confirm" id="ui-saveload-confirm" role="alertdialog"
+        aria-modal="true" aria-labelledby="ui-saveload-confirm-kicker"
+        aria-describedby="ui-saveload-confirm-text" aria-hidden="true">
         <div class="ui-saveload-confirm-box">
+          <div class="ui-saveload-confirm-kicker" id="ui-saveload-confirm-kicker">确认操作</div>
           <div class="ui-saveload-confirm-text" id="ui-saveload-confirm-text"></div>
           <div class="ui-saveload-confirm-btns">
             <button class="ui-saveload-btn" id="ui-saveload-confirm-cancel">取消</button>
-            <button class="ui-saveload-btn primary" id="ui-saveload-confirm-ok">确认覆盖</button>
+            <button class="ui-saveload-btn primary" id="ui-saveload-confirm-ok">确认</button>
           </div>
         </div>
       </div>
@@ -358,6 +394,7 @@ export function showSaveLoadPanel(options = {}) {
 
   const grid = overlay.querySelector('#ui-saveload-grid');
   const confirmEl = overlay.querySelector('#ui-saveload-confirm');
+  const confirmKicker = overlay.querySelector('#ui-saveload-confirm-kicker');
   const confirmText = overlay.querySelector('#ui-saveload-confirm-text');
   const confirmOk = overlay.querySelector('#ui-saveload-confirm-ok');
   const confirmCancel = overlay.querySelector('#ui-saveload-confirm-cancel');
@@ -366,18 +403,32 @@ export function showSaveLoadPanel(options = {}) {
   let pendingAction = null;
   let confirmTriggerEl = null;
   let confirmTriggerSlotId = null;
-  const showConfirm = (text, action) => {
+  const showConfirm = ({
+    text,
+    action,
+    intent = 'overwrite',
+    kicker = '确认操作',
+    confirmLabel = '确认',
+    confirmAriaLabel = confirmLabel
+  }) => {
     pendingAction = action;
     // 记录触发按钮及其槽位，确认弹窗关闭后焦点归还（防误删档：焦点先落「取消」）
     confirmTriggerEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     confirmTriggerSlotId = confirmTriggerEl?.closest?.('.ui-saveload-slot')?.dataset?.slotId || null;
+    confirmEl.dataset.intent = intent;
+    confirmEl.setAttribute('aria-hidden', 'false');
+    confirmKicker.textContent = kicker;
     confirmText.innerHTML = text;
+    confirmOk.textContent = confirmLabel;
+    confirmOk.className = `ui-saveload-btn ${intent === 'delete' ? 'danger' : 'primary'}`;
+    confirmOk.setAttribute('aria-label', confirmAriaLabel);
     confirmEl.classList.add('visible');
     confirmCancel.focus();
   };
   const hideConfirm = () => {
     pendingAction = null;
     confirmEl.classList.remove('visible');
+    confirmEl.setAttribute('aria-hidden', 'true');
     // 焦点归还触发槽位按钮；确认操作会重渲染槽位，原按钮已销毁则按槽位找回新按钮
     let target = confirmTriggerEl;
     if (target && !target.isConnected && confirmTriggerSlotId) {
@@ -526,7 +577,14 @@ export function showSaveLoadPanel(options = {}) {
           saveBtn.disabled = false;
         };
         if (!info.empty) {
-          showConfirm(`此槽位已有存档（<b style="color:var(--color-gold)">${info.label}</b>），确定覆盖？`, doSave);
+          showConfirm({
+            intent: 'overwrite',
+            kicker: '覆盖存档',
+            confirmLabel: '确认覆盖',
+            confirmAriaLabel: `确认覆盖${info.label}`,
+            text: `此槽位已有存档（<b style="color:var(--color-gold)">${info.label}</b>），确定覆盖？`,
+            action: doSave
+          });
         } else {
           doSave();
         }
@@ -565,10 +623,17 @@ export function showSaveLoadPanel(options = {}) {
       delBtn.className = 'ui-saveload-btn danger';
       delBtn.textContent = '删除';
       delBtn.addEventListener('click', () => {
-        showConfirm(`确定删除 <b style="color:var(--color-gold)">${info.label}</b>？此操作不可恢复。`, () => {
-          save.clear(info.slotId);
-          renderSlots();
-          _toast('已删除 ' + info.label);
+        showConfirm({
+          intent: 'delete',
+          kicker: '危险操作',
+          confirmLabel: '确认删除',
+          confirmAriaLabel: `确认删除${info.label}`,
+          text: `确定删除 <b style="color:var(--color-gold)">${info.label}</b>？此操作不可恢复。`,
+          action: () => {
+            save.clear(info.slotId);
+            renderSlots();
+            _toast('已删除 ' + info.label);
+          }
         });
       });
       actions.appendChild(delBtn);

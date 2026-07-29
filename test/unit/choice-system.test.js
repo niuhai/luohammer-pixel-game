@@ -12,7 +12,8 @@ function createScene(state = {}) {
     },
     dialog: {
       notifyChoicesVisible: vi.fn(),
-      getDialogHeight: () => 120
+      getDialogHeight: () => 120,
+      requestFocusOnNextShow: vi.fn()
     },
     vibrate: vi.fn()
   };
@@ -135,6 +136,45 @@ describe('ChoiceSystem - 同局支线防重复', () => {
 
     expect(onChoice).not.toHaveBeenCalled();
     expect(document.querySelector('.ui-choice-btn').disabled).toBe(false);
+  });
+
+  it('进入选择态时给出行动提示并聚焦第一个可选按钮', () => {
+    const scene = createScene({ pride: 1, history: [], flags: new Set() });
+    const system = new ChoiceSystem(scene);
+
+    system.show([
+      { label: '锁定方向', next: 'locked', requires: { pride: 3 } },
+      { label: '可选方向', next: 'open' }
+    ], vi.fn());
+
+    const choices = document.querySelector('#ui-choices');
+    const buttons = [...document.querySelectorAll('.ui-choice-btn')];
+    expect(choices.getAttribute('role')).toBe('group');
+    expect(choices.getAttribute('aria-label')).toContain('1 项可选');
+    expect(document.querySelector('.ui-choice-context').textContent).toContain('做出你的选择');
+    expect(document.activeElement).toBe(buttons[1]);
+  });
+
+  it('方向键跳过锁定项移动焦点，退场后请求归还剧情焦点', () => {
+    const scene = createScene({ pride: 3, history: [], flags: new Set() });
+    const system = new ChoiceSystem(scene);
+
+    system.show([
+      { label: '方向一', next: 'one' },
+      { label: '锁定方向', next: 'locked', requires: { pride: 5 } },
+      { label: '方向三', next: 'three' }
+    ], vi.fn());
+
+    const buttons = [...document.querySelectorAll('.ui-choice-btn')];
+    expect(document.activeElement).toBe(buttons[0]);
+    const keyHandler = scene.input.keyboard.on.mock.calls[0][1];
+    const preventDefault = vi.fn();
+    keyHandler({ key: 'ArrowDown', preventDefault });
+    expect(preventDefault).toHaveBeenCalledOnce();
+    expect(document.activeElement).toBe(buttons[2]);
+
+    system.hide(true);
+    expect(scene.dialog.requestFocusOnNextShow).toHaveBeenCalledOnce();
   });
 
   it('长按显示完整影响且松手不会误触选择', () => {

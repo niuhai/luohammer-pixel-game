@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "cycle": "2026-07-29-v4.3-continuous",
+  "round": "R025",
+  "taskId": "UI-025",
+  "status": "active",
+  "startedAt": "2026-07-29T13:27:53.232Z",
+  "baseline": {
+    "head": "2bb38a3",
+    "dirtyEntries": 82
+  }
+}

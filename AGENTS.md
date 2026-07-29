@@ -13,8 +13,10 @@ When the active objective includes frontend/UI/UX continuous optimization, do no
 4. Preserve the intro scene freeze declared in `.iteration/state.yaml` unless
    new user evidence explicitly reopens it.
 5. Verify desktop Chromium at 1440×900 and mobile Chromium at 390×844 and
-   375×812 for user-visible UI changes. Include a mid-animation frame when the
-   task changes motion or transitions.
+   375×812 for user-visible UI changes. For entry, layout, responsive, or
+   cross-screen changes, expand the matrix to desktop 1366×768 / 1920×1080 and
+   mobile 360×800. Include a mid-animation frame when the task changes motion
+   or transitions.
 6. A UI round is not improved merely because tests pass. It needs visual
    evidence, an explicit before/after outcome, and stable automated guardrails.
 7. Run `npm run iterate:ui:verify` before settling a round. Use

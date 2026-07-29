@@ -1,12 +1,20 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT } from '../config.js';
+import { GAME_WIDTH, GAME_HEIGHT, ENDING_PRESENTATION_MAP } from '../config.js';
 import { SaveSystem } from '../systems/SaveSystem.js';
 import { AudioSystem, NARRATION_MODES, VOICE_PRESETS } from '../systems/AudioSystem.js';
-import { showAchievementGallery } from '../ui/AchievementGallery.js';
-import { showEndingGallery, getEndingProgress } from '../ui/EndingGallery.js';
-import { showSaveLoadPanel } from '../ui/SaveLoadPanel.js';
 import { MetaProgression } from '../systems/MetaProgression.js';
 import { toast } from '../systems/ToastSystem.js';
+import {
+  hideGameLoading,
+  showGameLoadingError
+} from '../ui/GameLoadingUI.js';
+import {
+  announceAudioState,
+  getAudioControlState,
+  getSpeechSupportState,
+  getVoiceSettingsAriaLabel,
+  getVoiceSettingsTriggerText
+} from '../ui/AudioControlState.js';
 
 // 金句池：每次进入标题画面随机选一条
 const QUOTES = [
@@ -45,7 +53,11 @@ export class BootScene extends Phaser.Scene {
     // === DOM overlay 渲染标题、角色、按钮 ===
     const overlay = document.getElementById('ui-boot-overlay');
     const buttonsEl = document.getElementById('ui-boot-buttons');
+    const bootShell = window.__luohammerBootShell;
     buttonsEl.innerHTML = '';
+    const hasAnySave = save.hasAnySave();
+    overlay.classList.toggle('returning-player', hasAnySave);
+    buttonsEl.classList.toggle('is-returning', hasAnySave);
 
     // 尽早显示 overlay，确保即使后续按钮创建出错也不会黑屏
     overlay.classList.add('visible');
@@ -56,8 +68,7 @@ export class BootScene extends Phaser.Scene {
     if (totalScore > 0) {
       const scoreEl = document.createElement('div');
       scoreEl.className = 'ui-boot-score-display';
-      scoreEl.style.cssText = 'text-align: center; color: var(--color-gold); font-size: 13px; font-weight: 700; padding: 6px 12px; margin-bottom: 8px; border: 1px solid rgba(var(--color-gold-rgb),0.3); border-radius: 4px; background: rgba(var(--color-gold-rgb),0.06); letter-spacing: 1px;';
-      scoreEl.textContent = `★ 成就积分：${totalScore}`;
+      scoreEl.textContent = `成就积分 · ${totalScore}`;
       buttonsEl.appendChild(scoreEl);
     }
 
@@ -78,31 +89,42 @@ export class BootScene extends Phaser.Scene {
     // “朗读设置”按钮：选择内容模式、真实系统语音与朗读风格
     const createVoicePreviewBtn = () => {
       const btn = document.createElement('button');
+      btn.id = 'ui-boot-voice-settings';
+      btn.type = 'button';
       btn.className = 'ui-boot-btn';
-      const currentPreset = this.audio.getVoicePresetKey();
-      btn.textContent = `♪ 朗读设置（${VOICE_PRESETS[currentPreset].label}）`;
+      btn.textContent = getVoiceSettingsTriggerText(this.audio);
+      btn.setAttribute('aria-label', getVoiceSettingsAriaLabel(this.audio));
+      btn.setAttribute('aria-haspopup', 'dialog');
+      btn.setAttribute('aria-controls', 'ui-boot-voice-panel');
+      btn.setAttribute('aria-expanded', 'false');
       btn.addEventListener('click', () => this._showVoicePreviewPanel(btn));
       return btn;
     };
 
     // "结局图鉴"按钮：已有结局记录时显示
     const createEndingGalleryBtn = () => {
-      const progress = getEndingProgress();
-      if (progress.unlocked === 0) return null;
+      const endingIds = Object.keys(ENDING_PRESENTATION_MAP);
+      const seenEndings = new Set(meta.getSeenEndings());
+      const unlocked = endingIds.filter(id => seenEndings.has(id)).length;
+      if (unlocked === 0) return null;
       const btn = document.createElement('button');
       btn.className = 'ui-boot-btn';
-      btn.textContent = `▤ 结局图鉴 ${progress.unlocked}/${progress.total}`;
-      btn.addEventListener('click', () => {
-        showEndingGallery({ audio: this.audio });
+      btn.textContent = `▤ 结局图鉴 ${unlocked}/${endingIds.length}`;
+      this._attachLazyPanelAction(btn, {
+        load: () => import('../ui/EndingGallery.js'),
+        open: ({ showEndingGallery }) => showEndingGallery({
+          seenEndings: meta.getSeenEndings(),
+          audio: this.audio
+        })
       });
       return btn;
     };
 
-    if (save.hasAnySave()) {
+    if (hasAnySave) {
       // "继续游戏"：仅在自动存档存在时显示（继续最近一次自动存档）
       if (save.hasSave()) {
         const continueBtn = document.createElement('button');
-        continueBtn.className = 'ui-boot-btn ui-boot-btn-primary';
+        continueBtn.className = 'ui-boot-btn ui-boot-btn-primary ui-boot-return-continue';
         continueBtn.textContent = '继续游戏';
         continueBtn.addEventListener('click', () => {
           const state = save.load();
@@ -120,43 +142,121 @@ export class BootScene extends Phaser.Scene {
 
       // "存档管理"：任意存档存在时显示，打开存档/读档面板
       const manageBtn = document.createElement('button');
-      manageBtn.className = 'ui-boot-btn';
+      manageBtn.className = 'ui-boot-btn ui-boot-return-secondary';
       manageBtn.textContent = '存档管理';
-      manageBtn.addEventListener('click', () => {
-        showSaveLoadPanel({
+      this._attachLazyPanelAction(manageBtn, {
+        load: () => import('../ui/SaveLoadPanel.js'),
+        open: ({ showSaveLoadPanel }) => showSaveLoadPanel({
           mode: 'manage',
           saveSystem: save,
           audio: this.audio,
           onLoad: (slotId, state) => {
             this._startGameplay(overlay, { state });
           }
-        });
+        })
       });
       buttonsEl.appendChild(manageBtn);
 
       const newGameBtn = document.createElement('button');
-      newGameBtn.className = 'ui-boot-btn';
+      newGameBtn.className = 'ui-boot-btn ui-boot-return-secondary ui-boot-btn-danger';
       newGameBtn.textContent = '新游戏';
+      newGameBtn.setAttribute('aria-label', '开始新游戏');
+      let newGameConfirmTimer = null;
+      const resetNewGameConfirmation = () => {
+        if (!newGameBtn.isConnected) return;
+        newGameBtn.removeAttribute('data-confirming');
+        newGameBtn.classList.remove('confirming');
+        newGameBtn.textContent = '新游戏';
+        newGameBtn.setAttribute('aria-label', '开始新游戏');
+        newGameBtn.title = '开始新游戏';
+        newGameConfirmTimer = null;
+      };
+      const armNewGameConfirmation = () => {
+        newGameBtn.setAttribute('data-confirming', 'true');
+        newGameBtn.classList.add('confirming');
+        newGameBtn.textContent = '确认重新开始';
+        newGameBtn.setAttribute('aria-label', '再次点击确认重新开始，并清除当前自动存档');
+        newGameBtn.title = '再次点击将清除当前自动存档；手动存档不受影响';
+        newGameConfirmTimer?.remove(false);
+        newGameConfirmTimer = this.time.delayedCall(3_200, resetNewGameConfirmation);
+        try {
+          toast('再次点击确认重新开始；手动存档不会被清除', 3000);
+        } catch (e) {}
+      };
       newGameBtn.addEventListener('click', () => {
+        if (newGameBtn.getAttribute('data-confirming') !== 'true') {
+          armNewGameConfirmation();
+          return;
+        }
+        newGameConfirmTimer?.remove(false);
+        newGameConfirmTimer = null;
         save.clear();
         try { this.audio.playChoice(); } catch (e) {}
         this.audio.fadeOutBGM(0.5);
         overlay.classList.remove('visible');
         this.scene.start('IntroScene', { returnToBoot: false });
       });
+      newGameBtn.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape' ||
+            newGameBtn.getAttribute('data-confirming') !== 'true') return;
+        event.preventDefault();
+        event.stopPropagation();
+        newGameConfirmTimer?.remove(false);
+        resetNewGameConfirmation();
+      });
+      newGameBtn.addEventListener('blur', () => {
+        if (newGameBtn.getAttribute('data-confirming') !== 'true') return;
+        newGameConfirmTimer?.remove(false);
+        resetNewGameConfirmation();
+      });
+      resetNewGameConfirmation();
       buttonsEl.appendChild(newGameBtn);
-      if (introSeen) buttonsEl.appendChild(createIntroBtn());
+
+      const morePanel = document.createElement('div');
+      morePanel.className = 'ui-boot-more-panel';
+      morePanel.id = 'ui-boot-more-panel';
+      morePanel.hidden = true;
+      if (introSeen) morePanel.appendChild(createIntroBtn());
 
       const galleryBtn = document.createElement('button');
       galleryBtn.className = 'ui-boot-btn';
       galleryBtn.textContent = '成就图鉴';
-      galleryBtn.addEventListener('click', () => showAchievementGallery({ audio: this.audio }));
-      buttonsEl.appendChild(galleryBtn);
+      this._attachLazyPanelAction(galleryBtn, {
+        load: () => import('../ui/AchievementGallery.js'),
+        open: ({ showAchievementGallery }) => showAchievementGallery({ audio: this.audio })
+      });
+      morePanel.appendChild(galleryBtn);
 
-      buttonsEl.appendChild(createVoicePreviewBtn());
+      morePanel.appendChild(createVoicePreviewBtn());
 
       const endingGalleryBtn = createEndingGalleryBtn();
-      if (endingGalleryBtn) buttonsEl.appendChild(endingGalleryBtn);
+      if (endingGalleryBtn) morePanel.appendChild(endingGalleryBtn);
+
+      const moreBtn = document.createElement('button');
+      moreBtn.className = 'ui-boot-btn ui-boot-more-toggle';
+      moreBtn.id = 'ui-boot-more-toggle';
+      moreBtn.type = 'button';
+      moreBtn.setAttribute('aria-expanded', 'false');
+      moreBtn.setAttribute('aria-controls', morePanel.id);
+      const updateMoreLabel = (expanded) => {
+        moreBtn.textContent = expanded
+          ? '收起更多选项'
+          : `更多选项 · ${morePanel.querySelectorAll('button').length}`;
+      };
+      updateMoreLabel(false);
+      moreBtn.addEventListener('click', () => {
+        const expanded = moreBtn.getAttribute('aria-expanded') === 'true';
+        moreBtn.setAttribute('aria-expanded', String(!expanded));
+        morePanel.hidden = expanded;
+        if (!expanded) {
+          morePanel.querySelectorAll('.ui-boot-btn').forEach((button, index) => {
+            button.style.animationDelay = `${index * 45}ms`;
+          });
+        }
+        updateMoreLabel(!expanded);
+      });
+      buttonsEl.appendChild(moreBtn);
+      buttonsEl.appendChild(morePanel);
     } else {
       const startBtn = document.createElement('button');
       startBtn.className = 'ui-boot-btn ui-boot-btn-primary';
@@ -176,7 +276,10 @@ export class BootScene extends Phaser.Scene {
       const galleryBtn = document.createElement('button');
       galleryBtn.className = 'ui-boot-btn';
       galleryBtn.textContent = '成就图鉴';
-      galleryBtn.addEventListener('click', () => showAchievementGallery({ audio: this.audio }));
+      this._attachLazyPanelAction(galleryBtn, {
+        load: () => import('../ui/AchievementGallery.js'),
+        open: ({ showAchievementGallery }) => showAchievementGallery({ audio: this.audio })
+      });
       buttonsEl.appendChild(galleryBtn);
 
       buttonsEl.appendChild(createVoicePreviewBtn());
@@ -207,7 +310,9 @@ export class BootScene extends Phaser.Scene {
 
     // 确保标题画面使用场景图作为沉浸式背景（不显示人物立绘）
     const bootCharEl = document.getElementById('ui-boot-character');
-    if (bootCharEl) bootCharEl.src = 'assets/characters/scene-stage-v2.webp';
+    if (bootCharEl && !bootCharEl.currentSrc) {
+      bootCharEl.src = 'assets/characters/scene-stage-v2-1440.webp';
+    }
 
     // === 玩法指引卡片：首次自动展开，之后折叠；点击可切换 ===
     this._setupGuide();
@@ -216,43 +321,61 @@ export class BootScene extends Phaser.Scene {
     this._typewriterCleanup = null;
     const quoteEl = document.getElementById('ui-boot-quote');
     if (quoteEl) {
-      const quoteText = QUOTES[Math.floor(Math.random() * QUOTES.length)];
-      quoteEl.innerHTML = '<span class="ui-boot-quote-cursor"></span>';
-      let charIndex = 0;
-      const cursorEl = quoteEl.querySelector('.ui-boot-quote-cursor');
-      let quoteSpoken = false;
-      const timer = this.time.addEvent({
-        delay: 120,
-        loop: true,
-        callback: () => {
-          if (charIndex < quoteText.length) {
-            const span = document.createElement('span');
-            span.textContent = quoteText[charIndex];
-            quoteEl.insertBefore(span, cursorEl);
-            charIndex++;
-          } else {
-            timer.remove();
-            // 标题金句遵循用户朗读模式；关闭时保持安静，不再强制越过设置。
-            if (!quoteSpoken && this.audio) {
-              quoteSpoken = true;
-              this.audio.speak(quoteText, {
-                kind: 'intro',
-                highlightText: quoteText,
-                mood: 'reflective'
+      const quoteText = bootShell?.quote ||
+        QUOTES[Math.floor(Math.random() * QUOTES.length)];
+      const reducedMotion = typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (bootShell?.visibleAt) {
+        // 标题壳已经交付完整金句，不在引擎接管时清空并重新逐字播放。
+        quoteEl.textContent = quoteText;
+        this._typewriterCleanup = () => this.audio?.stopSpeaking();
+      } else if (reducedMotion) {
+        // 减少动态效果模式直接呈现完整金句，不能只把 CSS 动画压短后仍逐字等待。
+        quoteEl.textContent = quoteText;
+        this.audio?.speak(quoteText, {
+          kind: 'intro',
+          highlightText: quoteText,
+          mood: 'reflective'
+        });
+        this._typewriterCleanup = () => this.audio?.stopSpeaking();
+      } else {
+        quoteEl.innerHTML = '<span class="ui-boot-quote-cursor"></span>';
+        let charIndex = 0;
+        const cursorEl = quoteEl.querySelector('.ui-boot-quote-cursor');
+        let quoteSpoken = false;
+        const timer = this.time.addEvent({
+          delay: 120,
+          loop: true,
+          callback: () => {
+            if (charIndex < quoteText.length) {
+              const span = document.createElement('span');
+              span.textContent = quoteText[charIndex];
+              quoteEl.insertBefore(span, cursorEl);
+              charIndex++;
+            } else {
+              timer.remove();
+              // 标题金句遵循用户朗读模式；关闭时保持安静，不再强制越过设置。
+              if (!quoteSpoken && this.audio) {
+                quoteSpoken = true;
+                this.audio.speak(quoteText, {
+                  kind: 'intro',
+                  highlightText: quoteText,
+                  mood: 'reflective'
+                });
+              }
+              // 打字完成后光标再闪几秒后消失
+              this.time.delayedCall(3000, () => {
+                if (cursorEl) cursorEl.style.display = 'none';
               });
             }
-            // 打字完成后光标再闪几秒后消失
-            this.time.delayedCall(3000, () => {
-              if (cursorEl) cursorEl.style.display = 'none';
-            });
           }
-        }
-      });
-      this._typewriterCleanup = () => {
-        timer.remove();
-        // 离开标题画面时停止金句朗读
-        if (this.audio) this.audio.stopSpeaking();
-      };
+        });
+        this._typewriterCleanup = () => {
+          timer.remove();
+          // 离开标题画面时停止金句朗读
+          if (this.audio) this.audio.stopSpeaking();
+        };
+      }
     }
 
     // === 移动端竖屏提示：由 main.js setupGlobalOrientationHint 全局统一负责 ===
@@ -265,8 +388,49 @@ export class BootScene extends Phaser.Scene {
     // === 同步 overlay 与 Phaser canvas 尺寸/位置（窗口模式适配） ===
     this._syncOverlayToCanvas(overlay);
 
+    overlay.dataset.bootPhase = 'engine';
+    bootShell?.markEngineReady?.();
+    const pendingShellIntent = bootShell?.consumeIntent?.();
+    const primaryBtn = buttonsEl.querySelector('.ui-boot-btn-primary');
+    const allButtons = [...buttonsEl.querySelectorAll('.ui-boot-btn')];
+    const intentTarget = pendingShellIntent?.action === 'manage'
+      ? allButtons.find(button => button.textContent.trim() === '存档管理')
+      : pendingShellIntent
+        ? primaryBtn
+        : null;
+    const active = document.activeElement;
+    const focusTarget = intentTarget || primaryBtn;
+    if (
+      overlay.classList.contains('visible') &&
+      focusTarget &&
+      (pendingShellIntent || !active || active === document.body || !overlay.contains(active))
+    ) {
+      // buttonsEl.innerHTML 会移除壳按钮；必须在同一 JS 任务内把焦点交给新按钮，
+      // 不能留下一个 requestAnimationFrame 的 body 焦点窗口吞掉 Enter/Space。
+      focusTarget.focus({ preventScroll: true });
+    }
+
     // main.js 据此立刻撤下首屏 Loading；此时标题、按钮与尺寸均已就绪。
     this.game.events.emit('boot-ui-ready');
+    if (intentTarget) requestAnimationFrame(() => intentTarget.click());
+    if (this.scene.settings.data?.gameplayLoadFailed === true) {
+      const titleFocusTarget = primaryBtn || buttonsEl.querySelector('button');
+      showGameLoadingError(
+        '主游戏代码没有完成加载，本次进度未受影响',
+        {
+          actionLabel: '重新加载游戏',
+          dismissLabel: '先回标题',
+          // ESM 模块图会缓存失败状态；完整重载是可预测且不会重复使用坏模块的重试。
+          onRetry: () => window.location.reload(),
+          onDismiss: () => {
+            hideGameLoading();
+            requestAnimationFrame(() => {
+              titleFocusTarget?.focus({ preventScroll: true });
+            });
+          }
+        }
+      );
+    }
 
     // Hide overlay when scene is shutdown
     this.events.on('shutdown', () => {
@@ -314,6 +478,49 @@ export class BootScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * 标题页次级面板按需加载：悬停/键盘聚焦时预热，点击时给出明确忙碌反馈。
+   */
+  _attachLazyPanelAction(button, { load, open }) {
+    let modulePromise = null;
+    const loadModule = () => {
+      if (!modulePromise) {
+        modulePromise = load().catch(error => {
+          modulePromise = null;
+          throw error;
+        });
+      }
+      return modulePromise;
+    };
+    const preload = () => {
+      loadModule().catch(() => {
+        // 点击时会重试并呈现可见错误；预热失败不打断标题页。
+      });
+    };
+    button.addEventListener('pointerenter', preload, { once: true });
+    button.addEventListener('focus', preload, { once: true });
+    button.addEventListener('click', async () => {
+      if (button.disabled) return;
+      const originalText = button.textContent;
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      button.textContent = '正在打开…';
+      try {
+        const module = await loadModule();
+        open(module);
+      } catch (error) {
+        console.error('[BootScene] 面板资源加载失败:', error);
+        try { this.audio.playError(); } catch (e) {}
+        try { toast('面板加载失败，请检查网络后重试', 3000); } catch (e) {}
+        requestAnimationFrame(() => button.focus({ preventScroll: true }));
+      } finally {
+        button.disabled = false;
+        button.removeAttribute('aria-busy');
+        button.textContent = originalText;
+      }
+    });
+  }
+
   /** 确保懒加载的主游戏场景就绪后再切场，慢网下保留标题反馈而不是进入黑屏。 */
   async _startGameplay(overlay, data, triggerBtn = null) {
     if (this._launchingGameplay) return;
@@ -357,10 +564,24 @@ export class BootScene extends Phaser.Scene {
 
     const presets = Object.values(VOICE_PRESETS);
     const currentKey = this.audio.getVoicePresetKey();
+    const speechSupport = getSpeechSupportState(this.audio);
+    const previousFocus = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : triggerBtn;
+    if (triggerBtn) {
+      triggerBtn.textContent = getVoiceSettingsTriggerText(this.audio);
+      triggerBtn.setAttribute('aria-label', getVoiceSettingsAriaLabel(this.audio));
+      triggerBtn.setAttribute('aria-expanded', 'true');
+    }
 
     // 容器
     const panel = document.createElement('div');
+    panel.id = 'ui-boot-voice-panel';
     panel.className = 'ui-voice-panel';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('aria-labelledby', 'ui-boot-voice-title');
+    panel.setAttribute('aria-describedby', 'ui-boot-voice-support');
     panel.style.cssText = [
       'position: fixed',
       'top: 50%', 'left: 50%',
@@ -373,14 +594,16 @@ export class BootScene extends Phaser.Scene {
       'width: 420px',
       'max-height: 85vh',
       'overflow-y: auto',
-      'z-index: 10000',
+      'overscroll-behavior: contain',
+      'z-index: 100000',
       'color: var(--color-text-primary)',
       'font-family: "Press Start 2P", "Microsoft YaHei", monospace',
-      'box-shadow: 0 8px 40px rgba(0,0,0,0.6)'
+      'box-shadow: 0 0 0 100vmax rgba(0,0,0,0.82), 0 18px 60px rgba(0,0,0,0.78)'
     ].join(';');
 
     // 标题
     const title = document.createElement('div');
+    title.id = 'ui-boot-voice-title';
     title.textContent = '♪ 朗读设置';
     title.style.cssText = 'font-size: 16px; color: var(--color-gold); text-align: center; margin-bottom: 4px; letter-spacing: 1px;';
     panel.appendChild(title);
@@ -392,8 +615,23 @@ export class BootScene extends Phaser.Scene {
 
     // 纯本地系统语音：不依赖预生成音频或云端服务。
     const ttsNote = document.createElement('div');
-    ttsNote.textContent = '完全使用当前设备的中文系统语音，不上传文本、不需要网络语音服务';
-    ttsNote.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); text-align: center; margin-bottom: 14px; line-height: 1.5; opacity: 0.7;';
+    ttsNote.id = 'ui-boot-voice-support';
+    ttsNote.className = 'ui-voice-support';
+    ttsNote.dataset.support = speechSupport.state;
+    ttsNote.setAttribute('role', 'status');
+    ttsNote.textContent = `${speechSupport.label} · ${speechSupport.detail}`;
+    ttsNote.style.cssText = [
+      'font-size: 10px',
+      `color: ${speechSupport.supported
+        ? 'var(--color-text-secondary)'
+        : 'var(--color-warning)'}`,
+      'text-align: center',
+      'margin-bottom: 14px',
+      'padding: 8px 10px',
+      'border: 1px solid rgba(240, 192, 64, 0.22)',
+      'background: rgba(240, 192, 64, 0.05)',
+      'line-height: 1.55'
+    ].join(';');
     panel.appendChild(ttsNote);
 
     const modeTitle = document.createElement('div');
@@ -406,10 +644,13 @@ export class BootScene extends Phaser.Scene {
     Object.values(NARRATION_MODES).forEach(mode => {
       const modeBtn = document.createElement('button');
       const isCurrent = this.audio.getNarrationMode() === mode.key;
+      modeBtn.type = 'button';
       modeBtn.textContent = mode.label;
       modeBtn.title = mode.desc;
+      modeBtn.setAttribute('aria-pressed', String(isCurrent));
       modeBtn.style.cssText = [
-        'padding: 7px 4px',
+        'min-height: 44px',
+        'padding: 8px 4px',
         'font-size: 10px',
         'font-family: inherit',
         'cursor: pointer',
@@ -420,6 +661,7 @@ export class BootScene extends Phaser.Scene {
       modeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.audio.setNarrationMode(mode.key);
+        announceAudioState(`剧情朗读已切换为${mode.label}`);
         this._voicePanelCleanup();
         this._showVoicePreviewPanel(triggerBtn);
       });
@@ -433,7 +675,9 @@ export class BootScene extends Phaser.Scene {
     voiceLabel.style.cssText = 'display: block; font-size: 10px; color: var(--color-text-secondary); margin-bottom: 14px;';
     const voiceSelect = document.createElement('select');
     voiceSelect.setAttribute('aria-label', '选择设备上的中文系统语音');
-    voiceSelect.style.cssText = 'display: block; width: 100%; margin-top: 6px; padding: 8px; color: var(--color-text-primary); background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(240, 192, 64, 0.35); font-family: inherit; font-size: 10px;';
+    voiceSelect.disabled = !speechSupport.supported;
+    voiceSelect.title = speechSupport.supported ? '' : speechSupport.label;
+    voiceSelect.style.cssText = 'display: block; width: 100%; min-height: 44px; margin-top: 6px; padding: 8px; color: var(--color-text-primary); background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(240, 192, 64, 0.35); font-family: inherit; font-size: 10px;';
     const autoOption = document.createElement('option');
     autoOption.value = '';
     autoOption.textContent = systemVoices.length > 0 ? '自动选择（推荐）' : '自动选择（未发现中文语音）';
@@ -449,6 +693,9 @@ export class BootScene extends Phaser.Scene {
       e.stopPropagation();
       this.audio.setVoiceName(voiceSelect.value);
       this.audio.previewVoicePreset(this.audio.getVoicePresetKey());
+      announceAudioState(voiceSelect.value
+        ? `设备语音已切换为${voiceSelect.selectedOptions[0]?.textContent || voiceSelect.value}`
+        : '设备语音已恢复自动选择');
     });
     voiceLabel.appendChild(voiceSelect);
     panel.appendChild(voiceLabel);
@@ -494,9 +741,11 @@ export class BootScene extends Phaser.Scene {
       const matchedEl = document.createElement('div');
       matchedEl.style.cssText = 'font-size: 9px; margin-top: 4px; line-height: 1.4;';
       matchedEl.style.color = 'var(--color-text-muted)';
-      matchedEl.textContent = voiceInfo.voiceName === '(无中文语音)'
-        ? '当前设备将使用默认系统语音'
-        : `实际语音：${voiceInfo.voiceName}`;
+      matchedEl.textContent = !speechSupport.supported
+        ? '当前浏览器不支持系统朗读'
+        : voiceInfo.voiceName === '(无中文语音)'
+          ? '未安装中文语音，将尝试设备默认语音'
+          : `实际语音：${voiceInfo.voiceName}`;
       left.appendChild(matchedEl);
 
       row.appendChild(left);
@@ -506,16 +755,21 @@ export class BootScene extends Phaser.Scene {
       btnGroup.style.cssText = 'display: flex; gap: 6px; flex-shrink: 0;';
 
       const previewBtn = document.createElement('button');
+      previewBtn.type = 'button';
       previewBtn.textContent = '试听';
+      previewBtn.disabled = !speechSupport.canPreview;
+      previewBtn.title = speechSupport.canPreview ? '试听此朗读风格' : speechSupport.label;
       previewBtn.style.cssText = [
         'background: transparent',
         'border: 1px solid rgba(240, 192, 64, 0.5)',
         'color: var(--color-gold)',
-        'padding: 5px 10px',
+        'min-height: 44px',
+        'padding: 8px 10px',
         'font-size: 11px',
         'border-radius: 3px',
         'cursor: pointer',
-        'font-family: inherit'
+        'font-family: inherit',
+        previewBtn.disabled ? 'opacity: 0.45; cursor: not-allowed' : ''
       ].join(';');
       previewBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -524,13 +778,15 @@ export class BootScene extends Phaser.Scene {
       btnGroup.appendChild(previewBtn);
 
       const applyBtn = document.createElement('button');
+      applyBtn.type = 'button';
       applyBtn.textContent = preset.key === currentKey ? '已应用' : '应用';
       applyBtn.disabled = preset.key === currentKey;
       applyBtn.style.cssText = [
         'background: rgba(240, 192, 64, 0.85)',
         'border: none',
         'color: var(--color-bg-dark)',
-        'padding: 5px 10px',
+        'min-height: 44px',
+        'padding: 8px 10px',
         'font-size: 11px',
         'border-radius: 3px',
         'cursor: pointer',
@@ -546,8 +802,10 @@ export class BootScene extends Phaser.Scene {
         this._showVoicePreviewPanel(triggerBtn);
         // 同步触发按钮的标签
         if (triggerBtn) {
-          triggerBtn.textContent = `♪ 朗读设置（${VOICE_PRESETS[preset.key].label}）`;
+          triggerBtn.textContent = getVoiceSettingsTriggerText(this.audio);
+          triggerBtn.setAttribute('aria-label', getVoiceSettingsAriaLabel(this.audio));
         }
+        announceAudioState(`朗读风格已切换为${preset.label}`);
         try { toast(`已应用：${preset.label}`); } catch(e) {}
       });
       btnGroup.appendChild(applyBtn);
@@ -558,6 +816,7 @@ export class BootScene extends Phaser.Scene {
 
     // 关闭按钮
     const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
     closeBtn.textContent = '关闭';
     closeBtn.style.cssText = [
       'display: block',
@@ -565,7 +824,8 @@ export class BootScene extends Phaser.Scene {
       'background: transparent',
       'border: 1px solid rgba(154, 138, 106, 0.5)',
       'color: var(--color-text-secondary)',
-      'padding: 6px 24px',
+      'min-height: 44px',
+      'padding: 8px 24px',
       'font-size: 11px',
       'border-radius: 3px',
       'cursor: pointer',
@@ -575,6 +835,14 @@ export class BootScene extends Phaser.Scene {
     panel.appendChild(closeBtn);
 
     document.body.appendChild(panel);
+    const bootOverlay = document.getElementById('ui-boot-overlay');
+    if (bootOverlay) bootOverlay.inert = true;
+    const rotateHint = document.getElementById('rotate-hint');
+    const rotateHintWasHidden = rotateHint?.classList.contains('hidden') ?? true;
+    if (rotateHint) {
+      rotateHint.classList.add('hidden');
+      rotateHint.setAttribute('aria-hidden', 'true');
+    }
 
     // 点击面板外部关闭
     const onOutsideClick = (e) => {
@@ -588,7 +856,31 @@ export class BootScene extends Phaser.Scene {
 
     // ESC 关闭
     const onKey = (e) => {
-      if (e.code === 'Escape') this._voicePanelCleanup();
+      if (e.code === 'Escape') {
+        e.preventDefault();
+        this._voicePanelCleanup();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const focusable = [...panel.querySelectorAll(
+        'button:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )].filter(element => element.getClientRects().length > 0);
+      if (focusable.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus({ preventScroll: true });
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus({ preventScroll: true });
+      } else if (!panel.contains(document.activeElement)) {
+        e.preventDefault();
+        first.focus({ preventScroll: true });
+      }
     };
     window.addEventListener('keydown', onKey);
 
@@ -596,8 +888,19 @@ export class BootScene extends Phaser.Scene {
       window.removeEventListener('pointerdown', onOutsideClick);
       window.removeEventListener('keydown', onKey);
       if (panel.parentNode) panel.parentNode.removeChild(panel);
+      if (bootOverlay) bootOverlay.inert = false;
+      if (rotateHint && !rotateHintWasHidden) {
+        rotateHint.classList.remove('hidden');
+        rotateHint.setAttribute('aria-hidden', 'false');
+      }
+      if (triggerBtn) triggerBtn.setAttribute('aria-expanded', 'false');
       this._voicePanelCleanup = null;
+      const target = previousFocus?.isConnected ? previousFocus : triggerBtn;
+      target?.focus({ preventScroll: true });
     };
+    const currentModeButton = [...modeGroup.querySelectorAll('button')]
+      .find(button => button.getAttribute('aria-pressed') === 'true');
+    (currentModeButton || closeBtn).focus({ preventScroll: true });
   }
 
   /**
@@ -676,8 +979,8 @@ export class BootScene extends Phaser.Scene {
     let btn = document.getElementById('ui-boot-sound-toggle');
     if (!btn) {
       btn = document.createElement('button');
+      btn.type = 'button';
       btn.id = 'ui-boot-sound-toggle';
-      btn.setAttribute('aria-label', '切换音效');
       btn.style.cssText = `
         position: absolute;
         top: 12px;
@@ -710,6 +1013,7 @@ export class BootScene extends Phaser.Scene {
         }
       });
       this._updateSoundToggleIcon();
+      announceAudioState(`声音已${this.audio.enabled ? '开启' : '静音'}`);
     });
   }
 
@@ -718,7 +1022,11 @@ export class BootScene extends Phaser.Scene {
    */
   _updateSoundToggleIcon() {
     if (this._soundToggleBtn) {
-      this._soundToggleBtn.textContent = this.audio.enabled ? '♪' : '✕';
+      const state = getAudioControlState(this.audio).sound;
+      this._soundToggleBtn.textContent = state.icon === '×' ? '✕' : state.icon;
+      this._soundToggleBtn.setAttribute('aria-pressed', state.ariaPressed);
+      this._soundToggleBtn.setAttribute('aria-label', state.ariaLabel);
+      this._soundToggleBtn.title = state.ariaLabel;
     }
   }
 

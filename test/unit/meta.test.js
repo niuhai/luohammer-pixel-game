@@ -1,6 +1,6 @@
 // MetaProgression 跨周目进度系统测试（mock localStorage）
 import { describe, it, expect, beforeEach } from 'vitest';
-import { MetaProgression, MILESTONE_REWARDS, ACHIEVEMENT_MILESTONES } from '../../src/systems/MetaProgression.js';
+import { MetaProgression } from '../../src/systems/MetaProgression.js';
 
 beforeEach(() => {
   localStorage.clear();

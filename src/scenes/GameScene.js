@@ -11,6 +11,12 @@ import { StageProgressSystem } from '../systems/StageProgressSystem.js';
 import { SaveSystem } from '../systems/SaveSystem.js';
 import { HistoryCard } from '../ui/HistoryCard.js';
 import { showSaveLoadPanel } from '../ui/SaveLoadPanel.js';
+import {
+  hideGameLoading,
+  isGameLoadingVisible,
+  showGameLoadingStage,
+  updateGameLoadingProgress
+} from '../ui/GameLoadingUI.js';
 import { AchievementPopup, isHiddenAchievement, addAchievementToStorage, HIDDEN_ACHIEVEMENTS, ALL_ACHIEVEMENTS, loadUnlockedHiddenEndings, addHiddenEndingToStorage, addEndingToStorage, findAchievementDef, getAchievementScore, checkComboAchievements, loadUnlockedAchievements } from '../ui/AchievementPopup.js';
 import { TalentSystem } from '../systems/TalentSystem.js';
 import { RandomEventSystem } from '../systems/RandomEventSystem.js';
@@ -31,6 +37,12 @@ import { MetaProgression } from '../systems/MetaProgression.js';
 import { toast } from '../systems/ToastSystem.js';
 import { DebugLogger } from '../systems/DebugLogger.js';
 import { resolveStageAwarePose, resolvePoseStageKey, extractNodeYear, MIDDLE_AGE_YEAR } from '../systems/CharacterPoseResolver.js';
+import {
+  announceAudioState,
+  getAudioControlState,
+  getSpeechSupportState,
+  getVoiceSettingsAriaLabel
+} from '../ui/AudioControlState.js';
 
 // 关键冲击场景集合：进入这些场景时触发白闪，增强转场冲击感
 // 落实项目硬约束：冰箱砸碎/法庭/脱口秀等关键场景转场应有 1-2 帧白闪
@@ -147,17 +159,22 @@ export class GameScene extends Phaser.Scene {
   _setupGameLoadingUI() {
     const el = document.getElementById('ui-game-loading');
     if (!el) return;
-    this._gameLoadingEl = el;
-    this._gameLoadingFill = el.querySelector('.ui-game-loading-fill');
-    this._gameLoadingText = el.querySelector('.ui-game-loading-text');
+    this._gameLoadingProgress = 0;
     this._onLoadProgress = (value) => {
-      const pct = Math.round(value * 100);
-      if (this._gameLoadingFill) this._gameLoadingFill.style.width = pct + '%';
-      if (this._gameLoadingText) this._gameLoadingText.textContent = `正在进入人生… ${pct}%`;
+      this._gameLoadingProgress = value;
+      updateGameLoadingProgress(value);
+    };
+    this._onLoadError = file => {
+      this._gameLoadingFailures.add(file?.key || file?.src || 'unknown');
     };
     this.load.on('progress', this._onLoadProgress);
+    this.load.on('loaderror', this._onLoadError);
+    if (isGameLoadingVisible()) {
+      showGameLoadingStage('assets', { progress: this._gameLoadingProgress });
+      return;
+    }
     this._gameLoadingShowTimer = this._trackedTimeout(() => {
-      if (this._gameLoadingEl) this._gameLoadingEl.classList.add('visible');
+      showGameLoadingStage('assets', { progress: this._gameLoadingProgress });
       this._gameLoadingShowTimer = null;
     }, 150);
   }
@@ -173,12 +190,11 @@ export class GameScene extends Phaser.Scene {
       this.load.off('progress', this._onLoadProgress);
       this._onLoadProgress = null;
     }
-    if (this._gameLoadingEl) {
-      this._gameLoadingEl.classList.remove('visible');
-      this._gameLoadingEl = null;
-      this._gameLoadingFill = null;
-      this._gameLoadingText = null;
+    if (this._onLoadError) {
+      this.load.off('loaderror', this._onLoadError);
+      this._onLoadError = null;
     }
+    hideGameLoading();
   }
 
   // === 资源懒加载辅助 ===
@@ -370,11 +386,11 @@ export class GameScene extends Phaser.Scene {
     this._lastCrashFxTime = null;
 
     // R89：加载层引用归零（Scene 复用下防跨局残留）
-    this._gameLoadingEl = null;
-    this._gameLoadingFill = null;
-    this._gameLoadingText = null;
+    this._gameLoadingProgress = 0;
     this._gameLoadingShowTimer = null;
     this._onLoadProgress = null;
+    this._onLoadError = null;
+    this._gameLoadingFailures = new Set();
   }
 
   /**
@@ -606,6 +622,12 @@ export class GameScene extends Phaser.Scene {
   create() {
     // R89：preload 完成（含失败降级路径）——隐藏加载层，进度监听同步解除
     this._hideGameLoadingUI();
+    if (this._gameLoadingFailures.size > 0) {
+      toast.warning(
+        '网络不稳，已启用简化舞台；不影响选择与游戏进度',
+        6000
+      );
+    }
 
     this.pixelRenderer = new PixelRenderer(this);
     this.dialog = new DialogSystem(this);
@@ -647,8 +669,9 @@ export class GameScene extends Phaser.Scene {
     if (this.soundToggleEl) {
       this.soundToggleEl.addEventListener('click', () => {
         this.audio.toggle();
-        if (this.soundIconEl) this.soundIconEl.textContent = this.audio.enabled ? '♪' : '×';
         this._updateSoundToggleState();
+        this._syncPauseMenuSettings();
+        announceAudioState(`声音已${this.audio.enabled ? '开启' : '静音'}`);
       }, uiSignalOpts);
     }
 
@@ -661,6 +684,10 @@ export class GameScene extends Phaser.Scene {
       this.narrationToggleEl.addEventListener('click', () => {
         const mode = this.audio.cycleNarrationMode();
         this._updateNarrationToggleState(mode);
+        this._syncPauseMenuSettings();
+        announceAudioState(`剧情朗读已切换为${
+          NARRATION_MODES[mode]?.label || mode
+        }`);
       }, uiSignalOpts);
     }
 
@@ -683,12 +710,14 @@ export class GameScene extends Phaser.Scene {
     this.menuCancelBtn = document.getElementById('ui-menu-cancel');
     this.menuOkBtn = document.getElementById('ui-menu-ok');
     if (this.menuToggleEl) this.menuToggleEl.classList.add('visible');
+    this._setupPauseMenuSettings(uiSignalOpts);
 
     this._showMenuConfirm = () => {
       if (!this.menuConfirmEl || this.menuConfirmEl.classList.contains('visible')) return;
       this._menuPreviousFocus = document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
+      this._syncPauseMenuSettings();
       this.menuConfirmEl.classList.add('visible');
       this.menuConfirmEl.setAttribute('aria-hidden', 'false');
       if (this.menuToggleEl) this.menuToggleEl.setAttribute('aria-expanded', 'true');
@@ -712,6 +741,31 @@ export class GameScene extends Phaser.Scene {
       }
       this._menuPreviousFocus = null;
     };
+    this._trapMenuFocus = (event) => {
+      if (event.key !== 'Tab' ||
+          !this.menuConfirmEl?.classList.contains('visible')) return;
+      const focusable = [...this.menuConfirmEl.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), ' +
+        'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )].filter(element => element.getClientRects().length > 0);
+      if (focusable.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      } else if (!this.menuConfirmEl.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    this.menuConfirmEl?.addEventListener('keydown', this._trapMenuFocus, uiSignalOpts);
     this._returnToMenu = () => {
       this._hideMenuConfirm();
       // 自动保存（R24 P0-1：检查返回值，避免静默丢档）
@@ -822,6 +876,84 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * 将移动端收起的低频控制放进暂停菜单，同时保留桌面端顶部快捷入口。
+   * 三项设置均为原地切换，不会离开暂停上下文。
+   * @param {object} uiSignalOpts - AbortController 的监听选项
+   */
+  _setupPauseMenuSettings(uiSignalOpts) {
+    this.menuSoundSettingEl = document.getElementById('ui-menu-sound-setting');
+    this.menuNarrationSettingEl = document.getElementById('ui-menu-narration-setting');
+    this.menuVoiceSettingEl = document.getElementById('ui-menu-voice-setting');
+    this.menuSoundStateEl = document.getElementById('ui-menu-sound-state');
+    this.menuNarrationStateEl = document.getElementById('ui-menu-narration-state');
+    this.menuVoiceStateEl = document.getElementById('ui-menu-voice-state');
+    this._syncPauseMenuSettings();
+
+    this.menuSoundSettingEl?.addEventListener('click', () => {
+      this.audio.toggle();
+      this._updateSoundToggleState();
+      this._syncPauseMenuSettings();
+      announceAudioState(`声音已${this.audio.enabled ? '开启' : '静音'}`);
+    }, uiSignalOpts);
+
+    this.menuNarrationSettingEl?.addEventListener('click', () => {
+      const mode = this.audio.cycleNarrationMode();
+      this._updateNarrationToggleState(mode);
+      this._syncPauseMenuSettings();
+      announceAudioState(`剧情朗读已切换为${
+        NARRATION_MODES[mode]?.label || mode
+      }`);
+    }, uiSignalOpts);
+
+    this.menuVoiceSettingEl?.addEventListener('click', () => {
+      const presetKeys = Object.keys(VOICE_PRESETS);
+      const currentIndex = presetKeys.indexOf(this.audio.getVoicePresetKey());
+      const nextKey = presetKeys[(currentIndex + 1) % presetKeys.length];
+      this.audio.setVoicePreset(nextKey);
+      this._updateVoiceToggleLabel();
+      this._syncPauseMenuSettings();
+      announceAudioState(`朗读风格已切换为${this.audio.getVoicePreset().label}`);
+      this.vibrate(8);
+    }, uiSignalOpts);
+  }
+
+  /**
+   * 同步暂停菜单内的设置摘要及可访问状态。
+   */
+  _syncPauseMenuSettings() {
+    if (!this.audio) return;
+    const state = getAudioControlState(this.audio);
+    const soundEnabled = state.sound.enabled;
+    const narration = state.narration;
+    const voice = state.voice;
+
+    if (this.menuSoundStateEl) {
+      this.menuSoundStateEl.textContent = soundEnabled ? '开启' : '静音';
+    }
+    if (this.menuSoundSettingEl) {
+      this.menuSoundSettingEl.setAttribute('aria-label',
+        state.sound.ariaLabel);
+      this.menuSoundSettingEl.setAttribute('aria-pressed', state.sound.ariaPressed);
+    }
+    if (this.menuNarrationStateEl) {
+      this.menuNarrationStateEl.textContent = narration.label;
+    }
+    if (this.menuNarrationSettingEl) {
+      this.menuNarrationSettingEl.setAttribute('aria-label',
+        `剧情朗读：${narration.label}。点击切换`);
+      this.menuNarrationSettingEl.setAttribute('aria-pressed',
+        String(narration.key !== 'off'));
+    }
+    if (this.menuVoiceStateEl) {
+      this.menuVoiceStateEl.textContent = voice.label;
+    }
+    if (this.menuVoiceSettingEl) {
+      this.menuVoiceSettingEl.setAttribute('aria-label',
+        `朗读风格：${voice.label}。点击切换`);
+    }
+  }
+
+  /**
    * 在菜单确认弹窗中插入"保存游戏"按钮，并将其改造为暂停菜单风格。
    * 点击后打开 SaveLoadPanel（save 模式，自动槽位只读）。
    * @param {object} uiSignalOpts - AbortController 的监听选项
@@ -906,6 +1038,7 @@ export class GameScene extends Phaser.Scene {
       '#ui-history-note-overlay.visible',
       '#ui-achievement-gallery-overlay.visible',
       '#ui-random-event-overlay.visible',
+      '#ui-talent-overlay.visible',
       '.ui-settlement-overlay.visible',
       '.check-animation-overlay.visible'
     ];
@@ -2403,31 +2536,40 @@ export class GameScene extends Phaser.Scene {
     // 构建 DOM overlay
     const overlay = document.createElement('div');
     overlay.className = 'ui-settlement-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'ui-settlement-title');
+    overlay.setAttribute(
+      'aria-describedby',
+      'ui-settlement-summary ui-settlement-countdown'
+    );
     overlay.innerHTML = `
       <div class="ui-settlement-card">
         <div class="ui-settlement-header">
           <div class="ui-settlement-label">阶段结算</div>
-          <div class="ui-settlement-stage-name">${stageNum ? `<span class="ui-settlement-stage-num">${stageNum}</span>` : ''}${stage.name}</div>
+          <div class="ui-settlement-stage-name" id="ui-settlement-title">${stageNum ? `<span class="ui-settlement-stage-num">${stageNum}</span>` : ''}${stage.name}</div>
           <div class="ui-settlement-period">${stage.period}</div>
         </div>
         <div class="ui-settlement-body">
-          <div class="ui-settlement-text">${stage.settlement ? stage.settlement.text : stage.name}</div>
+          <div class="ui-settlement-text" id="ui-settlement-summary">${stage.settlement ? stage.settlement.text : stage.name}</div>
           ${resultTexts.length > 0 ? `<div class="ui-settlement-results">${resultTexts.map(r => `<div class="ui-settlement-result-item">▸ ${r}</div>`).join('')}</div>` : ''}
           <div class="ui-settlement-attrs" id="ui-settlement-attrs"></div>
           <div class="ui-settlement-achievements" id="ui-settlement-achievements"></div>
         </div>
         <div class="ui-settlement-footer">
           <div class="ui-settlement-countdown" id="ui-settlement-countdown"></div>
-          <button class="ui-settlement-continue" id="ui-settlement-continue">继续</button>
+          <button class="ui-settlement-continue" id="ui-settlement-continue" aria-label="继续进入下一阶段">继续</button>
         </div>
       </div>
     `;
 
     document.getElementById('ui-overlay').appendChild(overlay);
+    const continueBtn = overlay.querySelector('#ui-settlement-continue');
 
-    // 触发动画
+    // 触发动画，并把键盘焦点移入模态层。
     requestAnimationFrame(() => {
       overlay.classList.add('visible');
+      continueBtn?.focus({ preventScroll: true });
     });
 
     // 渲染属性变化动画条
@@ -2515,10 +2657,26 @@ export class GameScene extends Phaser.Scene {
 
     // R24 P1-2：_closeSettlement 改用 this._settlementTimer，解除对 countdownTimer 的依赖
     let settled = false;
+    let countdownTimer = null;
+    let autoClosePaused = false;
+
+    const _pauseAutoClose = () => {
+      if (settled || autoClosePaused) return;
+      autoClosePaused = true;
+      if (countdownTimer) clearInterval(countdownTimer);
+      countdownTimer = null;
+      this._settlementTimer = null;
+      if (countdownEl) {
+        countdownEl.classList.add('is-paused');
+        countdownEl.setAttribute('aria-live', 'polite');
+        countdownEl.textContent = '自动继续已暂停 · 阅读完后请按继续';
+      }
+    };
+
     const _closeSettlement = () => {
       if (settled) return;
       settled = true;
-      clearInterval(this._settlementTimer);
+      if (this._settlementTimer) clearInterval(this._settlementTimer);
       this._settlementTimer = null;
 
       // 应用结算效果
@@ -2568,10 +2726,11 @@ export class GameScene extends Phaser.Scene {
     };
 
     // R24 P1-2：setInterval 创建移到 _closeSettlement 定义之后，消除前向引用
-    const countdownTimer = setInterval(() => {
+    countdownTimer = setInterval(() => {
       countdown--;
       if (countdown <= 0) {
         clearInterval(countdownTimer);
+        countdownTimer = null;
         this._settlementTimer = null;
         _closeSettlement();
         return;
@@ -2581,15 +2740,19 @@ export class GameScene extends Phaser.Scene {
     // 提升为实例属性，便于 _onShutdown 清理（避免场景切换时 setInterval 泄漏）
     this._settlementTimer = countdownTimer;
 
-    // 继续按钮
-    const continueBtn = overlay.querySelector('#ui-settlement-continue');
+    // 用户开始阅读或操作后停止自动跳过；Tab 键保持在模态层内。
     if (continueBtn) {
       continueBtn.addEventListener('click', _closeSettlement);
     }
-
-    // 点击遮罩也可关闭
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) _closeSettlement();
+    overlay.addEventListener('pointerdown', _pauseAutoClose);
+    overlay.addEventListener('touchstart', _pauseAutoClose, { passive: true });
+    overlay.addEventListener('wheel', _pauseAutoClose, { passive: true });
+    overlay.addEventListener('keydown', (event) => {
+      _pauseAutoClose();
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        continueBtn?.focus({ preventScroll: true });
+      }
     });
   }
 
@@ -3554,10 +3717,12 @@ export class GameScene extends Phaser.Scene {
    */
   _updateSoundToggleState() {
     if (!this.soundToggleEl || !this.audio) return;
-    const muted = !this.audio.enabled;
-    this.soundToggleEl.setAttribute('aria-pressed', String(muted));
-    this.soundToggleEl.setAttribute('aria-label', muted ? '开启声音' : '静音');
-    this.soundToggleEl.title = muted ? '开启声音' : '静音';
+    const state = getAudioControlState(this.audio).sound;
+    if (this.soundIconEl) this.soundIconEl.textContent = state.icon;
+    this.soundToggleEl.classList.toggle('active', state.enabled);
+    this.soundToggleEl.setAttribute('aria-pressed', state.ariaPressed);
+    this.soundToggleEl.setAttribute('aria-label', state.ariaLabel);
+    this.soundToggleEl.title = state.ariaLabel;
   }
 
   /**
@@ -3584,6 +3749,11 @@ export class GameScene extends Phaser.Scene {
       // 取标签前4字作为简称
       const short = preset.label.replace(/★/, '').split('·')[0].slice(0, 4);
       this.voiceIconEl.textContent = short;
+      if (this.voiceToggleEl) {
+        this.voiceToggleEl.setAttribute('aria-label',
+          getVoiceSettingsAriaLabel(this.audio));
+        this.voiceToggleEl.title = getVoiceSettingsAriaLabel(this.audio);
+      }
     } catch(e) {
       this.voiceIconEl.textContent = '风格';
     }
@@ -3601,77 +3771,70 @@ export class GameScene extends Phaser.Scene {
     const audio = this.audio;
     if (!audio) return;
     const currentKey = audio.getVoicePresetKey();
+    const speechSupport = getSpeechSupportState(audio);
 
     const panel = document.createElement('div');
     panel.id = 'ui-quick-voice-panel';
+    panel.className = 'ui-quick-voice-panel';
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-modal', 'true');
-    panel.setAttribute('aria-label', '朗读设置');
-    panel.style.cssText = [
-      'position: fixed',
-      'inset: 0',
-      'background: rgba(0, 0, 0, 0.7)',
-      'display: flex',
-      'align-items: center',
-      'justify-content: center',
-      'z-index: 1000',
-      'font-family: "Press Start 2P", "Cascadia Mono", monospace'
-    ].join(';');
+    panel.setAttribute('aria-labelledby', 'ui-quick-voice-title');
 
     const box = document.createElement('div');
-    box.style.cssText = [
-      'background: var(--color-bg-border)',
-      'border: 2px solid var(--color-gold)',
-      'border-radius: 6px',
-      'padding: 20px',
-      'max-width: 90vw',
-      'max-height: 80vh',
-      'overflow-y: auto',
-      'box-shadow: 0 0 30px rgba(240, 192, 64, 0.3)',
-      'color: var(--color-gold)'
-    ].join(';');
+    box.className = 'ui-quick-voice-card';
 
     const title = document.createElement('div');
+    title.id = 'ui-quick-voice-title';
+    title.className = 'ui-quick-voice-title';
     title.textContent = '♪ 朗读设置';
-    title.style.cssText = 'font-size: 14px; color: var(--color-gold); margin-bottom: 14px; text-align: center; font-weight: 700;';
     box.appendChild(title);
 
+    const support = document.createElement('div');
+    support.className = 'ui-quick-voice-support';
+    support.dataset.support = speechSupport.state;
+    support.setAttribute('role', 'status');
+    support.textContent = `${speechSupport.label} · ${speechSupport.detail}`;
+    box.appendChild(support);
+
+    const body = document.createElement('div');
+    body.className = 'ui-quick-voice-body';
+    box.appendChild(body);
+
     const modeLabel = document.createElement('div');
+    modeLabel.className = 'ui-quick-voice-label';
     modeLabel.textContent = '朗读内容';
-    modeLabel.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); margin: 0 0 6px;';
-    box.appendChild(modeLabel);
+    body.appendChild(modeLabel);
 
     const modeGroup = document.createElement('div');
-    modeGroup.style.cssText = 'display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 14px;';
+    modeGroup.className = 'ui-quick-voice-mode-grid';
+    let currentModeBtn = null;
     Object.values(NARRATION_MODES).forEach(mode => {
       const modeBtn = document.createElement('button');
       const isCurrent = audio.getNarrationMode() === mode.key;
+      modeBtn.type = 'button';
+      modeBtn.className = 'ui-quick-voice-mode';
       modeBtn.textContent = mode.label;
       modeBtn.title = mode.desc;
-      modeBtn.style.cssText = [
-        'padding: 7px 4px',
-        'font-size: 10px',
-        'cursor: pointer',
-        'font-family: inherit',
-        `color: ${isCurrent ? 'var(--color-bg-dark)' : 'var(--color-gold)'}`,
-        `background: ${isCurrent ? 'var(--color-gold)' : 'rgba(240, 192, 64, 0.06)'}`,
-        'border: 1px solid var(--color-gold-border)'
-      ].join(';');
+      modeBtn.setAttribute('aria-pressed', String(isCurrent));
+      if (isCurrent) currentModeBtn = modeBtn;
       modeBtn.addEventListener('click', () => {
         audio.setNarrationMode(mode.key);
         this._updateNarrationToggleState(mode.key);
+        this._syncPauseMenuSettings();
+        announceAudioState(`剧情朗读已切换为${mode.label}`);
         this._closeQuickVoicePanel();
         this._showQuickVoicePanel();
       });
       modeGroup.appendChild(modeBtn);
     });
-    box.appendChild(modeGroup);
+    body.appendChild(modeGroup);
 
     const replayBtn = document.createElement('button');
+    replayBtn.type = 'button';
+    replayBtn.className = 'ui-quick-voice-replay';
     replayBtn.textContent = '↻ 重播当前段';
-    replayBtn.style.cssText = 'width: 100%; margin: 0 0 14px; padding: 8px; color: var(--color-gold); background: rgba(240, 192, 64, 0.06); border: 1px solid var(--color-gold-border); font-family: inherit; font-size: 10px; cursor: pointer;';
-    replayBtn.disabled = !this.dialog?._plainText;
-    if (replayBtn.disabled) replayBtn.style.opacity = '0.45';
+    replayBtn.disabled = !this.dialog?._plainText || !speechSupport.canPreview;
+    replayBtn.title = speechSupport.canPreview ? '' : speechSupport.label;
     replayBtn.addEventListener('click', () => {
       if (!this.dialog?._plainText) return;
       audio.speak(this.dialog._plainText, {
@@ -3681,15 +3844,17 @@ export class GameScene extends Phaser.Scene {
         force: true
       });
     });
-    box.appendChild(replayBtn);
+    body.appendChild(replayBtn);
 
     const systemVoices = audio.getVoiceList();
     const voiceLabel = document.createElement('label');
+    voiceLabel.className = 'ui-quick-voice-label';
     voiceLabel.textContent = '设备语音';
-    voiceLabel.style.cssText = 'display: block; font-size: 10px; color: var(--color-text-secondary); margin: 0 0 6px;';
     const voiceSelect = document.createElement('select');
+    voiceSelect.className = 'ui-quick-voice-select';
     voiceSelect.setAttribute('aria-label', '选择设备上的中文系统语音');
-    voiceSelect.style.cssText = 'width: 100%; margin-bottom: 14px; padding: 8px; color: var(--color-text-primary); background: rgba(0, 0, 0, 0.45); border: 1px solid var(--color-gold-border); font-family: inherit; font-size: 10px;';
+    voiceSelect.disabled = !speechSupport.supported;
+    voiceSelect.title = speechSupport.supported ? '' : speechSupport.label;
     const automaticOption = document.createElement('option');
     automaticOption.value = '';
     automaticOption.textContent = systemVoices.length > 0 ? '自动选择（推荐）' : '自动选择（未发现中文语音）';
@@ -3704,80 +3869,87 @@ export class GameScene extends Phaser.Scene {
     voiceSelect.addEventListener('change', () => {
       audio.setVoiceName(voiceSelect.value);
       audio.previewVoicePreset(audio.getVoicePresetKey());
+      announceAudioState(voiceSelect.value
+        ? `设备语音已切换为${voiceSelect.selectedOptions[0]?.textContent || voiceSelect.value}`
+        : '设备语音已恢复自动选择');
     });
     voiceLabel.appendChild(voiceSelect);
-    box.appendChild(voiceLabel);
+    body.appendChild(voiceLabel);
 
     const styleLabel = document.createElement('div');
+    styleLabel.className = 'ui-quick-voice-label';
     styleLabel.textContent = '朗读风格';
-    styleLabel.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); margin: 0 0 6px;';
-    box.appendChild(styleLabel);
+    body.appendChild(styleLabel);
 
     const presets = Object.values(VOICE_PRESETS);
+    const presetList = document.createElement('div');
+    presetList.className = 'ui-quick-voice-preset-list';
     presets.forEach(preset => {
       const row = document.createElement('div');
-      row.style.cssText = [
-        'display: flex',
-        'align-items: center',
-        'justify-content: space-between',
-        'padding: 10px 12px',
-        'margin-bottom: 8px',
-        'border: 1px solid rgba(240, 192, 64, 0.18)',
-        'border-radius: 4px',
-        'background: rgba(240, 192, 64, 0.04)',
-        preset.key === currentKey ? 'border-color: rgba(240, 192, 64, 0.7); background: rgba(240, 192, 64, 0.1);' : ''
-      ].join(';');
+      row.className = `ui-quick-voice-preset${preset.key === currentKey ? ' is-current' : ''}`;
 
       const left = document.createElement('div');
-      left.style.cssText = 'flex: 1; padding-right: 10px;';
+      left.className = 'ui-quick-voice-preset-info';
 
       const name = document.createElement('div');
-      name.style.cssText = 'font-size: 12px; color: var(--color-gold); font-weight: 700; margin-bottom: 3px;';
+      name.className = 'ui-quick-voice-preset-name';
       name.textContent = (preset.key === currentKey ? '★ ' : '') + preset.label;
       left.appendChild(name);
 
       const desc = document.createElement('div');
-      desc.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); line-height: 1.4;';
+      desc.className = 'ui-quick-voice-preset-desc';
       desc.textContent = preset.desc;
       left.appendChild(desc);
 
       row.appendChild(left);
+      const actions = document.createElement('div');
+      actions.className = 'ui-quick-voice-preset-actions';
 
       // 试听按钮
       const previewBtn = document.createElement('button');
+      previewBtn.type = 'button';
+      previewBtn.className = 'ui-quick-voice-action preview';
       previewBtn.textContent = '试听';
-      previewBtn.style.cssText = 'background: rgba(120, 80, 30, 0.4); color: var(--color-gold); border: 1px solid var(--color-gold-border); padding: 6px 10px; font-size: 10px; cursor: pointer; margin-left: 8px; font-family: inherit;';
+      previewBtn.disabled = !speechSupport.canPreview;
+      previewBtn.title = speechSupport.canPreview
+        ? '试听此朗读风格'
+        : speechSupport.label;
       previewBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         audio.previewVoicePreset(preset.key);
       });
-      row.appendChild(previewBtn);
+      actions.appendChild(previewBtn);
 
       // 应用按钮
       const applyBtn = document.createElement('button');
+      applyBtn.type = 'button';
+      applyBtn.className = 'ui-quick-voice-action apply';
       applyBtn.textContent = preset.key === currentKey ? '当前' : '应用';
-      applyBtn.style.cssText = preset.key === currentKey
-        ? 'background: rgba(120, 120, 120, 0.3); color: var(--color-text-secondary); border: 1px solid var(--color-text-muted); padding: 6px 10px; font-size: 10px; cursor: default; margin-left: 6px; font-family: inherit;'
-        : 'background: rgba(120, 80, 30, 0.6); color: var(--color-gold); border: 1px solid var(--color-gold); padding: 6px 10px; font-size: 10px; cursor: pointer; margin-left: 6px; font-family: inherit;';
+      applyBtn.disabled = preset.key === currentKey;
       if (preset.key !== currentKey) {
         applyBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           if (audio.setVoicePreset(preset.key)) {
             this._updateVoiceToggleLabel();
+            this._syncPauseMenuSettings();
+            announceAudioState(`朗读风格已切换为${preset.label}`);
             this._closeQuickVoicePanel();
             try { toast(`已切换：${preset.label}`, { type: 'info' }); } catch(e) {}
           }
         });
       }
-      row.appendChild(applyBtn);
+      actions.appendChild(applyBtn);
+      row.appendChild(actions);
 
-      box.appendChild(row);
+      presetList.appendChild(row);
     });
+    body.appendChild(presetList);
 
     // 关闭按钮
     const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'ui-quick-voice-close';
     closeBtn.textContent = '✕ 关闭';
-    closeBtn.style.cssText = 'display: block; margin: 14px auto 0; background: transparent; color: var(--color-text-secondary); border: 1px solid var(--color-text-muted); padding: 8px 16px; font-size: 11px; cursor: pointer; font-family: inherit;';
     closeBtn.addEventListener('click', () => this._closeQuickVoicePanel());
     box.appendChild(closeBtn);
 
@@ -3788,9 +3960,29 @@ export class GameScene extends Phaser.Scene {
       if (e.target === panel) this._closeQuickVoicePanel();
     });
 
-    // ESC 关闭
+    // ESC 关闭；Tab/Shift+Tab 始终留在模态面板内。
     const onKey = (e) => {
-      if (e.code === 'Escape') this._closeQuickVoicePanel();
+      if (e.code === 'Escape') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        this._closeQuickVoicePanel();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const focusable = [...panel.querySelectorAll(
+        'button:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+      )].filter(element => element.getClientRects().length > 0);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !panel.contains(active))) {
+        e.preventDefault();
+        last.focus({ preventScroll: true });
+      } else if (!e.shiftKey && (active === last || !panel.contains(active))) {
+        e.preventDefault();
+        first.focus({ preventScroll: true });
+      }
     };
     window.addEventListener('keydown', onKey);
 
@@ -3803,7 +3995,7 @@ export class GameScene extends Phaser.Scene {
     if (this.voiceToggleEl) this.voiceToggleEl.setAttribute('aria-expanded', 'true');
     const uiOverlay = document.getElementById('ui-overlay');
     if (uiOverlay) uiOverlay.inert = true;
-    closeBtn.focus({ preventScroll: true });
+    (currentModeBtn || closeBtn).focus({ preventScroll: true });
   }
 
   _closeQuickVoicePanel(restoreFocus = true) {
@@ -4003,7 +4195,14 @@ export class GameScene extends Phaser.Scene {
     this.menuConfirmEl = null;
     this.menuCancelBtn = null;
     this.menuOkBtn = null;
+    this.menuSoundSettingEl = null;
+    this.menuNarrationSettingEl = null;
+    this.menuVoiceSettingEl = null;
+    this.menuSoundStateEl = null;
+    this.menuNarrationStateEl = null;
+    this.menuVoiceStateEl = null;
     this._menuPreviousFocus = null;
+    this._trapMenuFocus = null;
     // R88 GATE-R87 P0-1：置空"保存游戏"按钮引用——其 click 监听器随本局
     // _uiAbortController abort 移除，若不置空，下局 _setupSaveButton 的
     // this._saveGameBtn 短路守卫会跳过重挂监听器，按钮点击死寂（玩家失去手动存档）

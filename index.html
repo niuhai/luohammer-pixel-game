@@ -42,12 +42,12 @@
   <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
 
-  <!-- 预加载首屏关键资源：标题背景图（最大首屏瓶颈，提前发起请求） -->
-  <link rel="preload" as="image" href="./assets/characters/scene-stage-v2.webp">
-  <!-- 游戏内首批资源不与标题首屏抢带宽；浏览器空闲时低优先级预取，进入序章后可直接复用缓存。 -->
-  <link rel="prefetch" as="image" href="./assets/characters/scene-classroom-v2.webp">
-  <link rel="prefetch" as="image" href="./assets/characters/luo-standing-v4-nobg.webp">
-  <link rel="prefetch" as="image" href="./assets/characters/luo-young-v4-nobg.webp">
+  <!-- 预加载首屏关键资源：按实际视口选择标题背景，避免手机下载 2304px 原图。 -->
+  <link rel="preload" as="image"
+    href="./assets/characters/scene-stage-v2-1440.webp"
+    imagesrcset="./assets/characters/scene-stage-v2-720.webp 720w, ./assets/characters/scene-stage-v2-1440.webp 1440w, ./assets/characters/scene-stage-v2.webp 2304w"
+    imagesizes="100vw"
+    fetchpriority="high">
 
   <!-- 字体策略：优先使用系统本地字体，不依赖外部网络字体，配合 font-display: swap 保证首屏渲染 -->
   <!-- Windows: 微软雅黑 | macOS/iOS: PingFang SC | Android: 思源黑体 / Noto Sans SC -->
@@ -251,13 +251,197 @@
        快网/缓存命中时 150ms 内完成则不显示（GameScene 控制延迟挂载）。 */
     #ui-game-loading {
       position: fixed; inset: 0; z-index: 60;
-      background: var(--color-bg-dark);
+      background:
+        radial-gradient(ellipse 56% 40% at 50% 47%, rgba(39, 33, 58, 0.5), transparent 72%),
+        radial-gradient(ellipse 34% 20% at 50% 47%, rgba(240, 192, 64, 0.055), transparent 74%),
+        var(--color-bg-dark);
       display: flex; align-items: center; justify-content: center;
       opacity: 0; pointer-events: none;
       transition: opacity 0.24s ease-out;
     }
+    #ui-game-loading[hidden] { display: none; }
     #ui-game-loading.visible { opacity: 1; }
-    #ui-game-loading .app-loading-title { font-size: clamp(16px, 3vw, 24px); }
+    #ui-game-loading.recoverable { pointer-events: auto; }
+    .ui-game-loading-card {
+      position: relative;
+      width: min(420px, calc(100vw - 32px));
+      padding: clamp(24px, 4vw, 34px);
+      overflow: hidden;
+      border: 1px solid rgba(240, 192, 64, 0.34);
+      background:
+        linear-gradient(135deg, rgba(240, 192, 64, 0.055), transparent 42%),
+        rgba(8, 8, 17, 0.9);
+      box-shadow:
+        0 0 0 1px rgba(255, 230, 160, 0.035) inset,
+        0 24px 80px rgba(0, 0, 0, 0.46),
+        0 0 44px rgba(240, 192, 64, 0.06);
+      text-align: left;
+    }
+    .ui-game-loading-card::before,
+    .ui-game-loading-card::after {
+      content: '';
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      pointer-events: none;
+    }
+    .ui-game-loading-card::before {
+      top: 8px; left: 8px;
+      border-top: 1px solid rgba(240, 192, 64, 0.68);
+      border-left: 1px solid rgba(240, 192, 64, 0.68);
+    }
+    .ui-game-loading-card::after {
+      right: 8px; bottom: 8px;
+      border-right: 1px solid rgba(240, 192, 64, 0.68);
+      border-bottom: 1px solid rgba(240, 192, 64, 0.68);
+    }
+    .ui-game-loading-kicker {
+      margin-bottom: 9px;
+      color: rgba(184, 169, 132, 0.82);
+      font-size: clamp(10px, 1.25vw, 12px);
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    #ui-game-loading .app-loading-title {
+      margin: 0;
+      color: var(--color-gold);
+      font-size: clamp(20px, 3vw, 28px);
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-shadow: 0 0 24px rgba(240, 192, 64, 0.22);
+    }
+    .ui-game-loading-detail {
+      min-height: 22px;
+      margin-top: 8px;
+      color: rgba(228, 218, 194, 0.76);
+      font-size: clamp(12px, 1.5vw, 14px);
+      line-height: 1.55;
+      letter-spacing: 0.04em;
+    }
+    .ui-game-loading-progress {
+      position: relative;
+      height: 6px;
+      margin-top: 22px;
+      overflow: hidden;
+      border: 1px solid rgba(240, 192, 64, 0.2);
+      background: rgba(240, 192, 64, 0.07);
+    }
+    .ui-game-loading-fill {
+      width: 0;
+      height: 100%;
+      background: linear-gradient(90deg, var(--color-gold-dark), #ffe6a0);
+      box-shadow: 0 0 14px rgba(240, 192, 64, 0.42);
+      transition: width 0.18s ease-out;
+    }
+    #ui-game-loading[data-progress-mode="indeterminate"] .ui-game-loading-fill {
+      width: 34%;
+      animation: gameLoadingIndeterminate 1.2s ease-in-out infinite;
+    }
+    @keyframes gameLoadingIndeterminate {
+      from { transform: translateX(-110%); }
+      to { transform: translateX(305%); }
+    }
+    .ui-game-loading-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 10px;
+      color: rgba(184, 169, 132, 0.72);
+      font-size: clamp(10px, 1.25vw, 12px);
+      letter-spacing: 0.05em;
+    }
+    .ui-game-loading-percent {
+      flex-shrink: 0;
+      color: rgba(240, 192, 64, 0.9);
+      font-family: 'Courier New', monospace;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.08em;
+    }
+    .ui-game-loading-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .ui-game-loading-actions[hidden] { display: none; }
+    .ui-game-loading-action,
+    .ui-game-loading-dismiss {
+      min-height: 44px;
+      padding: 9px 16px;
+      border: 1px solid rgba(240, 192, 64, 0.42);
+      font-family: inherit;
+      font-size: clamp(11px, 1.2vw, 13px);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition:
+        color 0.18s ease,
+        border-color 0.18s ease,
+        background 0.18s ease,
+        transform 0.12s ease;
+    }
+    .ui-game-loading-action {
+      flex: 1;
+      color: #160f03;
+      border-color: rgba(255, 218, 105, 0.82);
+      background: linear-gradient(180deg, #f6cf61, #c99620);
+      box-shadow: 0 6px 24px rgba(240, 192, 64, 0.15);
+    }
+    .ui-game-loading-dismiss {
+      color: rgba(232, 221, 194, 0.84);
+      background: rgba(20, 20, 34, 0.72);
+    }
+    .ui-game-loading-action:hover {
+      background: linear-gradient(180deg, #ffe188, #d8aa30);
+    }
+    .ui-game-loading-dismiss:hover {
+      color: var(--color-gold);
+      border-color: rgba(240, 192, 64, 0.72);
+      background: rgba(240, 192, 64, 0.09);
+    }
+    .ui-game-loading-action:active,
+    .ui-game-loading-dismiss:active { transform: translateY(1px); }
+    .ui-game-loading-action:focus-visible,
+    .ui-game-loading-dismiss:focus-visible {
+      outline: 2px solid #ffe083;
+      outline-offset: 3px;
+    }
+    .ui-visually-hidden {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      padding: 0 !important;
+      margin: -1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      white-space: nowrap !important;
+      border: 0 !important;
+    }
+    @media (orientation: portrait) and (max-width: 768px) {
+      .ui-game-loading-card {
+        width: min(340px, calc(100vw - 28px));
+        padding: 25px 22px 23px;
+      }
+      .ui-game-loading-progress { margin-top: 19px; }
+      .ui-game-loading-actions {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .ui-game-loading-action,
+      .ui-game-loading-dismiss { width: 100%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #ui-game-loading { transition: none; }
+      #ui-game-loading[data-progress-mode="indeterminate"] .ui-game-loading-fill {
+        width: 100%;
+        opacity: 0.42;
+        animation: none;
+        transform: none;
+      }
+      .ui-game-loading-fill { transition: none; }
+    }
 
     body {
       /* R76: 移除 flex 居中——body flex 与 Phaser autoCenter 内联 margin 双重居中叠加，
@@ -316,35 +500,43 @@
       display: block;
     }
 
-    /* 竖屏提示 - 非阻塞式提示条（不再遮罩全屏） */
+    /* 竖屏建议：仅标题页首次出现的非阻塞提示，不占据游戏顶部布局。 */
     #rotate-hint {
       display: none;
       position: fixed;
-      top: 0;
-      left: env(safe-area-inset-left, 0px);
-      right: env(safe-area-inset-right, 0px);
+      left: 50%;
+      right: auto;
+      top: auto;
+      bottom: max(12px, env(safe-area-inset-bottom, 0px));
+      transform: translateX(-50%);
       z-index: 99990;
-      background: rgba(10, 10, 26, 0.92);
+      width: max-content;
+      max-width: calc(100vw - 24px);
+      box-sizing: border-box;
+      background: rgba(12, 12, 30, 0.94);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       justify-content: center;
       align-items: center;
-      gap: 12px;
+      gap: 8px;
       color: var(--color-gold);
-      padding: calc(8px + env(safe-area-inset-top, 0px)) 16px;
+      padding: 4px 5px 4px 12px;
       text-align: center;
-      border-bottom: 1px solid rgba(240, 192, 64, 0.2);
+      border: 1px solid rgba(240, 192, 64, 0.34);
+      border-radius: 999px;
+      box-shadow: 0 8px 26px rgba(0, 0, 0, 0.42);
+      animation: rotateHintIn 0.28s ease-out both;
     }
     #rotate-hint .icon {
-      font-size: 20px;
-      animation: rotateHintPulse 2s ease-in-out infinite;
+      font-size: 16px;
+      opacity: 0.8;
     }
-    @keyframes rotateHintPulse {
-      0%, 100% { opacity: 0.6; transform: rotate(0deg); }
-      50% { opacity: 1; transform: rotate(90deg); }
+    @keyframes rotateHintIn {
+      from { opacity: 0; transform: translate(-50%, 8px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
     }
     #rotate-hint .title {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       color: var(--color-gold);
       white-space: nowrap;
@@ -355,22 +547,23 @@
       display: none;
     }
     #rotate-hint button {
-      padding: 6px 16px;
-      background: rgba(240, 192, 64, 0.15);
-      color: var(--color-gold);
-      border: 1px solid rgba(240, 192, 64, 0.4);
-      font-size: 11px;
+      padding: 0 11px;
+      background: rgba(240, 192, 64, 0.12);
+      color: var(--color-text-secondary);
+      border: 0;
+      border-left: 1px solid rgba(240, 192, 64, 0.24);
+      font-size: 10px;
       cursor: pointer;
       font-family: 'Luohammer UI', "Microsoft YaHei", "PingFang SC", sans-serif;
       min-width: 44px;
       min-height: 44px;
       white-space: nowrap;
-      border-radius: 2px;
+      border-radius: 0 999px 999px 0;
       transition: all 0.2s;
     }
     #rotate-hint button:hover {
       background: rgba(240, 192, 64, 0.25);
-      border-color: var(--color-gold);
+      color: var(--color-gold);
     }
     #rotate-hint.hidden { display: none !important; }
 
@@ -464,6 +657,21 @@
     .ui-dialog.visible {
       display: flex;
       animation: dialogIn 0.25s ease forwards;
+    }
+
+    .ui-dialog.awaiting-choice {
+      background: linear-gradient(180deg, rgba(8, 8, 22, 0.76), rgba(12, 12, 30, 0.88));
+      border-top-color: rgba(240, 192, 64, 0.34);
+      box-shadow: 0 -14px 42px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(240, 192, 64, 0.06);
+    }
+
+    .ui-dialog.awaiting-choice .ui-dialog-text {
+      color: rgba(230, 220, 190, 0.82);
+    }
+
+    .ui-dialog:focus-visible {
+      outline: 1px solid rgba(240, 192, 64, 0.58);
+      outline-offset: -2px;
     }
 
     .ui-dialog.hiding {
@@ -615,32 +823,128 @@
     }
 
     .ui-dialog-continue {
+      align-self: flex-end;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 176px;
+      min-height: 44px;
+      max-width: 100%;
+      padding: 8px 14px;
+      border: 1px solid rgba(240, 192, 64, 0.34);
+      border-radius: var(--radius-sharp);
+      background: linear-gradient(180deg, rgba(240, 192, 64, 0.10), rgba(18, 24, 48, 0.78));
       font-size: var(--fs-caption);
-      color: var(--color-text-muted);
+      font-family: inherit;
+      font-weight: 700;
+      color: var(--color-gold);
       margin-top: clamp(2px, 0.5vh, 6px);
       text-align: right;
       letter-spacing: 1px;
       flex-shrink: 0;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition:
+        color 0.18s ease,
+        border-color 0.18s ease,
+        background 0.18s ease,
+        transform 0.12s ease;
+    }
+
+    .ui-dialog-continue:hover {
+      color: #fff0b8;
+      border-color: rgba(240, 192, 64, 0.72);
+      background: linear-gradient(180deg, rgba(240, 192, 64, 0.18), rgba(22, 33, 62, 0.88));
+    }
+
+    .ui-dialog-continue:active {
+      transform: translateY(1px);
+    }
+
+    .ui-dialog-continue:focus-visible {
+      outline: 2px solid rgba(255, 221, 112, 0.95);
+      outline-offset: 2px;
+    }
+
+    .ui-dialog-continue[data-state="typing"] {
+      color: var(--color-text-secondary);
+      border-color: rgba(160, 170, 205, 0.32);
+      background: rgba(18, 24, 48, 0.72);
+    }
+
+    .ui-dialog-continue[data-state="auto"] {
+      color: #ffe083;
+      border-color: rgba(240, 192, 64, 0.58);
+      background: linear-gradient(180deg, rgba(240, 192, 64, 0.14), rgba(36, 30, 42, 0.84));
+    }
+
+    .ui-dialog-continue[hidden] {
+      display: none;
     }
 
     .ui-dialog-continue.pulse {
-      animation: ui-pulse 1.5s ease infinite;
+      animation: ui-continue-ready 1.8s ease-in-out infinite;
     }
 
-    /* 已读节点快进角标 */
+    @keyframes ui-continue-ready {
+      0%, 100% {
+        border-color: rgba(240, 192, 64, 0.42);
+        box-shadow: inset 0 0 0 rgba(240, 192, 64, 0);
+      }
+      50% {
+        border-color: rgba(240, 192, 64, 0.76);
+        box-shadow: inset 0 0 14px rgba(240, 192, 64, 0.08);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ui-dialog-continue.pulse {
+        animation: none;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .ui-dialog-continue {
+        align-self: stretch;
+        width: 100%;
+        min-width: 0;
+      }
+    }
+
+    .ui-dialog-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: clamp(8px, 1.4vw, 14px);
+      min-height: 44px;
+      flex-shrink: 0;
+    }
+
+    .ui-dialog-reading-controls {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+
+    /* 已读节点快进角标，与阅读控制共用标题行，避免绝对定位互相遮挡 */
     .ui-dialog-seen-badge {
-      position: absolute;
-      top: clamp(4px, 0.8vh, 8px);
-      right: clamp(8px, 1.5vw, 14px);
-      font-size: var(--fs-caption);
-      color: var(--color-gold-dark, #c49a2a);
+      min-height: 28px;
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 7px;
+      font-size: clamp(10px, 1vw, 11px);
+      color: #c9a441;
+      font-weight: 600;
       letter-spacing: 1px;
-      background: rgba(0, 0, 0, 0.5);
-      padding: 2px 6px;
-      border: 1px solid rgba(196, 154, 42, 0.4);
+      background: rgba(20, 18, 30, 0.78);
+      border: 1px solid rgba(196, 154, 42, 0.52);
       pointer-events: none;
-      z-index: 5;
-      animation: ui-pulse 2s ease infinite;
+      white-space: nowrap;
     }
 
     @keyframes ui-pulse {
@@ -649,26 +953,43 @@
     }
 
     .ui-dialog-auto {
-      position: absolute;
-      top: 6px;
-      right: 6px;
-      padding: 4px 10px;
-      min-width: 44px;
+      padding: 4px 9px;
+      min-width: 68px;
       min-height: 44px;
       font-size: clamp(10px, 1vw, 11px);
-      color: rgba(138, 122, 90, 0.85);
-      background: rgba(22, 33, 62, 0.45);
-      border: 1px solid rgba(26, 26, 46, 0.55);
+      color: var(--color-text-secondary);
+      background: rgba(18, 24, 48, 0.72);
+      border: 1px solid rgba(184, 169, 132, 0.3);
       cursor: pointer;
       pointer-events: auto;
       font-family: inherit;
+      font-weight: 600;
       letter-spacing: 1px;
       transition: all 0.2s;
-      z-index: 2;
       touch-action: manipulation;
+      white-space: nowrap;
     }
 
-    .ui-dialog-auto:hover {
+    .ui-dialog-speed {
+      padding: 4px 9px;
+      min-width: 52px;
+      min-height: 44px;
+      font-size: clamp(10px, 1vw, 11px);
+      color: var(--color-gold-border);
+      background: rgba(18, 24, 48, 0.72);
+      border: 1px solid rgba(192, 152, 48, 0.48);
+      cursor: pointer;
+      pointer-events: auto;
+      font-family: inherit;
+      font-weight: 600;
+      letter-spacing: 1px;
+      transition: all 0.2s;
+      touch-action: manipulation;
+      white-space: nowrap;
+    }
+
+    .ui-dialog-auto:hover,
+    .ui-dialog-speed:hover {
       border-color: rgba(192, 152, 48, 0.65);
       color: var(--color-text-cream);
       background: rgba(22, 33, 62, 0.62);
@@ -678,6 +999,26 @@
       border-color: rgba(240, 192, 64, 0.75);
       color: var(--color-gold);
       background: rgba(240, 192, 64, 0.08);
+    }
+
+    @media (max-width: 600px) {
+      .ui-dialog-header {
+        gap: 6px;
+      }
+      .ui-dialog-reading-controls {
+        gap: 4px;
+      }
+      .ui-dialog-seen-badge {
+        padding-inline: 5px;
+      }
+      .ui-dialog-auto {
+        min-width: 64px;
+        padding-inline: 6px;
+      }
+      .ui-dialog-speed {
+        min-width: 48px;
+        padding-inline: 6px;
+      }
     }
 
     /* === R003：桌面行宽约束（v4.2 电脑端主验收） ===
@@ -719,6 +1060,46 @@
     }
 
     .ui-choices.visible { display: flex; }
+
+    .ui-choice-context {
+      order: -2;
+      box-sizing: border-box;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 7px 10px;
+      background: linear-gradient(90deg, rgba(8, 8, 22, 0.82), rgba(15, 15, 36, 0.68));
+      border: 1px solid rgba(240, 192, 64, 0.18);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(7px);
+      -webkit-backdrop-filter: blur(7px);
+      color: var(--color-text-secondary);
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.72);
+    }
+
+    .ui-choice-context-main {
+      color: var(--color-gold);
+      font-size: clamp(12px, 1.3vw, 14px);
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      white-space: nowrap;
+    }
+
+    .ui-choice-context-main > span {
+      margin-right: 5px;
+      font-size: 0.78em;
+      opacity: 0.72;
+    }
+
+    .ui-choice-context-meta {
+      color: rgba(226, 216, 188, 0.82);
+      font-size: clamp(10px, 1vw, 12px);
+      line-height: 1.35;
+      text-align: right;
+    }
+
     .ui-choices.leaving { animation: choiceLeave 0.2s ease-in forwards; }
     @keyframes choiceLeave {
       0% { opacity: 1; transform: translateY(0); }
@@ -762,6 +1143,7 @@
       border: none;
       box-shadow: none;
       padding: 0;
+      flex-wrap: wrap;
     }
 
     .ui-choices.layout-bottom.is-portrait {
@@ -891,6 +1273,7 @@
       filter: grayscale(0.6);
     }
     @media (prefers-reduced-motion: reduce) {
+      .ui-choice-btn { animation: none; }
       .ui-choice-btn.selected { transform: none; }
       .ui-choice-btn.unselected { transform: none; }
     }
@@ -1455,6 +1838,10 @@
       border-color: var(--color-gold);
       background: var(--color-bg-hover);
     }
+    .ui-sound-toggle.active {
+      color: var(--color-gold);
+      border-color: rgba(240, 192, 64, 0.68);
+    }
 
     .ui-sound-icon {
       font-size: clamp(10px, 1.3vw, 13px);
@@ -1489,7 +1876,10 @@
     .ui-menu-confirm {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.75);
+      background:
+        radial-gradient(circle at 50% 42%, rgba(34, 40, 77, 0.28), transparent 40%),
+        rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(3px);
       display: none;
       align-items: center;
       justify-content: center;
@@ -1498,25 +1888,119 @@
     }
     .ui-menu-confirm.visible { display: flex; pointer-events: auto; }
     .ui-menu-confirm-box {
-      background: var(--color-bg-panel);
-      border: 2px solid var(--color-gold);
-      padding: clamp(20px, 4vw, 32px);
-      max-width: min(90vw, 360px);
+      position: relative;
+      width: min(92vw, 430px);
+      box-sizing: border-box;
+      background:
+        linear-gradient(145deg, rgba(24, 31, 63, 0.98), rgba(10, 12, 28, 0.99));
+      border: 1px solid rgba(240, 192, 64, 0.72);
+      box-shadow:
+        0 24px 70px rgba(0, 0, 0, 0.62),
+        inset 0 0 0 1px rgba(240, 192, 64, 0.08);
+      padding: clamp(20px, 4vw, 28px);
       text-align: center;
     }
+    .ui-menu-confirm-box::before,
+    .ui-menu-confirm-box::after {
+      content: '';
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      pointer-events: none;
+    }
+    .ui-menu-confirm-box::before {
+      top: 7px;
+      left: 7px;
+      border-top: 1px solid var(--color-gold);
+      border-left: 1px solid var(--color-gold);
+    }
+    .ui-menu-confirm-box::after {
+      right: 7px;
+      bottom: 7px;
+      border-right: 1px solid var(--color-gold);
+      border-bottom: 1px solid var(--color-gold);
+    }
+    .ui-menu-kicker {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 7px;
+      color: rgba(240, 192, 64, 0.74);
+      font-size: 10px;
+      letter-spacing: 4px;
+    }
+    .ui-menu-kicker::before,
+    .ui-menu-kicker::after {
+      content: '';
+      width: 34px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(240, 192, 64, 0.55));
+    }
+    .ui-menu-kicker::after { transform: scaleX(-1); }
     .ui-menu-confirm-text {
       color: var(--color-text-primary);
-      font-size: clamp(13px, 2vw, 16px);
-      margin-bottom: clamp(16px, 3vw, 24px);
-      line-height: 1.6;
+      font-size: clamp(17px, 2.4vw, 20px);
+      margin-bottom: 18px;
+      line-height: 1.5;
+      letter-spacing: 1px;
+    }
+    .ui-menu-confirm-text small {
+      display: inline-block;
+      margin-top: 3px;
+      color: rgba(218, 220, 235, 0.58);
+      font-size: 11px;
+      letter-spacing: 0;
+    }
+    .ui-menu-settings {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .ui-menu-setting {
+      min-width: 0;
+      min-height: 58px;
+      padding: 8px 6px;
+      border: 1px solid rgba(127, 134, 165, 0.42);
+      background: rgba(6, 8, 20, 0.42);
+      color: #b8bbca;
+      font-family: 'Luohammer UI', monospace;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .ui-menu-setting:hover,
+    .ui-menu-setting:focus-visible {
+      border-color: rgba(240, 192, 64, 0.72);
+      color: var(--color-text-white);
+      background: rgba(240, 192, 64, 0.07);
+    }
+    .ui-menu-setting-label,
+    .ui-menu-setting-state {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ui-menu-setting-label {
+      margin-bottom: 5px;
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: rgba(218, 220, 235, 0.58);
+    }
+    .ui-menu-setting-state {
+      font-size: 12px;
+      color: var(--color-gold);
     }
     .ui-menu-confirm-btns {
-      display: flex;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
-      justify-content: center;
     }
     .ui-menu-confirm-btn {
-      padding: 10px 24px;
+      min-height: 46px;
+      padding: 10px 14px;
       font-family: 'Luohammer UI', monospace;
       font-size: clamp(12px, 1.8vw, 14px);
       background: transparent;
@@ -1525,9 +2009,30 @@
       cursor: pointer;
       transition: all 0.15s;
     }
+    #ui-menu-cancel {
+      grid-column: 1 / -1;
+    }
     .ui-menu-confirm-btn:hover { border-color: var(--color-gold); color: var(--color-gold); }
-    .ui-menu-confirm-btn.primary { border-color: var(--color-gold); color: var(--color-gold); background: rgba(240,192,64,0.1); }
-    .ui-menu-confirm-btn.primary:hover { background: rgba(240,192,64,0.2); }
+    .ui-menu-confirm-btn.primary {
+      border-color: var(--color-gold);
+      color: #17130a;
+      background: linear-gradient(180deg, #f1cc62, #c99a31);
+      box-shadow: 0 6px 18px rgba(240, 192, 64, 0.16);
+      font-weight: 700;
+    }
+    .ui-menu-confirm-btn.primary:hover {
+      color: #090806;
+      background: linear-gradient(180deg, #ffe18a, #dbaa3d);
+    }
+    .ui-menu-confirm-btn.danger {
+      border-color: rgba(210, 91, 91, 0.48);
+      color: rgba(235, 165, 165, 0.82);
+    }
+    .ui-menu-confirm-btn.danger:hover {
+      border-color: #df6b6b;
+      color: #ffd1d1;
+      background: rgba(180, 52, 52, 0.12);
+    }
 
     .ui-narration-toggle.visible { display: flex; }
     .ui-narration-toggle.active {
@@ -1571,6 +2076,292 @@
       color: var(--color-gold);
     }
 
+    /* === 游戏内朗读设置：响应式模态面板 === */
+    .ui-quick-voice-panel {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding:
+        max(16px, env(safe-area-inset-top, 0px))
+        max(16px, env(safe-area-inset-right, 0px))
+        max(16px, env(safe-area-inset-bottom, 0px))
+        max(16px, env(safe-area-inset-left, 0px));
+      background:
+        radial-gradient(circle at 50% 28%, rgba(240, 192, 64, 0.08), transparent 34%),
+        rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(4px);
+      font-family: 'Luohammer UI', "Microsoft YaHei", sans-serif;
+      box-sizing: border-box;
+      animation: quickVoiceBackdropIn 0.18s ease-out both;
+    }
+
+    .ui-quick-voice-card {
+      width: min(560px, 100%);
+      max-height: min(86dvh, 720px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      color: var(--color-text-primary);
+      background:
+        linear-gradient(180deg, rgba(25, 29, 57, 0.99), rgba(11, 13, 31, 0.99));
+      border: 1px solid rgba(240, 192, 64, 0.72);
+      box-shadow:
+        0 28px 90px rgba(0, 0, 0, 0.72),
+        0 0 34px rgba(240, 192, 64, 0.12),
+        inset 0 0 0 1px rgba(240, 192, 64, 0.06);
+      animation: quickVoiceCardIn 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .ui-quick-voice-title {
+      flex-shrink: 0;
+      padding: 17px 20px 14px;
+      color: var(--color-gold);
+      border-bottom: 1px solid rgba(240, 192, 64, 0.16);
+      font-size: clamp(16px, 2vw, 19px);
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-align: center;
+    }
+
+    .ui-quick-voice-support {
+      margin: 0 clamp(16px, 3vw, 24px) 10px;
+      padding: 8px 10px;
+      border: 1px solid rgba(240, 192, 64, 0.2);
+      background: rgba(240, 192, 64, 0.05);
+      color: var(--color-text-secondary);
+      font-size: clamp(10px, 1.2vw, 12px);
+      line-height: 1.5;
+      text-align: center;
+    }
+    .ui-quick-voice-support[data-support="unsupported"] {
+      border-color: rgba(224, 144, 64, 0.42);
+      color: #e6b56c;
+      background: rgba(180, 96, 40, 0.08);
+    }
+
+    .ui-quick-voice-body {
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-gutter: stable;
+      padding: 16px 20px;
+    }
+
+    .ui-quick-voice-label {
+      display: block;
+      margin: 0 0 7px;
+      color: var(--color-text-secondary);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+
+    .ui-quick-voice-mode-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .ui-quick-voice-mode,
+    .ui-quick-voice-replay,
+    .ui-quick-voice-action,
+    .ui-quick-voice-close {
+      min-height: 44px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: border-color 0.18s, color 0.18s, background 0.18s, transform 0.18s;
+    }
+
+    .ui-quick-voice-mode {
+      min-width: 0;
+      padding: 8px 6px;
+      color: var(--color-gold);
+      background: rgba(240, 192, 64, 0.04);
+      border: 1px solid rgba(240, 192, 64, 0.34);
+    }
+
+    .ui-quick-voice-mode[aria-pressed="true"] {
+      color: #18130a;
+      background: linear-gradient(180deg, #f3cf67, #c99c37);
+      border-color: #f3cf67;
+      box-shadow: 0 6px 18px rgba(240, 192, 64, 0.14);
+    }
+
+    .ui-quick-voice-mode:hover,
+    .ui-quick-voice-replay:hover,
+    .ui-quick-voice-action:hover,
+    .ui-quick-voice-close:hover {
+      border-color: var(--color-gold);
+      color: var(--color-text-white);
+      background: rgba(240, 192, 64, 0.11);
+    }
+
+    .ui-quick-voice-mode[aria-pressed="true"]:hover {
+      color: #18130a;
+      background: linear-gradient(180deg, #ffe18a, #d7a641);
+    }
+
+    .ui-quick-voice-replay {
+      width: 100%;
+      margin: 0 0 14px;
+      padding: 8px 12px;
+      color: var(--color-gold);
+      background: rgba(240, 192, 64, 0.04);
+      border: 1px solid rgba(240, 192, 64, 0.38);
+    }
+
+    .ui-quick-voice-replay:disabled,
+    .ui-quick-voice-action:disabled {
+      cursor: not-allowed;
+      opacity: 0.52;
+      color: var(--color-text-muted);
+      background: rgba(255, 255, 255, 0.025);
+      border-color: rgba(184, 169, 132, 0.22);
+    }
+
+    .ui-quick-voice-select {
+      width: 100%;
+      min-height: 44px;
+      margin: 0 0 14px;
+      padding: 8px 10px;
+      color: var(--color-text-primary);
+      background: rgba(0, 0, 0, 0.42);
+      border: 1px solid rgba(240, 192, 64, 0.38);
+      font: inherit;
+      font-size: 12px;
+    }
+
+    .ui-quick-voice-preset-list {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .ui-quick-voice-preset {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 13px;
+      border: 1px solid rgba(240, 192, 64, 0.18);
+      background: rgba(240, 192, 64, 0.035);
+    }
+
+    .ui-quick-voice-preset.is-current {
+      border-color: rgba(240, 192, 64, 0.62);
+      background: rgba(240, 192, 64, 0.085);
+      box-shadow: inset 3px 0 0 rgba(240, 192, 64, 0.7);
+    }
+
+    .ui-quick-voice-preset-info {
+      min-width: 0;
+    }
+
+    .ui-quick-voice-preset-name {
+      margin-bottom: 4px;
+      color: var(--color-gold);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .ui-quick-voice-preset-desc {
+      color: var(--color-text-secondary);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .ui-quick-voice-preset-actions {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .ui-quick-voice-action {
+      min-width: 58px;
+      padding: 7px 10px;
+      color: var(--color-gold);
+      background: rgba(120, 80, 30, 0.28);
+      border: 1px solid rgba(240, 192, 64, 0.44);
+    }
+
+    .ui-quick-voice-action.apply {
+      border-color: rgba(240, 192, 64, 0.72);
+      background: rgba(120, 80, 30, 0.48);
+    }
+
+    .ui-quick-voice-close {
+      flex-shrink: 0;
+      width: calc(100% - 40px);
+      margin: 0 20px 18px;
+      padding: 8px 16px;
+      color: var(--color-text-secondary);
+      background: rgba(0, 0, 0, 0.18);
+      border: 1px solid rgba(184, 169, 132, 0.35);
+    }
+
+    @keyframes quickVoiceBackdropIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes quickVoiceCardIn {
+      from { opacity: 0; transform: translateY(14px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @media (max-width: 520px) {
+      .ui-quick-voice-panel {
+        align-items: center;
+        padding:
+          max(10px, env(safe-area-inset-top, 0px))
+          max(10px, env(safe-area-inset-right, 0px))
+          max(10px, env(safe-area-inset-bottom, 0px))
+          max(10px, env(safe-area-inset-left, 0px));
+      }
+      .ui-quick-voice-card {
+        max-height: 92dvh;
+      }
+      .ui-quick-voice-title {
+        padding: 14px 16px 12px;
+      }
+      .ui-quick-voice-body {
+        padding: 13px 14px;
+      }
+      .ui-quick-voice-mode-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .ui-quick-voice-preset {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 9px;
+      }
+      .ui-quick-voice-preset-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .ui-quick-voice-action {
+        width: 100%;
+      }
+      .ui-quick-voice-close {
+        width: calc(100% - 28px);
+        margin: 0 14px 14px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ui-quick-voice-panel,
+      .ui-quick-voice-card {
+        animation: none;
+      }
+    }
+
     /* 固定按钮防溢出：统一 border-box 盒模型 + 内容裁剪；
        图标按钮清除浏览器默认 padding，确保 44×44 热区内文字/图标不溢出 */
     .ui-sound-toggle,
@@ -1609,6 +2400,9 @@
     .ui-talent-overlay.visible { display: flex; }
 
     .ui-talent-title {
+      position: relative;
+      z-index: 2;
+      transform: translateZ(0);
       font-size: clamp(22px, 4vw, 36px);
       color: var(--color-gold);
       font-weight: 700;
@@ -1619,6 +2413,9 @@
     }
 
     .ui-talent-subtitle {
+      position: relative;
+      z-index: 2;
+      transform: translateZ(0);
       font-size: clamp(13px, 1.6vw, 15px);
       color: var(--color-text-secondary);
       margin-bottom: clamp(10px, 2vh, 20px);
@@ -1652,7 +2449,8 @@
       border-radius: 5px;
       transform-origin: center center;
       perspective: 1000px;
-      animation: talentCardDeal 0.5s cubic-bezier(0.16, 1, 0.3, 1) var(--talent-deal-delay, 0ms) both;
+      animation: talentCardDeal var(--talent-deal-duration, 320ms)
+        cubic-bezier(0.16, 1, 0.3, 1) var(--talent-deal-delay, 0ms) both;
     }
 
     .ui-talent-card.is-dealing {
@@ -1662,6 +2460,9 @@
 
     .ui-talent-card.is-revealed {
       cursor: pointer;
+      animation: none;
+      opacity: 1;
+      transform: none;
     }
 
     .ui-talent-card-inner {
@@ -1670,7 +2471,8 @@
       height: 100%;
       transform-style: preserve-3d;
       transform: rotateY(180deg);
-      animation: talentCardFlip 0.68s cubic-bezier(0.2, 0.72, 0.18, 1)
+      animation: talentCardFlip var(--talent-flip-duration, 500ms)
+        cubic-bezier(0.2, 0.72, 0.18, 1)
         var(--talent-reveal-delay, 0ms) both;
     }
 
@@ -1833,13 +2635,17 @@
     }
 
     .ui-talent-card.selected .ui-talent-card-front::after {
-      content: '✓';
+      content: '✓ ' attr(data-selection-order);
       position: absolute;
       right: 8px;
       bottom: 6px;
-      color: var(--color-gold);
-      font-size: 14px;
+      padding: 2px 5px;
+      color: #17172f;
+      background: var(--color-gold);
+      border: 1px solid rgba(255, 236, 164, 0.62);
+      font-size: 10px;
       font-weight: 700;
+      line-height: 1;
       animation: talentCheckStamp 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) both;
     }
     @keyframes talentCheckStamp {
@@ -1867,7 +2673,8 @@
 
     .ui-talent-card[data-rarity="rare"] .ui-talent-card-front {
       border-color: #4080F0;
-      animation: rareGlow 3.2s ease-in-out infinite calc(var(--talent-reveal-delay, 0ms) + 680ms);
+      animation: rareGlow 3.2s ease-in-out infinite
+        calc(var(--talent-reveal-delay, 0ms) + var(--talent-flip-duration, 500ms));
     }
     .ui-talent-card[data-rarity="rare"]:hover .ui-talent-card-front { border-color: #6aa0ff; }
     .ui-talent-card[data-rarity="rare"].selected .ui-talent-card-front {
@@ -1883,7 +2690,8 @@
     .ui-talent-card[data-rarity="legendary"] .ui-talent-card-front {
       border-color: var(--color-gold);
       box-shadow: 0 0 8px rgba(240, 192, 64, 0.15);
-      animation: legendaryGlow 2.4s ease-in-out infinite calc(var(--talent-reveal-delay, 0ms) + 680ms);
+      animation: legendaryGlow 2.4s ease-in-out infinite
+        calc(var(--talent-reveal-delay, 0ms) + var(--talent-flip-duration, 500ms));
     }
     .ui-talent-card[data-rarity="legendary"]:hover .ui-talent-card-front { border-color: var(--color-gold-light); }
     .ui-talent-card[data-rarity="legendary"].selected .ui-talent-card-front {
@@ -1994,6 +2802,8 @@
     }
 
     .ui-talent-footer {
+      position: relative;
+      transform: translateZ(0);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -2124,6 +2934,21 @@
         transform: none;
       }
 
+      .ui-talent-card.is-revealed:hover {
+        transform: none;
+      }
+
+      .ui-talent-card.selected {
+        transform: translateY(-2px);
+        animation: talentSelectStampMobile 0.3s ease-out both;
+      }
+
+      @keyframes talentSelectStampMobile {
+        0% { transform: translateY(0); }
+        45% { transform: translateY(1px); }
+        100% { transform: translateY(-2px); }
+      }
+
       .ui-talent-rarity {
         position: absolute;
         top: 6px;
@@ -2185,6 +3010,10 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+      }
+
+      .ui-talent-card.selected .ui-talent-special {
+        padding-right: 48px;
       }
 
       .ui-talent-footer {
@@ -2804,6 +3633,16 @@
       scrollbar-gutter: stable;
     }
 
+    .ui-ending-content:focus {
+      outline: none;
+    }
+
+    .ui-ending-content:focus-visible {
+      box-shadow:
+        0 22px 70px rgba(0, 0, 0, 0.28),
+        inset 0 0 0 1px rgba(240, 192, 64, 0.34);
+    }
+
     .ui-ending-content::before,
     .ui-ending-content::after {
       content: '';
@@ -2917,7 +3756,7 @@
       gap: clamp(20px, 3vw, 40px);
       align-items: center;
       align-self: center;
-      margin: 4px 0 10px;
+      margin: 0 0 10px;
       animation: endingFadeUp 0.8s ease-out 0.5s both;
     }
 
@@ -3027,17 +3866,38 @@
       flex-shrink: 0;
     }
 
-    .ui-ending-quote {
+    .ui-ending-quote-frame {
       position: relative;
       width: min(720px, 92%);
-      padding: 8px 18px;
+      margin-bottom: 4px;
+      padding: 9px 18px 11px;
+      background:
+        linear-gradient(90deg, transparent, rgba(240, 192, 64, 0.075) 18%, rgba(240, 192, 64, 0.075) 82%, transparent);
+      border-top: 1px solid rgba(240, 192, 64, 0.18);
+      border-bottom: 1px solid rgba(240, 192, 64, 0.18);
+      animation: endingFadeUp 0.8s ease-out 0.36s both;
+    }
+
+    .ui-ending-quote-label {
+      margin-bottom: 3px;
+      color: rgba(240, 192, 64, 0.66);
+      font-size: 9px;
+      font-style: normal;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-align: center;
+    }
+
+    .ui-ending-quote {
+      position: relative;
+      width: 100%;
+      padding: 2px 8px;
       font-size: clamp(15px, 1.6vw, 18px);
       color: var(--color-gold);
       font-style: italic;
       text-align: center;
       line-height: 1.55;
-      margin-bottom: 6px;
-      animation: endingFadeUp 0.8s ease-out 0.36s both;
+      margin: 0;
     }
 
     .ui-ending-quote::before,
@@ -3049,6 +3909,30 @@
     .ui-ending-quote::before { content: '「'; }
     .ui-ending-quote::after { content: '」'; }
 
+    .ui-ending-section-heading {
+      width: min(860px, 100%);
+      align-self: center;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 8px 0 10px;
+      padding-bottom: 7px;
+      border-bottom: 1px solid rgba(240, 192, 64, 0.2);
+      color: var(--color-gold);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      animation: endingFadeUp 0.8s ease-out 0.48s both;
+    }
+
+    .ui-ending-section-note {
+      color: var(--color-text-dim);
+      font-size: 9px;
+      font-weight: 400;
+      letter-spacing: 0.12em;
+    }
+
     .ui-ending-copy {
       min-width: 0;
       display: flex;
@@ -3057,6 +3941,14 @@
       padding: 16px 18px;
       background: linear-gradient(90deg, rgba(18, 18, 42, 0.64), rgba(18, 18, 42, 0.34));
       border-left: 1px solid rgba(240, 192, 64, 0.32);
+    }
+
+    .ui-ending-copy-kicker {
+      margin-bottom: 9px;
+      color: var(--color-text-secondary);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
     }
 
     /* === AI 动态洞察金句（复赛创新性记忆点）=== */
@@ -3152,6 +4044,10 @@
       animation: endingFadeUp 0.8s ease-out 0.9s both;
     }
 
+    .ui-ending-buttons.menu-open {
+      flex-wrap: wrap;
+    }
+
     .ui-ending-btn {
       padding: clamp(6px, 1.2vh, 10px) clamp(14px, 2.5vw, 24px);
       min-height: 44px;
@@ -3212,6 +4108,12 @@
       opacity: 0.85;
     }
 
+    .ui-ending-btn-secondary {
+      color: var(--color-gold);
+      background: rgba(18, 18, 42, 0.76);
+      border-color: rgba(240, 192, 64, 0.48);
+    }
+
     /* 成就/图鉴区可折叠 */
     .ui-ending-achievements.collapsed {
       max-height: 48px;
@@ -3239,21 +4141,13 @@
       color: var(--color-gold);
     }
 
-    /* 主按钮呼吸灯效果（如“再来一次”） */
+    /* 结局主动作保持稳定高对比，避免在情绪收口阶段持续闪烁催促。 */
     .ui-ending-btn-primary {
       border-color: var(--color-gold);
-      color: var(--color-gold);
-      animation: endingBtnBreath 2.4s ease-in-out infinite;
-    }
-    @keyframes endingBtnBreath {
-      0%, 100% {
-        box-shadow: 0 0 6px rgba(240, 192, 64, 0.15);
-        border-color: rgba(240, 192, 64, 0.6);
-      }
-      50% {
-        box-shadow: 0 0 18px rgba(240, 192, 64, 0.45);
-        border-color: rgba(240, 192, 64, 1);
-      }
+      color: #10101c;
+      font-weight: 700;
+      background: linear-gradient(180deg, #f3ce63, #c89525);
+      box-shadow: 0 0 16px rgba(240, 192, 64, 0.2);
     }
     /* 历史真相未读高亮闪烁动画 */
     @keyframes ending-history-pulse {
@@ -3267,10 +4161,9 @@
       }
     }
     .ui-ending-btn-primary:hover {
-      animation: none;
       box-shadow: 0 0 16px rgba(240, 192, 64, 0.35);
-      background: var(--color-bg-hover);
-      color: var(--color-text-white);
+      background: linear-gradient(180deg, #ffe28a, #d5a62e);
+      color: #090913;
     }
 
     /* === History Note Button & Overlay === */
@@ -3948,7 +4841,7 @@
       transform: translateY(40px) scale(0.93);
       opacity: 0;
       animation: settlementCardIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.1s forwards;
-      overflow-y: auto;
+      overflow: hidden;
     }
 
     .ui-settlement-overlay.closing .ui-settlement-card {
@@ -4037,6 +4930,10 @@
 
     .ui-settlement-body {
       padding: clamp(12px, 2vh, 20px) clamp(16px, 2.5vw, 26px);
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-gutter: stable;
     }
 
     .ui-settlement-text {
@@ -4145,16 +5042,24 @@
     .ui-settlement-footer {
       padding: clamp(10px, 1.5vh, 16px) clamp(16px, 2.5vw, 26px);
       border-top: 1px solid rgba(240, 192, 64, 0.15);
+      background: rgba(10, 10, 28, 0.94);
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: clamp(8px, 1.5vw, 14px);
+      flex-shrink: 0;
     }
 
     .ui-settlement-countdown {
-      font-size: clamp(9px, 1.2vw, 12px);
+      flex: 1;
+      font-size: clamp(11px, 1.2vw, 12px);
       color: var(--color-text-gray-cool);
       letter-spacing: 1px;
+      line-height: 1.5;
+    }
+
+    .ui-settlement-countdown.is-paused {
+      color: var(--color-text-secondary);
     }
 
     .ui-settlement-continue {
@@ -4178,6 +5083,12 @@
       border-color: var(--color-gold-light);
       color: var(--color-text-white);
       box-shadow: 0 0 16px rgba(240, 192, 64, 0.25);
+    }
+
+    .ui-settlement-continue:focus-visible {
+      outline: 2px solid var(--color-text-white);
+      outline-offset: 3px;
+      background: rgba(240, 192, 64, 0.14);
     }
 
     @keyframes settlementBtnBreath {
@@ -4317,7 +5228,7 @@
     @media (orientation: portrait) {
       .ui-settlement-card {
         width: clamp(280px, 92vw, 480px);
-        max-height: 90vh;
+        max-height: 90dvh;
       }
       .ui-settlement-attr {
         gap: clamp(4px, 0.8vw, 8px);
@@ -4777,6 +5688,21 @@
     }
     .ui-boot-overlay.visible { display: block; }
 
+    /* 竖屏保留清晰舞台全景，用无额外请求的环境光渐变消除上下死黑带。 */
+    @media (orientation: portrait) and (max-width: 768px) {
+      .ui-boot-overlay::before {
+        content: '';
+        position: absolute;
+        inset: -24px;
+        z-index: 0;
+        background:
+          radial-gradient(ellipse 84% 22% at 50% 47%, rgba(240, 192, 64, 0.13), transparent 72%),
+          radial-gradient(ellipse 112% 58% at 50% 46%, rgba(35, 31, 54, 0.72), transparent 74%),
+          linear-gradient(180deg, #050509 0%, #090912 30%, #12101b 49%, #08080e 70%, #050509 100%);
+        pointer-events: none;
+      }
+    }
+
     /* 角色图片 - 全屏沉浸式背景（contain 显示完整人物，避免半张大脸） */
     .ui-boot-character-bg {
       position: absolute;
@@ -5077,6 +6003,144 @@
       animation: bootFadeUp 1s 0.8s ease-out both;
     }
 
+    .ui-boot-overlay[data-boot-phase="shell"] .ui-boot-guide {
+      display: none;
+    }
+
+    /* 轻量壳本身就是可操作首屏：不要沿用完整菜单 0.3–0.8s 的延迟入场，
+       否则指标已“可交互”而用户仍只看到黑屏。引擎接管后标题也保持稳定，不二次淡入。 */
+    .ui-boot-overlay.boot-shell-hydrated .ui-boot-title,
+    .ui-boot-overlay.boot-shell-hydrated .ui-boot-subtitle,
+    .ui-boot-overlay.boot-shell-hydrated .ui-boot-quote,
+    .ui-boot-overlay.boot-shell-hydrated .ui-boot-buttons,
+    .ui-boot-overlay.boot-shell-hydrated .ui-boot-btn {
+      animation: none;
+      opacity: 1;
+      transform: none;
+      filter: none;
+    }
+
+    .ui-boot-overlay.boot-shell-hydrated .ui-boot-btn-primary:not([aria-busy="true"]) {
+      animation: bootBtnBreath 3s ease-in-out infinite;
+    }
+
+    .ui-boot-shell-status {
+      width: 100%;
+      grid-column: 1 / -1;
+      min-height: 18px;
+      color: rgba(184, 169, 132, 0.78);
+      font-size: clamp(10px, 1.2vw, 12px);
+      letter-spacing: 1px;
+      text-align: center;
+    }
+
+    .ui-boot-buttons.is-returning {
+      width: min(92vw, 620px);
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 12px;
+      align-items: stretch;
+    }
+
+    .ui-boot-buttons.is-returning .ui-boot-score-display {
+      grid-column: 1 / -1;
+      justify-self: center;
+      margin: 0;
+      padding: 2px 10px;
+      border: 0;
+      background: transparent;
+      color: rgba(240, 192, 64, 0.72);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+    }
+
+    .ui-boot-buttons.is-returning > .ui-boot-btn,
+    .ui-boot-more-panel .ui-boot-btn {
+      width: 100%;
+      margin: 0;
+    }
+
+    .ui-boot-return-continue,
+    .ui-boot-shell-primary,
+    .ui-boot-more-toggle,
+    .ui-boot-more-panel {
+      grid-column: 1 / -1;
+    }
+
+    .ui-boot-return-continue {
+      min-height: 54px;
+      font-size: clamp(15px, 2vw, 18px);
+    }
+
+    .ui-boot-more-toggle {
+      min-height: 42px;
+      border-image: none;
+      border-color: rgba(150, 145, 133, 0.38);
+      color: rgba(218, 214, 202, 0.72);
+      background: rgba(7, 8, 18, 0.5);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 2px;
+    }
+
+    .ui-boot-more-toggle:hover {
+      border-image: none;
+      border-color: rgba(240, 192, 64, 0.62);
+    }
+
+    .ui-boot-more-panel {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 12px;
+      padding-top: 2px;
+    }
+
+    .ui-boot-more-panel[hidden] {
+      display: none;
+    }
+
+    .ui-boot-more-panel .ui-boot-btn {
+      min-height: 44px;
+      padding: 9px 12px;
+      font-size: 12px;
+      letter-spacing: 1px;
+      animation-duration: 0.32s;
+    }
+
+    @media (orientation: portrait) and (max-width: 768px) {
+      .ui-boot-overlay.returning-player .ui-boot-content {
+        justify-content: flex-start;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding:
+          max(78px, calc(env(safe-area-inset-top, 0px) + 12vh))
+          18px
+          max(20px, calc(env(safe-area-inset-bottom, 0px) + 14px));
+        scrollbar-width: thin;
+        scrollbar-color: rgba(240, 192, 64, 0.35) transparent;
+      }
+      .ui-boot-overlay.returning-player .ui-boot-title {
+        font-size: clamp(32px, 10vw, 44px);
+      }
+      .ui-boot-overlay.returning-player .ui-boot-quote {
+        margin-top: 12px;
+      }
+      .ui-boot-buttons.is-returning {
+        width: 100%;
+        margin-top: 18px;
+        gap: 9px 10px;
+      }
+      .ui-boot-buttons.is-returning .ui-boot-btn {
+        padding-inline: 10px;
+        letter-spacing: 1px;
+      }
+      .ui-boot-overlay.returning-player .ui-boot-version {
+        margin-top: 15px;
+      }
+    }
+
     .ui-boot-btn {
       padding: clamp(10px, 1.8vh, 14px) clamp(28px, 4.5vw, 48px);
       min-height: 44px;
@@ -5099,6 +6163,57 @@
       animation: bootBtnIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
+    .ui-boot-btn.ui-boot-btn-danger {
+      border-image: none;
+      border-color: rgba(190, 80, 80, 0.46);
+      color: rgba(230, 170, 170, 0.82);
+    }
+
+    .ui-boot-btn[aria-busy="true"] {
+      cursor: wait;
+      border-image: none;
+      border-color: rgba(240, 192, 64, 0.56);
+      background: rgba(240, 192, 64, 0.1);
+      color: var(--color-gold-light);
+      box-shadow: 0 0 24px rgba(240, 192, 64, 0.16);
+    }
+
+    .ui-boot-shell-primary[aria-busy="true"]::after {
+      content: '';
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-left: 10px;
+      border: 2px solid rgba(255, 230, 160, 0.32);
+      border-top-color: var(--color-gold-light);
+      border-radius: 50%;
+      vertical-align: -1px;
+      animation: bootShellSpin 0.72s linear infinite;
+    }
+
+    @keyframes bootShellSpin {
+      to { transform: rotate(360deg); }
+    }
+
+    .ui-boot-btn.ui-boot-btn-danger:hover {
+      border-image: none;
+      border-color: rgba(220, 102, 102, 0.78);
+      color: #ffd0d0;
+      background: rgba(160, 44, 44, 0.12);
+    }
+
+    .ui-boot-btn.ui-boot-btn-danger.confirming {
+      border-image: none;
+      border-color: #df6b6b;
+      color: #ffe0e0;
+      background:
+        linear-gradient(180deg, rgba(168, 50, 50, 0.25), rgba(94, 24, 32, 0.2));
+      box-shadow:
+        0 0 0 1px rgba(223, 107, 107, 0.15),
+        0 0 18px rgba(190, 60, 60, 0.16);
+      animation: none;
+    }
+
     /* R28-T2: 标题按钮入场——上浮 + 淡入 + 轻微缩放 */
     @keyframes bootBtnIn {
       from {
@@ -5114,7 +6229,13 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .ui-boot-btn { animation: none; opacity: 1; transform: none; }
+      .ui-boot-btn,
+      .ui-boot-more-panel .ui-boot-btn,
+      .ui-boot-shell-primary[aria-busy="true"]::after {
+        animation: none;
+        opacity: 1;
+        transform: none;
+      }
     }
 
     .ui-boot-btn::before {
@@ -5841,6 +6962,121 @@
       line-height: 1.6;
       text-align: center;
     }
+    .ui-ending-gallery-intro span {
+      display: inline-block;
+      margin-left: 0.35em;
+      color: var(--color-text-secondary);
+    }
+    .ui-ending-gallery-detail {
+      margin: 10px 16px 0;
+      padding: 14px 16px;
+      max-height: 31vh;
+      overflow-y: auto;
+      border: 1px solid rgba(240, 192, 64, 0.48);
+      border-radius: var(--radius-sharp);
+      background:
+        linear-gradient(135deg, rgba(240, 192, 64, 0.11), rgba(10, 10, 26, 0.95)),
+        #101026;
+      box-shadow:
+        inset 3px 0 0 rgba(240, 192, 64, 0.72),
+        0 8px 22px rgba(0, 0, 0, 0.25);
+      animation: ending-gallery-detail-in 0.18s ease-out both;
+    }
+    .ui-ending-gallery-detail[hidden] {
+      display: none;
+    }
+    @keyframes ending-gallery-detail-in {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .ui-ending-gallery-detail-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .ui-ending-gallery-detail-identity {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      gap: 11px;
+    }
+    .ui-ending-gallery-detail-icon {
+      flex: 0 0 auto;
+      color: var(--color-gold);
+      font-size: 28px;
+      line-height: 1;
+      filter: drop-shadow(0 0 9px rgba(240, 192, 64, 0.35));
+    }
+    .ui-ending-gallery-detail-kicker {
+      margin-bottom: 2px;
+      color: var(--color-text-muted);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+    }
+    .ui-ending-gallery-detail-name {
+      margin: 0;
+      color: var(--color-gold);
+      font-size: clamp(15px, 2vw, 19px);
+      line-height: 1.25;
+    }
+    .ui-ending-gallery-detail-subtitle {
+      margin-top: 2px;
+      color: var(--color-text-secondary);
+      font-size: 10px;
+      letter-spacing: 0.5px;
+    }
+    .ui-ending-gallery-detail-close {
+      flex: 0 0 auto;
+      min-width: 56px;
+      min-height: 44px;
+      padding: 0 12px;
+      border: 1px solid rgba(240, 192, 64, 0.38);
+      border-radius: var(--radius-sharp);
+      background: rgba(0, 0, 0, 0.28);
+      color: var(--color-gold);
+      font: inherit;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .ui-ending-gallery-detail-close:hover,
+    .ui-ending-gallery-detail-close:focus-visible {
+      border-color: var(--color-gold);
+      background: rgba(240, 192, 64, 0.12);
+      outline: 2px solid rgba(240, 192, 64, 0.36);
+      outline-offset: 2px;
+    }
+    .ui-ending-gallery-detail-desc {
+      margin: 11px 0 0;
+      color: #e3d2b2;
+      font-size: 12px;
+      line-height: 1.75;
+      text-align: left;
+    }
+    .ui-ending-gallery-detail-respect {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin: 10px 0 0;
+      padding: 8px 10px;
+      border-left: 2px solid var(--color-gold);
+      background: rgba(0, 0, 0, 0.22);
+      color: #d5bd8f;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+    .ui-ending-gallery-detail-respect > span {
+      flex: 0 0 auto;
+      color: var(--color-gold);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+    }
+    .ui-ending-gallery-detail-respect q::before,
+    .ui-ending-gallery-detail-respect q::after {
+      color: rgba(240, 192, 64, 0.62);
+    }
     .ui-ending-gallery-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -5848,11 +7084,52 @@
       padding: 12px 16px;
       overflow-y: auto;
       max-height: 60vh;
+      min-height: 0;
+      flex: 1 1 420px;
       align-content: flex-start;
+      scroll-padding: 12px;
     }
     @media (max-width: 640px) {
+      .ui-ending-gallery-overlay {
+        padding: 8px;
+      }
+      .ui-ending-gallery-card {
+        width: min(100%, 720px);
+        max-height: calc(100dvh - 16px);
+      }
+      .ui-ending-gallery-header {
+        padding: 10px 12px;
+      }
+      .ui-ending-gallery-count {
+        margin-right: 2px;
+      }
+      .ui-ending-gallery-progress {
+        margin-inline: 12px;
+      }
+      .ui-ending-gallery-intro {
+        padding-inline: 12px;
+      }
+      .ui-ending-gallery-intro span {
+        display: block;
+        margin: 2px 0 0;
+      }
+      .ui-ending-gallery-detail {
+        margin: 8px 12px 0;
+        padding: 12px;
+        max-height: 34vh;
+      }
+      .ui-ending-gallery-detail-desc {
+        font-size: 11px;
+        line-height: 1.65;
+      }
+      .ui-ending-gallery-detail-respect {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 3px;
+      }
       .ui-ending-gallery-grid {
         grid-template-columns: repeat(2, 1fr);
+        padding: 10px 12px 12px;
       }
     }
     @media (min-width: 900px) {
@@ -5862,6 +7139,7 @@
     }
     .ui-ending-gallery-card-item {
       padding: 10px 8px;
+      min-height: 148px;
       border-radius: var(--radius-sharp);
       border: 1px solid;
       display: flex;
@@ -5869,7 +7147,12 @@
       align-items: center;
       text-align: center;
       gap: 3px;
-      transition: all 0.15s ease;
+      overflow: hidden;
+      transition:
+        border-color 0.15s ease,
+        background 0.15s ease,
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
       /* R38: stagger 入场动画 */
       opacity: 0;
       transform: translateY(8px);
@@ -5885,8 +7168,15 @@
         opacity: 1;
         transform: none;
       }
+      .ui-ending-gallery-detail {
+        animation: none;
+      }
+      .ui-ending-gallery-progress-fill {
+        transition: none;
+      }
     }
     .ui-ending-gallery-card-unlocked {
+      padding: 0;
       border-color: rgba(240, 192, 64, 0.35);
       background: rgba(240, 192, 64, 0.06);
     }
@@ -5894,6 +7184,40 @@
       border-color: rgba(240, 192, 64, 0.6);
       background: rgba(240, 192, 64, 0.12);
       transform: translateY(-1px);
+    }
+    .ui-ending-gallery-card-unlocked:focus-within {
+      border-color: var(--color-gold);
+      background: rgba(240, 192, 64, 0.14);
+      box-shadow:
+        0 0 0 2px rgba(240, 192, 64, 0.24),
+        inset 0 0 16px rgba(240, 192, 64, 0.05);
+    }
+    .ui-ending-gallery-card-toggle {
+      appearance: none;
+      width: 100%;
+      min-height: 146px;
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 10px 8px 9px;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      text-align: center;
+      cursor: pointer;
+    }
+    .ui-ending-gallery-card-toggle:focus {
+      outline: none;
+    }
+    .ui-ending-gallery-card-toggle[aria-expanded="true"] {
+      background: linear-gradient(
+        180deg,
+        rgba(240, 192, 64, 0.12),
+        rgba(240, 192, 64, 0.04)
+      );
     }
     .ui-ending-gallery-card-locked {
       border-color: rgba(58, 58, 74, 0.5);
@@ -5921,10 +7245,33 @@
       color: #4a4a5e;
     }
     .ui-ending-gallery-card-desc {
+      display: -webkit-box;
+      max-height: 45px;
+      overflow: hidden;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
       font-size: 10px;
       color: #c8a878;
       line-height: 1.5;
       margin-top: 2px;
+    }
+    .ui-ending-gallery-card-action {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      min-height: 24px;
+      margin-top: auto;
+      padding-top: 5px;
+      color: var(--color-gold);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.35px;
+    }
+    .ui-ending-gallery-card-toggle[aria-expanded="true"]
+      .ui-ending-gallery-card-action span {
+      transform: rotate(180deg);
     }
     .ui-ending-gallery-card-hint {
       font-size: 10px;
@@ -6289,7 +7636,7 @@
       /* 整体布局：竖屏时 Canvas 区域自适应，UI 元素缩小 */
       body {
         align-items: flex-start;
-        padding-top: 40px; /* 给顶部提示条留空间 */
+        padding-top: 0;
       }
 
       /* R76: 竖屏"黑腰带"氛围化——canvas 顶对齐后，其底缘(~318px)与选项面板(~551px)
@@ -6415,20 +7762,33 @@
         font-size: 10px;
       }
       .ui-narration-toggle {
-        top: calc(env(safe-area-inset-top, 0px) + 52px);
-        right: calc(2vw + 104px); /* R73: 与桌面一致间距 8px */
-        min-width: 52px;
-        height: 44px;
-        padding: 0 4px;
-        font-size: 10px;
+        display: none !important;
       }
       .ui-voice-toggle {
-        top: calc(env(safe-area-inset-top, 0px) + 52px);
-        right: calc(2vw + 164px); /* R73: 与桌面一致间距 8px */
-        min-width: 52px;
-        height: 44px;
-        padding: 0 4px;
-        font-size: 10px;
+        display: none !important;
+      }
+      .ui-menu-confirm {
+        align-items: center;
+        padding:
+          max(12px, env(safe-area-inset-top, 0px))
+          max(12px, env(safe-area-inset-right, 0px))
+          max(12px, env(safe-area-inset-bottom, 0px))
+          max(12px, env(safe-area-inset-left, 0px));
+      }
+      .ui-menu-confirm-box {
+        width: min(100%, 390px);
+        padding: 20px 16px 16px;
+      }
+      .ui-menu-settings {
+        gap: 6px;
+        margin-bottom: 14px;
+      }
+      .ui-menu-setting {
+        min-height: 56px;
+        padding-inline: 4px;
+      }
+      .ui-menu-confirm-btns {
+        gap: 8px;
       }
 
       /* 5+选项面板优化 */
@@ -6467,10 +7827,17 @@
       .ui-ending-desc {
         font-size: 14px;
       }
+      .ui-ending-quote-frame {
+        width: 100%;
+        padding: 8px 4px 10px;
+      }
       .ui-ending-quote {
         width: 100%;
-        padding: 8px 4px;
+        padding: 2px 4px;
         font-size: 16px;
+      }
+      .ui-ending-section-heading {
+        margin: 7px 0 8px;
       }
       .ui-ending-analysis {
         grid-template-columns: 1fr;
@@ -6497,12 +7864,30 @@
            成就+图例），主按钮沉到滚动末段首屏不可见（ux-evaluator R83 判 B）。
            恢复基础规则 sticky 吸底，仅保留竖屏全宽负边距修正。 */
         margin: 0 -14px;
+        flex-wrap: nowrap;
+        gap: 6px;
         padding-right: 14px;
         padding-left: 14px;
       }
       .ui-ending-btn {
-        min-width: min(152px, 44vw);
-        flex: 1 1 142px;
+        min-width: 0;
+        flex: 1 1 0;
+        padding-right: 7px;
+        padding-left: 7px;
+        font-size: 10px;
+        white-space: nowrap;
+      }
+      .ui-ending-btn-primary {
+        flex-grow: 1.38;
+      }
+      .ui-ending-btn-more {
+        flex-grow: 0.72;
+      }
+      .ui-ending-buttons.menu-open {
+        flex-wrap: wrap;
+      }
+      .ui-ending-buttons.menu-open .ui-ending-more-menu {
+        flex-basis: 100%;
       }
 
       /* 随机事件适配 */
@@ -6515,7 +7900,7 @@
     /* 超小屏幕进一步压缩（高度 < 600px） */
     @media (orientation: portrait) and (max-height: 600px) {
       body {
-        padding-top: 36px;
+        padding-top: 0;
       }
       .ui-dialog {
         max-height: 30vh;
@@ -6577,8 +7962,10 @@
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.01ms !important;
+        animation-delay: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
+        transition-delay: 0ms !important;
         scroll-behavior: auto !important;
       }
       .scene-transition { animation: none !important; opacity: 1 !important; transform: none !important; }
@@ -6587,7 +7974,7 @@
 </head>
 <body>
 
-  <!-- 首屏 Loading 层：Phaser 启动 + 图片下载期间显示，避免黑屏 -->
+  <!-- 极短首帧占位：轻量标题壳就绪后立即让位；不再等待 Phaser。 -->
   <div id="app-loading">
     <div class="app-loading-inner">
       <div class="app-loading-title">罗的十字路口</div>
@@ -6598,19 +7985,39 @@
   </div>
 
   <!-- R89: GameScene 资源加载层：慢网下显示真实下载进度，杜绝"永久黑屏"错觉 -->
-  <div id="ui-game-loading" role="status" aria-live="polite">
-    <div class="app-loading-inner">
-      <div class="app-loading-title">正在进入人生…</div>
-      <div class="app-loading-bar"><div class="app-loading-fill ui-game-loading-fill"></div></div>
-      <div class="app-loading-text ui-game-loading-text">正在进入人生… 0%</div>
+  <div id="ui-game-loading" role="region" aria-labelledby="ui-game-loading-title"
+    aria-describedby="ui-game-loading-detail" aria-hidden="true" aria-busy="false"
+    data-loading-stage="idle" data-progress-mode="indeterminate" hidden>
+    <div class="ui-game-loading-card">
+      <div class="ui-game-loading-kicker">连接人生舞台</div>
+      <div class="app-loading-title" id="ui-game-loading-title">正在展开人生…</div>
+      <div class="ui-game-loading-detail" id="ui-game-loading-detail">正在准备你的第一段故事</div>
+      <div class="ui-game-loading-progress" role="progressbar" aria-label="第一幕资源准备进度"
+        aria-valuemin="0" aria-valuemax="100" aria-valuetext="正在准备游戏内容">
+        <div class="ui-game-loading-fill"></div>
+      </div>
+      <div class="ui-game-loading-meta" aria-hidden="true">
+        <span class="ui-game-loading-meta-label">舞台与人物正在就位</span>
+        <span class="ui-game-loading-percent">准备中</span>
+      </div>
+      <div class="ui-game-loading-actions" hidden>
+        <button class="ui-game-loading-action" type="button" hidden>重新加载游戏</button>
+        <button class="ui-game-loading-dismiss" type="button" hidden>先回标题</button>
+      </div>
+      <div class="ui-game-loading-announcement ui-visually-hidden" role="status"
+        aria-live="polite" aria-atomic="true"></div>
     </div>
   </div>
 
-  <!-- 竖屏提示 - 非阻塞式顶部提示条 -->
-  <div id="rotate-hint">
-    <span class="icon">[ ⇔ ]</span>
-    <span class="title">横屏体验更佳</span>
-    <button id="rotate-hint-dismiss" type="button">竖屏继续</button>
+  <!-- 声音、朗读与配音设置的跨场景统一播报出口。 -->
+  <div id="ui-audio-status" class="ui-visually-hidden" role="status"
+    aria-live="polite" aria-atomic="true"></div>
+
+  <!-- 竖屏建议：仅标题页首次短暂出现，不阻断竖屏游玩。 -->
+  <div id="rotate-hint" class="hidden" role="status" aria-label="横屏游玩建议" aria-hidden="true">
+    <span class="icon" aria-hidden="true">↔</span>
+    <span class="title">横屏视野更完整</span>
+    <button id="rotate-hint-dismiss" type="button" aria-label="关闭横屏游玩建议">知道了</button>
   </div>
 
   <!-- 下半屏点击捕获层（移动端对话框热区扩展） -->
@@ -6629,15 +8036,23 @@
   <!-- DOM UI Overlay Container -->
   <div id="ui-overlay">
     <!-- Dialog -->
-    <div class="ui-dialog" id="ui-dialog">
+    <div class="ui-dialog" id="ui-dialog" role="group" aria-label="剧情对话" tabindex="-1">
       <span class="corner-deco tl"></span>
       <span class="corner-deco tr"></span>
       <span class="corner-deco bl"></span>
       <span class="corner-deco br"></span>
-      <div class="ui-dialog-name" id="ui-dialog-name"></div>
+      <div class="ui-dialog-header">
+        <div class="ui-dialog-name" id="ui-dialog-name"></div>
+        <div class="ui-dialog-reading-controls" role="group" aria-label="阅读控制">
+          <button class="ui-dialog-auto" id="ui-dialog-auto" type="button" aria-keyshortcuts="A" aria-pressed="false">自动 · 关</button>
+          <button class="ui-dialog-speed" id="ui-dialog-speed" type="button" aria-keyshortcuts="S">中速</button>
+        </div>
+      </div>
       <div class="ui-dialog-text" id="ui-dialog-text"></div>
-      <div class="ui-dialog-continue" id="ui-dialog-continue">点击继续 ▶</div>
-      <button class="ui-dialog-auto" id="ui-dialog-auto" title="自动播放 (A)，按 S 切换速度" aria-label="自动播放切换">AUTO</button>
+      <button class="ui-dialog-continue" id="ui-dialog-continue" type="button"
+        aria-keyshortcuts="Enter Space" aria-live="polite" aria-atomic="true" hidden>
+        显示全文
+      </button>
     </div>
 
     <!-- Choices -->
@@ -6688,18 +8103,33 @@
   <div class="ui-menu-confirm" id="ui-menu-confirm" role="dialog" aria-modal="true"
     aria-labelledby="ui-menu-confirm-title" aria-hidden="true">
     <div class="ui-menu-confirm-box">
+      <div class="ui-menu-kicker" aria-hidden="true">系统菜单</div>
       <div class="ui-menu-confirm-text" id="ui-menu-confirm-title">确定返回标题菜单吗？<br><small>当前进度已自动保存。</small></div>
+      <div class="ui-menu-settings" role="group" aria-label="游戏设置">
+        <button class="ui-menu-setting" id="ui-menu-sound-setting" type="button">
+          <span class="ui-menu-setting-label">声音</span>
+          <span class="ui-menu-setting-state" id="ui-menu-sound-state">开启</span>
+        </button>
+        <button class="ui-menu-setting" id="ui-menu-narration-setting" type="button">
+          <span class="ui-menu-setting-label">剧情朗读</span>
+          <span class="ui-menu-setting-state" id="ui-menu-narration-state">金句</span>
+        </button>
+        <button class="ui-menu-setting" id="ui-menu-voice-setting" type="button">
+          <span class="ui-menu-setting-label">朗读风格</span>
+          <span class="ui-menu-setting-state" id="ui-menu-voice-state">沉稳演讲</span>
+        </button>
+      </div>
       <div class="ui-menu-confirm-btns">
-        <button class="ui-menu-confirm-btn" id="ui-menu-cancel">继续游戏</button>
-        <button class="ui-menu-confirm-btn primary" id="ui-menu-ok">返回菜单</button>
+        <button class="ui-menu-confirm-btn primary" id="ui-menu-cancel">继续游戏</button>
+        <button class="ui-menu-confirm-btn danger" id="ui-menu-ok">返回菜单</button>
       </div>
     </div>
   </div>
 
     <!-- Talent Selection -->
-    <div class="ui-talent-overlay" id="ui-talent-overlay">
-      <div class="ui-talent-title">选择你的天赋</div>
-      <div class="ui-talent-subtitle">本局获得 5 个天赋，选择 2 个组合你的人生底色</div>
+    <div class="ui-talent-overlay" id="ui-talent-overlay" role="dialog" aria-modal="true" aria-labelledby="ui-talent-title" aria-describedby="ui-talent-subtitle">
+      <div class="ui-talent-title" id="ui-talent-title">选择你的天赋</div>
+      <div class="ui-talent-subtitle" id="ui-talent-subtitle">本局获得 5 个天赋，选择 2 个组合你的人生底色</div>
       <div class="ui-talent-cards" id="ui-talent-cards"></div>
       <div class="ui-talent-footer">
         <div class="ui-talent-combo" role="status" aria-live="polite"></div>
@@ -6709,7 +8139,7 @@
     </div>
 
     <!-- Intro Scene -->
-    <div class="ui-intro-overlay" id="ui-intro-overlay">
+    <div class="ui-intro-overlay" id="ui-intro-overlay" role="dialog" aria-modal="true" aria-label="序章：人生路口">
       <div class="ui-intro-kicker" aria-hidden="true">
         <span>序章</span><i></i><span>人生路口</span>
       </div>
@@ -6736,9 +8166,14 @@
     <div class="ui-scene-flash" id="ui-scene-flash" aria-hidden="true"></div>
 
     <!-- Boot Scene -->
-    <div class="ui-boot-overlay" id="ui-boot-overlay">
+    <div class="ui-boot-overlay" id="ui-boot-overlay" role="main" aria-labelledby="ui-boot-title">
       <!-- 角色全屏背景层 -->
-      <img class="ui-boot-character-bg" id="ui-boot-character" src="assets/characters/scene-stage-v2.webp" alt="">
+      <img class="ui-boot-character-bg" id="ui-boot-character"
+        src="assets/characters/scene-stage-v2-1440.webp"
+        srcset="assets/characters/scene-stage-v2-720.webp 720w, assets/characters/scene-stage-v2-1440.webp 1440w, assets/characters/scene-stage-v2.webp 2304w"
+        sizes="100vw"
+        fetchpriority="high"
+        alt="">
       <!-- 暗色渐变遮罩，确保文字可读 -->
       <div class="ui-boot-dim"></div>
       <!-- 居中内容层 -->
@@ -6757,7 +8192,7 @@
           <div class="ui-boot-particle"></div>
           <div class="ui-boot-particle"></div>
         </div>
-        <div class="ui-boot-title">罗的十字路口</div>
+        <div class="ui-boot-title" id="ui-boot-title">罗的十字路口</div>
         <div class="ui-boot-subtitle">真还传 · 人生模拟</div>
         <div class="ui-boot-quote" id="ui-boot-quote"><span class="ui-boot-quote-cursor"></span></div>
 
@@ -6879,17 +8314,25 @@
       <div class="ui-ending-flashback-hint">点击 / 空格跳过</div>
     </div>
 
-    <div class="ui-ending-overlay" id="ui-ending-overlay">
-      <div class="ui-ending-content">
+    <div class="ui-ending-overlay" id="ui-ending-overlay" role="dialog" aria-modal="true" aria-labelledby="ui-ending-title" aria-describedby="ui-ending-desc">
+      <div class="ui-ending-content" tabindex="-1">
         <header class="ui-ending-hero">
           <div class="ui-ending-kicker">本局人生终章</div>
           <div class="ui-ending-title" id="ui-ending-title"></div>
           <div class="ui-ending-desc" id="ui-ending-desc"></div>
-          <div class="ui-ending-quote" id="ui-ending-quote"></div>
+          <div class="ui-ending-quote-frame" aria-label="本局金句">
+            <div class="ui-ending-quote-label">本局金句</div>
+            <div class="ui-ending-quote" id="ui-ending-quote"></div>
+          </div>
         </header>
+        <div class="ui-ending-section-heading" role="heading" aria-level="2">
+          <span>人生复盘</span>
+          <span class="ui-ending-section-note">六维轨迹 · 选择回声</span>
+        </div>
         <div class="ui-ending-analysis">
           <div class="ui-ending-stats" id="ui-ending-stats"></div>
           <div class="ui-ending-copy">
+            <div class="ui-ending-copy-kicker">选择回声</div>
             <div class="ui-ending-summary" id="ui-ending-summary"></div>
             <div class="ui-ending-disclaimer">本作基于公开事迹改编，部分情节虚构。致敬每一位在十字路口做出选择的人。</div>
           </div>
@@ -6934,12 +8377,14 @@
       window.luohammerDeferredPrompt = null;
     });
   </script>
-  <script type="module" src="/src/main.js"></script>
+  <script type="module" src="/src/bootShell.js"></script>
   <script>
     (function() {
       if (!('serviceWorker' in navigator)) return;
-      // 开发环境（src/main.js）不注册 Service Worker，避免干扰 Vite HMR
-      var mainScript = document.querySelector('script[src*="/src/main.js"]');
+      // 开发环境（src/bootShell.js / src/main.js）不注册 Service Worker，避免干扰 Vite HMR
+      var mainScript = document.querySelector(
+        'script[src*="/src/bootShell.js"], script[src*="/src/main.js"]'
+      );
       if (mainScript) {
         var clearRegistration = navigator.serviceWorker.getRegistration('./')
           .then(function(reg) { return reg ? reg.unregister() : false; });

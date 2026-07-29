@@ -46,11 +46,13 @@ describe('TalentSystem - 跨周目生命周期', () => {
     const secondReroll = vi.fn(() => TALENTS);
     const secondSystem = new TalentSystem({});
     secondSystem.show(TALENTS, vi.fn(), { onReroll: secondReroll, rerollCount: 1 });
+    vi.runAllTimers();
     document.getElementById('ui-talent-reroll').click();
 
     expect(firstReroll).not.toHaveBeenCalled();
     expect(secondReroll).toHaveBeenCalledOnce();
     expect(document.getElementById('ui-talent-reroll').style.display).toBe('none');
+    secondSystem.destroy();
   });
 
   it('确认按钮只在选满两个天赋后启用', () => {
@@ -60,9 +62,10 @@ describe('TalentSystem - 跨周目生命周期', () => {
     const confirm = document.getElementById('ui-talent-confirm');
 
     expect(confirm.disabled).toBe(true);
-    expect(document.querySelector('.ui-talent-hint').textContent).toContain('5 选 2');
+    expect(document.querySelector('.ui-talent-hint').textContent).toContain('揭晓中');
     expect(cards.map(card => card.dataset.position)).toEqual(['1/5', '2/5', '3/5', '4/5', '5/5']);
     vi.runAllTimers();
+    expect(document.querySelector('.ui-talent-hint').textContent).toContain('5 选 2');
     cards[0].click();
     expect(confirm.disabled).toBe(true);
     expect(document.querySelector('.ui-talent-combo').textContent).toContain('再选择 1 个');
@@ -83,18 +86,19 @@ describe('TalentSystem - 跨周目生命周期', () => {
     expect(cards[0].querySelector('.ui-talent-card-front')).not.toBeNull();
 
     cards[0].click();
-    expect(document.querySelector('.ui-talent-hint').textContent).toContain('0/2');
+    expect(document.querySelector('.ui-talent-hint').textContent).toContain('0/5');
 
-    vi.advanceTimersByTime(939);
-    expect(cards[0].disabled).toBe(true);
+    expect(system.overlay.getAttribute('aria-busy')).toBe('true');
+    expect(document.querySelector('.ui-talent-hint').textContent).toContain('揭晓中');
+
+    vi.advanceTimersByTime(1439);
+    expect(cards.every(card => card.disabled)).toBe(true);
 
     vi.advanceTimersByTime(1);
-    expect(cards[0].disabled).toBe(false);
-    expect(cards[0].classList.contains('is-revealed')).toBe(true);
-    expect(cards[1].disabled).toBe(true);
-
-    vi.runAllTimers();
     expect(cards.every(card => !card.disabled)).toBe(true);
+    expect(cards.every(card => card.classList.contains('is-revealed'))).toBe(true);
+    expect(document.activeElement).toBe(cards[0]);
     expect(cards.every(card => card.tabIndex === 0)).toBe(true);
+    expect(system.overlay.getAttribute('aria-busy')).toBe('false');
   });
 });
