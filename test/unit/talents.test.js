@@ -111,6 +111,23 @@ describe('五选二抽取规则', () => {
     }
   });
 
+  it('guaranteeTalentIds 必现在池天赋且不占重复槽（多周目保底时间旅者）', () => {
+    for (let i = 0; i < 50; i++) {
+      const hand = drawTalents(5, { guaranteeRare: true, guaranteeTalentIds: ['time_traveler'] });
+      expect(hand).toHaveLength(5);
+      expect(hand.filter(talent => talent.id === 'time_traveler')).toHaveLength(1);
+      expect(new Set(hand.map(talent => talent.id)).size).toBe(5);
+    }
+  });
+
+  it('guaranteeTalentIds 对不在池中的天赋静默跳过', () => {
+    // achievement_hunter 未解锁时不在池，保底不应凭空造牌
+    const hand = drawTalents(5, { guaranteeTalentIds: ['achievement_hunter', 'time_traveler'] });
+    expect(hand).toHaveLength(5);
+    expect(hand.some(talent => talent.id === 'achievement_hunter')).toBe(false);
+    expect(hand.some(talent => talent.id === 'time_traveler')).toBe(true);
+  });
+
   it('两张天赋生成可分享的人生底色', () => {
     const business = TALENTS.find(talent => talent.id === 'business_sense');
     const ideal = TALENTS.find(talent => talent.id === 'dreamer');

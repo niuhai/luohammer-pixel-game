@@ -1,12 +1,26 @@
 {
   "schemaVersion": 1,
   "cycle": "2026-07-29-v4.3-continuous",
-  "round": "R039",
-  "taskId": "UI-039",
-  "status": "active",
-  "startedAt": "2026-07-29T21:04:30.071Z",
+  "round": "R040",
+  "taskId": "UI-040",
+  "status": "closed",
+  "startedAt": "2026-07-30T06:22:05.251Z",
   "baseline": {
-    "head": "6e214b7",
-    "dirtyEntries": 57
-  }
+    "head": "d6ffcf4",
+    "dirtyEntries": 15
+  },
+  "outcome": "IMPROVED",
+  "value": "V2",
+  "evidenceGrade": "E1",
+  "guardrails": "PASS",
+  "counterevidence": "探针模拟的回访身份(localStorage注入)与真实玩家一周目自然通关后的状态等价但非实机采集;尚无真实回访玩家数据",
+  "capabilityDelta": "COMPOUNDING:发牌层guaranteeTalentIds保底机制可复用于任何周目/成就定向发牌;场景早退须先标记_finished成为可复用防御模式",
+  "verificationCostSeconds": 180,
+  "decision": "CONTINUE",
+  "summary": "IntroScene NG+跳过与无overlay两条早退路径补_finished=true,修复回访玩家每帧TypeError卡死黑屏;drawTalents新增guaranteeTalentIds,多周目保底时间旅者入牌(随机约1.4%/槽提升至100%),replay_bonus周目身份对回访玩家稳定可见;单测+2(12/12),L2全绿,NG+探针C1-C7 ALL PASS",
+  "evidence": [
+    ".iteration/ui/evidence/R040-verify.json",
+    "test-screenshots/r040"
+  ],
+  "closedAt": "2026-07-30T06:24:24.467Z"
 }

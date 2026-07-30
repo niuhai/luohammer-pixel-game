@@ -1,7 +1,7 @@
 # 当前迭代状态（v4.3 持续周期）
 
 cycle: 2026-07-29-v4.3-continuous
-round_next: R039
+round_next: R041
 
 goal: >
   评委 10 分钟体验旅程在"电脑端主验收、手机端护栏"下持续逼近极限
@@ -11,7 +11,7 @@ baseline:
   quality: Q001（scorecard.md，本周期建立）
   ui: UI-Q002（ui/baseline.md，序章场景，FREEZE）
   capability: growth.md 首期账本
-  best_known_version: R038 本地工作树（随机事件与技能因果链、决策洞察层、响应式技能树、结局成长交接、原子购买及可跳过逐卡天赋揭晓，L3 与六视口矩阵 PASS，待部署）
+  best_known_version: R039 已部署（gh-pages 942261f，线上 index-DII3Da4B + SW v12-prod，verify:deployment 通过；L3 全套件 58/58 由收口会话代跑补齐）
 
 target: >
   每轮产生可证据化的 Outcome Delta（IMPROVED 且护栏稳定）；
@@ -20,7 +20,7 @@ target: >
 guardrails:
   - 手机端 360×800 / 375×812 / 390×844 核心旅程与触摸可用性不退化
   - 桌面端 1366×768 / 1440×900 / 1920×1080 主操作与布局不退化
-  - vitest 425/425、Playwright 56/56、lint 0 错、validate-story 214 节点 0 错、simulate-paths 13 策略 7 结局
+  - vitest 425/425、Playwright 58/58、lint 0 错、validate-story 214 节点 0 错、simulate-paths 13 策略 7 结局
   - PWA 离线链路可玩（R94 全链路基线 + R021 SW v12 递归预缓存与离线标题→序章）
   - 首访网络竞争不回退（R021 弱网：525ms 可交互、123615B、先于 Phaser）
   - 游戏加载状态不回退（R022 六视口标题/加载/完成三态隔离 + 真实 progressbar）
@@ -40,7 +40,7 @@ budget:
 
 environment:
   source: Windows / Vite 5 / Phaser 3 / 分支 dev-20260722
-  target: GitHub Pages（niuhai.github.io/luohammer-pixel-game/）+ SW v12-prod（本地通过，线上待部署）
+  target: GitHub Pages（niuhai.github.io/luohammer-pixel-game/）+ SW v12-prod（R039 已部署并 verify 通过）
 
 frontend_loop:
   status: active

@@ -1090,6 +1090,13 @@ export class GameScene extends Phaser.Scene {
       ? this.meta.getUnlockedSkills()
       : [];
     const drawOptions = { guaranteeRare: true, unlockedTalentIds };
+    // R040：多周目保底"时间旅者"入牌。replay_bonus 是 NG+ 专属差异化天赋，
+    // 纯随机下回访玩家约 93% 看不到它——周目身份应在发牌层可见，而非藏在概率里。
+    // playCount 在 init 已含本周目计数，>1 即本周目为回访局。
+    try {
+      const playCount = parseInt(localStorage.getItem('luohammer_play_count') || '0', 10);
+      if (playCount > 1) drawOptions.guaranteeTalentIds = ['time_traveler'];
+    } catch (e) {}
     const talents = drawTalents(TALENT_OFFER_COUNT, drawOptions);
 
     // 里程碑奖励 + 逆天改命技能：额外天赋刷新次数

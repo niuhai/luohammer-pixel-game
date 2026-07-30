@@ -111,6 +111,12 @@ export class IntroScene extends Phaser.Scene {
       try {
         const metaProgress = new MetaProgression();
         if (metaProgress.getPlayCount() > 0) {
+          // R040 修复：跳过路径早退前必须标记 _finished——
+          // _tlQueue/_finished 等字段在下方才初始化，早退后 update() 会访问
+          // this._tlQueue.length（undefined）每帧抛错，卡死到 GameScene 的切换。
+          // （场景实例复用时首轮从未完整跑过 create 则字段全未定义：
+          //  老玩家全新浏览器会话开二周目必现黑屏。）
+          this._finished = true;
           this._ensureGameplayScenes()
             .then(() => this.scene.start('GameScene', {}))
             .catch(error => {
@@ -130,6 +136,8 @@ export class IntroScene extends Phaser.Scene {
     const fade = document.getElementById('ui-intro-fade');
 
     if (!overlay) {
+      // 与 NG+ 跳过路径同理：早退前标记 _finished，避免 update() 访问未初始化字段
+      this._finished = true;
       this.scene.start('GameScene', {});
       return;
     }

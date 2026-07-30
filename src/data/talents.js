@@ -500,6 +500,9 @@ export const TALENTS = [
  * @param {object} options - 选项
  * @param {boolean} options.guaranteeRare - 是否保底至少一个稀有
  * @param {string[]} options.unlockedTalentIds - 已解锁的特殊天赋 ID
+ * @param {string[]} options.guaranteeTalentIds - 必现天赋 ID（在池中时固定入牌，仍占槽位；
+ *   用于多周目保底"时间旅者"——replay_bonus 是 NG+ 专属差异化，随机 10%×1/7≈1.4%/槽
+ *   会让回访玩家几乎永远看不到自己周目身份对应的牌）
  * @returns {array} 天赋对象数组
  */
 export function drawTalents(count = TALENT_OFFER_COUNT, options = {}) {
@@ -520,6 +523,14 @@ export function drawTalents(count = TALENT_OFFER_COUNT, options = {}) {
     if (!candidates.length) return null;
     return candidates[Math.floor(Math.random() * candidates.length)];
   };
+
+  // 必现槽优先占用（仍在池中才生效；保证不重复入牌）
+  const guaranteeTalentIds = Array.isArray(options.guaranteeTalentIds) ? options.guaranteeTalentIds : [];
+  for (const id of guaranteeTalentIds) {
+    if (result.length >= count) break;
+    const talent = pool.find(t => t.id === id);
+    if (talent) takeTalent(talent);
+  }
 
   const pickByRarity = () => {
     // 同一手牌尽量避免出现相同 special 家族，防止两个选择不叠加却没有提示。

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-29",
+  "updatedAt": "2026-07-30",
   "policy": {
     "primaryViewport": "1440x900",
     "guardrailViewports": [
@@ -1305,7 +1305,7 @@
       "impact": 4,
       "confidence": 4,
       "effort": 3,
-      "status": "active",
+      "status": "done",
       "corePath": true,
       "dependsOn": [
         "UI-038"
@@ -1316,7 +1316,67 @@
         "six_view_flip_motion_and_reduced_motion_guardrail"
       ],
       "minimumVerification": "L3",
-      "startedAt": "2026-07-29T21:04:30.071Z"
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E1",
+      "lastDecision": "CONTINUE",
+      "lastEvidenceAt": "2026-07-30",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R039-verify.json"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E1",
+        "guardrails": "PASS",
+        "counterevidence": "L3曾被平台额度阻断停留在L2,收口会话代跑全套件后结算;尚无真实玩家数据",
+        "capabilityDelta": "COMPOUNDING:翻牌演出对卡片比例的自适应成为可复用模式(aspect-ratio adaptive motion)",
+        "verificationCostSeconds": 614,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-30T05:07:54.099Z"
+      }
+    },
+    {
+      "id": "UI-040",
+      "area": "meta",
+      "title": "NG+二周目链路：序章跳过崩溃修复与时间旅者保底入牌",
+      "hypothesis": "回访玩家(二周目)从结局页再来一次时,序章自动跳过路径若早退未初始化场景字段会每帧抛错卡死;且replay_bonus作为NG+专属差异化天赋,纯随机下约93%回访玩家看不到时间旅者卡。修复早退崩溃并在发牌层保底时间旅者,可让周目身份稳定可见。",
+      "impact": 5,
+      "confidence": 5,
+      "effort": 2,
+      "status": "done",
+      "corePath": true,
+      "dependsOn": [
+        "UI-038"
+      ],
+      "evidenceRequired": [
+        "ngplus_full_journey_zero_pageerror",
+        "time_traveler_guaranteed_in_ngplus_hand",
+        "replay_bonus_plus1_actually_applied"
+      ],
+      "minimumVerification": "L2",
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E1",
+      "lastDecision": "CONTINUE",
+      "lastEvidenceAt": "2026-07-30",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R040-verify.json",
+        "test-screenshots/r040"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E1",
+        "guardrails": "PASS",
+        "counterevidence": "探针模拟的回访身份(localStorage注入)与真实玩家一周目自然通关后的状态等价但非实机采集;尚无真实回访玩家数据",
+        "capabilityDelta": "COMPOUNDING:发牌层guaranteeTalentIds保底机制可复用于任何周目/成就定向发牌;场景早退须先标记_finished成为可复用防御模式",
+        "verificationCostSeconds": 180,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-30T06:24:24.467Z"
+      }
     },
     {
       "id": "UI-FREEZE-INTRO",
