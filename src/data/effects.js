@@ -345,6 +345,89 @@ export function checkPressureCrash(state) {
   return null;
 }
 
+// 阈值事件的展示元数据与判定规则同源维护，避免 UI 只能显示笼统的“隐藏事件”。
+const THRESHOLD_PRESENTATIONS = Object.freeze({
+  born_proud: {
+    title: '天生骄傲',
+    cause: state => `理想 ${state.pride} ≥ 触发线 9`
+  },
+  peoples_luo: {
+    title: '人民的罗老师',
+    cause: state => `信任 ${state.trust} ≥ 触发线 9`
+  },
+  penniless: {
+    title: '身无分文',
+    cause: state => `财富 ${state.wealth} ≤ 触发线 0`
+  },
+  deadbeat: {
+    title: '“老赖”标签出现',
+    cause: state => `翻车 ${state.failures || 0} 次 ≥ 触发线 3 次`
+  },
+  famous: {
+    title: '众望所归',
+    cause: state => `名声 ${state.reputation} ≥ 触发线 9`
+  },
+  realist: {
+    title: '现实主义者',
+    cause: state => `理想 ${state.pride} ≤ 触发线 1`
+  },
+  distrusted: {
+    title: '众叛亲离',
+    cause: state => `信任 ${state.trust} ≤ 触发线 1`
+  },
+  anxiety: {
+    title: '焦虑发作',
+    cause: state => `压力 ${state.pressure} ≥ 触发线 6`
+  },
+  pressure_release: {
+    title: '允许自己停下来',
+    cause: state => `压力 ${state.pressure} ≥ 释放线 8`
+  },
+  retired_peace: {
+    title: '彻底放下',
+    cause: () => '你已选择退网归隐，离开公众视野'
+  },
+  rich: {
+    title: '财务自由',
+    cause: state => `财富 ${state.wealth} ≥ 触发线 9`
+  },
+  indomitable: {
+    title: '百折不挠',
+    cause: state => `翻车 ${state.failures || 0} 次 ≥ 触发线 5 次`
+  },
+  moderate: {
+    title: '中庸之道',
+    cause: state => (
+      `理想 ${state.pride}、财富 ${state.wealth}、名声 ${state.reputation} 均在 4–6，` +
+      `翻车 ${state.failures || 0} 次 ≤ 1 次`
+    )
+  },
+  opinion_leader: {
+    title: '意见领袖',
+    cause: state => `理想 ${state.pride} ≥ 7，且名声 ${state.reputation} ≥ 7`
+  },
+  stress_erosion_trust: {
+    title: '高压正在侵蚀信任',
+    cause: state => `压力 ${state.pressure} ≥ 触发线 7，且信任 ${state.trust} ≥ 5`
+  },
+  wealth_buy_fame: {
+    title: '财富反哺名声',
+    cause: state => `财富 ${state.wealth} ≥ 8，且名声 ${state.reputation} < 6`
+  },
+  crack_ideal: {
+    title: '理想出现裂缝',
+    cause: state => (
+      `翻车 ${state.failures || 0} 次 ≥ 3 次，且理想 ${state.pride} ≥ 7`
+    )
+  },
+  friend_bailout: {
+    title: '老友拉你一把',
+    cause: state => (
+      `信任 ${state.trust} ≥ 8，且翻车 ${state.failures || 0} 次 ≥ 2 次`
+    )
+  }
+});
+
 /**
  * 检查属性阈值触发
  * 返回所有满足条件的隐藏事件
@@ -541,7 +624,15 @@ export function checkThresholdTriggers(state, flags) {
     });
   }
 
-  return triggers;
+  return triggers.map(trigger => {
+    const presentation = THRESHOLD_PRESENTATIONS[trigger.id];
+    if (!presentation) return trigger;
+    return {
+      ...trigger,
+      title: presentation.title,
+      cause: presentation.cause(state)
+    };
+  });
 }
 
 /**
@@ -555,35 +646,50 @@ export function checkComboTriggers(state) {
   const triggers = [
     {
       id: 'combo_idealist_rich',
+      title: '理想主义富翁',
       condition: (s) => s.pride >= 8 && s.wealth >= 8,
+      cause: (s) => `理想 ${s.pride} ≥ 8，且财富 ${s.wealth} ≥ 8`,
+      text: '理想与财富同时站上高位，人们开始称你为“有理想的商人”。',
       message: '【理想主义富翁】你的理想主义和财富同时达到巅峰，人们开始称你为"有理想的商人"。',
       effects: { reputation: 2 },
       oncePerGame: true
     },
     {
       id: 'combo_dark_moment',
+      title: '至暗时刻',
       condition: (s) => s.pride <= 2 && (s.failures || 0) >= 3,
+      cause: (s) => `理想 ${s.pride} ≤ 2，且翻车 ${s.failures || 0} 次 ≥ 3 次`,
+      text: '理想破灭又接连翻车，你陷入了人生的至暗时刻。',
       message: '【至暗时刻】理想破灭，接连翻车，你陷入了人生的至暗时刻...',
       effects: { pressure: 3 },
       oncePerGame: true
     },
     {
       id: 'combo_charismatic_leader',
+      title: '魅力领袖',
       condition: (s) => s.reputation >= 8 && s.trust >= 8,
+      cause: (s) => `名声 ${s.reputation} ≥ 8，且信任 ${s.trust} ≥ 8`,
+      text: '名声与信任彼此放大，你成为了行业内的精神领袖。',
       message: '【魅力领袖】名声和信任双高，你成为了行业内的精神领袖。',
       effects: { pride: 1, wealth: 1 },
       oncePerGame: true
     },
     {
       id: 'combo_underdog_rise',
+      title: '穷且益坚',
       condition: (s) => s.wealth <= 2 && s.pride >= 7,
+      cause: (s) => `财富 ${s.wealth} ≤ 2，且理想 ${s.pride} ≥ 7`,
+      text: '虽然经济拮据，你仍没有放下理想，这份坚持感染了身边的人。',
       message: '【穷且益坚】虽然经济拮据，但你的理想主义精神感染了身边的人。',
       effects: { reputation: 2, trust: 1 },
       oncePerGame: true
     },
     {
       id: 'combo_pressure_explosion',
+      title: '压力与坚持',
       condition: (s) => s.pressure >= 8 && s.pride >= 7,
+      cause: (s) => `压力 ${s.pressure} ≥ 8，且理想 ${s.pride} ≥ 7`,
+      text: '巨大的压力没有立刻压垮你，反而让你的信念变得更坚定。',
       message: '【压力与坚持】巨大的压力没有压垮你，反而让你的信念更加坚定。',
       effects: { pride: 1 },
       oncePerGame: true
@@ -596,11 +702,58 @@ export function checkComboTriggers(state) {
       if (trigger.oncePerGame && state.flags) {
         state.flags.add(trigger.id);
       }
-      return trigger;
+      return {
+        ...trigger,
+        cause: trigger.cause(state)
+      };
     }
   }
   return null;
 }
+
+const CONSEQUENCE_STAGE_LABELS = Object.freeze({
+  youth: '青年阶段',
+  teacher: '教师阶段',
+  startup: '创业阶段',
+  dark: '低谷阶段',
+  repay: '还债阶段',
+  reborn: '再出发阶段'
+});
+
+const CONSEQUENCE_PRESENTATIONS = Object.freeze({
+  bookworm_consequence: ['那本书改变了你', 'bookworm', '欠钱也要把书买下来'],
+  fighter_consequence: ['旧事被重新翻出', 'fighter', '打不过也要打'],
+  dropout_consequence: ['退学后的自由', 'dropout', '离开学校，先去社会闯'],
+  corrupt_consequence: ['红包留下污点', 'corrupt', '收下学生家长的红包'],
+  influencer_consequence: ['早期流量开始复利', 'influencer', '趁热打铁做网红'],
+  stayed_xinfang_consequence: ['安稳的另一面', 'stayed_xinfang', '留在新东方，选择安稳'],
+  education_reform_consequence: ['改革留下回声', 'education_reform', '留下来推动教育改革'],
+  all_in_consequence: ['债务追上野心', 'all_in', '借钱也要继续干下去'],
+  sued_big_tech_consequence: ['诉讼代价落地', 'sued_big_tech', '起诉大厂抄袭'],
+  public_feud_consequence: ['公开争执仍在发酵', 'public_feud', '公开回怼 KOL'],
+  joined_xiaomi_consequence: ['平台与身份的交换', 'joined_xiaomi', '加入小米做产品经理'],
+  started_business_consequence: ['创业没有退路', 'started_business', '选择创业'],
+  gave_up_hardware_consequence: ['止损后的遗憾', 'gave_up_hardware', '放弃继续做硬件'],
+  persist_premium_consequence: ['高端路线的成本', 'persist_premium', '坚持高端，不肯降价'],
+  never_compromised_consequence: ['不妥协的代价', 'never_compromised', '产品不完美就不发布'],
+  killed_m1_consequence: ['守住底线，失去现金流', 'killed_m1', '砍掉像 iPhone 的 M1'],
+  conservative_funding_consequence: ['活下来，也失去锐气', 'conservative_funding', '保守使用融资，先活下来'],
+  honest_repay_dark_consequence: ['承诺在低谷支撑你', 'honest_repay', '拒绝破产，选择自己还债'],
+  declared_bankruptcy_consequence: ['合法清算的信任账', 'declared_bankruptcy', '申请破产清算'],
+  became_investor_consequence: ['换到投资人的位置', 'became_investor', '从创业者转为投资人'],
+  sold_out_consequence: ['烂广告开始反噬', 'sold_out', '接下高价但不合适的广告'],
+  honest_repay_consequence: ['信用开始兑现', 'honest_repay', '拒绝破产，选择自己还债'],
+  banned_fight_consequence: ['封号留下机会成本', 'banned_fight', '维权抗争到被封号'],
+  wrote_book_consequence: ['经历变成了文字', 'wrote_book', '把经历写成一本书'],
+  became_influencer_consequence: ['流量与理想开始拉扯', 'became_influencer', '转身成为超级网红'],
+  continued_livestream_consequence: ['直播继续偿还旧账', 'continued_livestream', '继续直播带货还债'],
+  retired_consequence: ['世界终于安静下来', 'retired', '退出公众视野'],
+  mentor_consequence: ['传承有了回音', 'mentor', '指导年轻创业者'],
+  sold_name_consequence: ['名字不再属于你', 'sold_name', '卖掉自己的品牌名字'],
+  ai_believer_consequence: ['相信的革命到来了', 'ai_believer', '相信 AI 会带来革命'],
+  comeback_attempt_consequence: ['再试一次留下经验', 'comeback_attempt', '再干一票大的'],
+  final_comeback_consequence: ['最后一次仍在燃烧', 'final_comeback', '决定最后再做一次']
+});
 
 /**
  * 检查远期标记后果
@@ -858,7 +1011,19 @@ export function checkFlagConsequences(stageId, flags) {
     }
   }
 
-  return consequences;
+  const stageLabel = CONSEQUENCE_STAGE_LABELS[stageId] || '新阶段';
+  return consequences.map(consequence => {
+    const presentation = CONSEQUENCE_PRESENTATIONS[consequence.id];
+    if (!presentation) return consequence;
+    const [title, sourceFlag, sourceLabel] = presentation;
+    return {
+      ...consequence,
+      title,
+      sourceFlag,
+      sourceLabel,
+      cause: `源自先前选择「${sourceLabel}」 · ${stageLabel}兑现`
+    };
+  });
 }
 
 /**

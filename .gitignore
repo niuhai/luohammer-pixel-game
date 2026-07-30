@@ -96,6 +96,7 @@ image-audit/
 
 # UI 迭代证据产物（前后截图/报告体量大不入库，probe-*.cjs + ui-iteration.mjs 可复现）
 .iteration/ui/evidence/
+.iteration/evidence/
 
 # 扫描/模拟临时产物
 simulate-*.txt

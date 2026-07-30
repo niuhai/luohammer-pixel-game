@@ -9,9 +9,10 @@ import { showAchievementGallery, getUnlockedAchievementNames } from '../ui/Achie
 import { showEndingGallery, getEndingProgress } from '../ui/EndingGallery.js';
 import { MetaProgression, MILESTONE_REWARDS } from '../systems/MetaProgression.js';
 import { AIReviewSystem, showAIReviewOverlay } from '../systems/AIReviewSystem.js';
-import { SKILL_TREES, calculateExpGain } from '../data/skillTree.js';
+import { calculateExpGain } from '../data/skillTree.js';
 import { RANDOM_EVENTS } from '../data/events-random.js';
 import { toast } from '../systems/ToastSystem.js';
+import { getSkillTreeOpportunity, showSkillTreePanel } from '../ui/SkillTreePanel.js';
 
 function fitImageCover(image, targetWidth, targetHeight) {
   const sourceWidth = image.frame.realWidth;
@@ -90,7 +91,10 @@ export class EndingScene extends Phaser.Scene {
     const isNewEnding = this.meta.recordEnding(this.endingKey);
     // 调试统计：记录本次结局触发次数
     try { this.meta.recordEndingStat(this.endingKey); } catch(e) {}
-    const expGained = calculateExpGain(this.state, { id: this.endingKey });
+    const expGained = calculateExpGain(this.state, {
+      id: this.endingKey,
+      isNew: isNewEnding
+    });
     this.meta.addExp(expGained);
     this._expGained = expGained;
     this._isNewEnding = isNewEnding;
@@ -221,7 +225,8 @@ export class EndingScene extends Phaser.Scene {
   _hideGameUI() {
     const ids = [
       'ui-dialog', 'ui-choices', 'ui-stats', 'ui-hidden-stats', 'ui-chapter',
-      'ui-random-event-overlay', 'ui-history-note-area', 'ui-history-note-overlay',
+      'ui-random-event-overlay', 'ui-consequence-overlay',
+      'ui-history-note-area', 'ui-history-note-overlay',
       'dialog-touch-layer'
     ];
     ids.forEach(id => {
@@ -721,6 +726,49 @@ export class EndingScene extends Phaser.Scene {
     // Buttons —— 收敛为 3 个主按钮 + "更多"折叠菜单，降低首屏信息密度
     buttonsEl.innerHTML = '';
     buttonsEl.classList.remove('menu-open');
+    buttonsEl.classList.add('has-growth');
+
+    // 结局到下一周目的成长交接：保持三个主操作不变，用一条独立的
+    // 资源摘要直接解释本局收益、永久余额与当前可购买机会。
+    const growthBtn = document.createElement('button');
+    growthBtn.type = 'button';
+    growthBtn.className = 'ui-ending-growth';
+    const growthKicker = document.createElement('span');
+    growthKicker.className = 'ui-ending-growth-kicker';
+    growthKicker.textContent = '♣ 跨周目成长';
+    const growthGain = document.createElement('strong');
+    growthGain.className = 'ui-ending-growth-gain';
+    const growthBalance = document.createElement('span');
+    growthBalance.className = 'ui-ending-growth-balance';
+    const growthOpportunity = document.createElement('span');
+    growthOpportunity.className = 'ui-ending-growth-opportunity';
+    const growthAction = document.createElement('span');
+    growthAction.className = 'ui-ending-growth-action';
+    growthAction.textContent = '打开技能树 →';
+    growthBtn.append(
+      growthKicker,
+      growthGain,
+      growthBalance,
+      growthOpportunity,
+      growthAction
+    );
+
+    const refreshEndingGrowth = () => {
+      const totalExp = this.meta.getExp();
+      const opportunity = getSkillTreeOpportunity(this.meta);
+      growthGain.textContent = `本局 +${this._expGained} EXP`;
+      growthBalance.textContent = `总计 ${totalExp} EXP`;
+      growthOpportunity.textContent = opportunity.title;
+      growthBtn.dataset.opportunity = opportunity.kind;
+      growthBtn.setAttribute(
+        'aria-label',
+        `跨周目成长，本局获得 ${this._expGained} EXP，总计 ${totalExp} EXP，` +
+          `${opportunity.title}。打开人生技能树`
+      );
+    };
+    growthBtn.addEventListener('click', () => this._showSkillTree());
+    this._refreshEndingGrowth = refreshEndingGrowth;
+    refreshEndingGrowth();
 
     const retryBtn = document.createElement('button');
     retryBtn.className = 'ui-ending-btn ui-ending-btn-secondary';
@@ -778,8 +826,6 @@ export class EndingScene extends Phaser.Scene {
       moreMenu.appendChild(btn);
     };
 
-    const exp = this.meta.getExp();
-    addMoreItem(`♣ 技能树 (${exp} EXP)`, () => this._showSkillTree());
     addMoreItem('决策回顾', () => this.toggleDecisionReview());
 
     // === 历史真相回顾 ===
@@ -815,6 +861,7 @@ export class EndingScene extends Phaser.Scene {
       setMoreMenuOpen(!isOpen);
     });
 
+    buttonsEl.appendChild(growthBtn);
     buttonsEl.appendChild(aiReviewBtn);
     buttonsEl.appendChild(retryBtn);
     buttonsEl.appendChild(moreBtn);
@@ -2085,6 +2132,11 @@ export class EndingScene extends Phaser.Scene {
     }
 
     // 清理音频系统
+    if (this._skillTreePanel) {
+      this._skillTreePanel.close(false);
+      this._skillTreePanel = null;
+    }
+    this._refreshEndingGrowth = null;
     if (this.audio) {
       this.audio.destroy();
       this.audio = null;
@@ -2155,7 +2207,8 @@ export class EndingScene extends Phaser.Scene {
     // P0-1：移除 ending-hidden class，让 GameScene 重玩时 UI 正常显示
     const hiddenIds = [
       'ui-dialog', 'ui-choices', 'ui-stats', 'ui-hidden-stats', 'ui-chapter',
-      'ui-random-event-overlay', 'ui-history-note-area', 'ui-history-note-overlay',
+      'ui-random-event-overlay', 'ui-consequence-overlay',
+      'ui-history-note-area', 'ui-history-note-overlay',
       'dialog-touch-layer'
     ];
     hiddenIds.forEach(id => {
@@ -2166,132 +2219,13 @@ export class EndingScene extends Phaser.Scene {
 
   // === 技能树面板 ===
   _showSkillTree() {
-    // 移除已有面板
-    const existing = document.getElementById('ui-skill-tree-overlay');
-    if (existing) existing.remove();
-
-    const overlay = document.createElement('div');
-    overlay.id = 'ui-skill-tree-overlay';
-    overlay.style.cssText = `
-      position: fixed; inset: 0; background: rgba(5,5,15,0.92);
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      z-index: 100; overflow-y: auto; padding: 20px;
-    `;
-
-    // 标题栏
-    const header = document.createElement('div');
-    header.style.cssText = 'display: flex; align-items: center; gap: 16px; margin-bottom: 16px;';
-    const title = document.createElement('h2');
-    title.style.cssText = 'color: var(--color-gold); font-size: 18px; letter-spacing: 2px; margin: 0;';
-    title.textContent = '♣ 人生技能树';
-    const expDisplay = document.createElement('span');
-    expDisplay.style.cssText = 'color: var(--color-gold); font-size: 14px; padding: 4px 12px; border: 1px solid var(--color-gold); border-radius: 4px;';
-    expDisplay.id = 'skill-tree-exp';
-    expDisplay.textContent = `${this.meta.getExp()} EXP`;
-    header.appendChild(title);
-    header.appendChild(expDisplay);
-
-    // 经验获取提示
-    if (this._expGained > 0) {
-      const gain = document.createElement('span');
-      gain.style.cssText = 'color: var(--color-success); font-size: 12px;';
-      gain.textContent = `+${this._expGained} EXP${this._isNewEnding ? ' (新结局奖励!)' : ''}`;
-      header.appendChild(gain);
-    }
-    overlay.appendChild(header);
-
-    // 技能树容器
-    const treesContainer = document.createElement('div');
-    treesContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; max-width: 900px;';
-
-    // 渲染4棵技能树
-    for (const tree of Object.values(SKILL_TREES)) {
-      const treeEl = document.createElement('div');
-      treeEl.style.cssText = `
-        width: 200px; background: rgba(20,20,40,0.8); border: 1px solid ${tree.color}33;
-        border-radius: 8px; padding: 12px;
-      `;
-
-      // 树标题
-      const treeTitle = document.createElement('div');
-      treeTitle.style.cssText = `color: ${tree.color}; font-size: 14px; font-weight: 700; margin-bottom: 4px;`;
-      treeTitle.textContent = `${tree.icon} ${tree.name}`;
-      treeEl.appendChild(treeTitle);
-
-      const treeDesc = document.createElement('div');
-      treeDesc.style.cssText = 'color: var(--color-text-dim); font-size: 10px; margin-bottom: 10px;';
-      treeDesc.textContent = tree.desc;
-      treeEl.appendChild(treeDesc);
-
-      // 技能节点（支持 Lv4 分支并排与互斥逻辑）
-      const renderedSkillIds = new Set();
-      const createSkillNode = (skill) => {
-        const isUnlocked = this.meta.isSkillUnlocked(skill.id);
-        const isExcluded = this.meta.isLockedByExclusion(skill.id);
-        const prereqsMet = this.meta.arePrerequisitesMet(skill.id);
-        const isAvailable = prereqsMet && !isUnlocked && !isExcluded && this.meta.getExp() >= skill.cost;
-        const node = document.createElement('div');
-        node.style.cssText = `padding: 6px 8px; margin: 0; border-radius: 4px; cursor: ${isAvailable ? 'pointer' : 'default'}; border: 1px solid ${isUnlocked ? tree.color : isExcluded ? 'var(--color-text-gray-cool)' : prereqsMet ? tree.color + '44' : 'var(--color-bg-border)'}; background: ${isUnlocked ? tree.color + '22' : 'rgba(10,10,20,0.6)'}; opacity: ${isExcluded ? 0.3 : (prereqsMet || isUnlocked) ? 1 : 0.4}; transition: all 0.2s; flex: 1; min-width: 0;`;
-        if (isAvailable) {
-          node.addEventListener('mouseenter', () => { node.style.borderColor = tree.color; node.style.background = tree.color + '33'; });
-          node.addEventListener('mouseleave', () => { node.style.borderColor = isUnlocked ? tree.color : (tree.color + '44'); node.style.background = isUnlocked ? (tree.color + '22') : 'rgba(10,10,20,0.6)'; });
-        }
-        let icon = '◑';
-        if (isUnlocked) icon = '✓';
-        else if (isExcluded) icon = '✗';
-        else if (prereqsMet) icon = '○';
-        node.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center;"><span style="color: ${isUnlocked ? tree.color : isExcluded ? 'var(--color-text-dim)' : 'var(--color-text-gray)'}; font-size: 11px; font-weight: 600;">${icon} ${skill.name}</span><span style="color: ${isUnlocked ? 'var(--color-success-text)' : isExcluded ? 'var(--color-text-dim)' : 'var(--color-gold)'}; font-size: 9px;">${isUnlocked ? '已解锁' : isExcluded ? '已排斥' : `${skill.cost} EXP`}</span></div><div style="color: var(--color-text-dim); font-size: 9px; margin-top: 3px;">${skill.desc}</div>`;
-        if (isAvailable) {
-          node.addEventListener('click', () => {
-            if (this.meta.spendExp(skill.cost)) {
-              this.meta.unlockSkill(skill.id);
-              try { this.audio.playAchievement(); } catch(e) {}
-              this._showSkillTree();
-            }
-          });
-        }
-        return node;
-      };
-      for (const skill of tree.skills) {
-        if (renderedSkillIds.has(skill.id)) continue;
-        if (skill.exclusiveWith) {
-          const partner = tree.skills.find(s => skill.exclusiveWith.includes(s.id));
-          const branchWrap = document.createElement('div');
-          branchWrap.style.cssText = 'margin: 4px 0;';
-          const branchLabel = document.createElement('div');
-          branchLabel.style.cssText = 'color: var(--color-gold); font-size: 9px; text-align: center; margin-bottom: 2px; font-weight: 600;';
-          branchLabel.textContent = '⚠ Lv4 二选一';
-          branchWrap.appendChild(branchLabel);
-          const branchRow = document.createElement('div');
-          branchRow.style.cssText = 'display: flex; gap: 4px;';
-          branchRow.appendChild(createSkillNode(skill));
-          if (partner) branchRow.appendChild(createSkillNode(partner));
-          branchWrap.appendChild(branchRow);
-          treeEl.appendChild(branchWrap);
-          renderedSkillIds.add(skill.id);
-          if (partner) renderedSkillIds.add(partner.id);
-        } else {
-          const node = createSkillNode(skill);
-          node.style.margin = '4px 0';
-          treeEl.appendChild(node);
-          renderedSkillIds.add(skill.id);
-        }
-      }
-
-      treesContainer.appendChild(treeEl);
-    }
-    overlay.appendChild(treesContainer);
-
-    // 关闭按钮
-    const closeBtn = document.createElement('button');
-    closeBtn.style.cssText = `
-      margin-top: 16px; padding: 8px 24px; background: var(--color-bg-border); color: var(--color-text-gray);
-      border: 1px solid var(--color-bg-border); border-radius: 4px; cursor: pointer; font-size: 13px;
-    `;
-    closeBtn.textContent = '关闭';
-    closeBtn.addEventListener('click', () => overlay.remove());
-    overlay.appendChild(closeBtn);
-
-    document.body.appendChild(overlay);
+    this._skillTreePanel?.close(false);
+    this._skillTreePanel = showSkillTreePanel({
+      meta: this.meta,
+      expGained: this._expGained,
+      isNewEnding: this._isNewEnding,
+      audio: this.audio,
+      onPurchase: () => this._refreshEndingGrowth?.()
+    });
   }
 }

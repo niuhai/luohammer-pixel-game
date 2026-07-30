@@ -56,6 +56,11 @@ export class DialogSystem {
     this.nameEl = document.getElementById('ui-dialog-name');
     this.textEl = document.getElementById('ui-dialog-text');
     this.continueEl = document.getElementById('ui-dialog-continue');
+    this.insightEl = document.getElementById('ui-dialog-insight');
+    this.insightContextEl = this.insightEl?.querySelector('.ui-dialog-insight-context');
+    this.insightAttitudeEl = this.insightEl?.querySelector('.ui-dialog-insight-attitude');
+    this.insightSummaryEl = this.insightEl?.querySelector('.ui-dialog-insight-summary');
+    this.insightBasisEl = this.insightEl?.querySelector('.ui-dialog-insight-basis');
     this.autoBtn = document.getElementById('ui-dialog-auto');
     this.speedBtn = document.getElementById('ui-dialog-speed');
     this.overlayEl = document.getElementById('ui-overlay');
@@ -544,11 +549,45 @@ export class DialogSystem {
     }
   }
 
-  show(characterName, text, onComplete, mood = null) {
+  _updateInsight(insight) {
+    if (!this.insightEl) return;
+    if (!insight || typeof insight !== 'object') {
+      this.insightEl.hidden = true;
+      this.insightEl.setAttribute('aria-hidden', 'true');
+      this.insightEl.removeAttribute('data-tone');
+      this.insightEl.removeAttribute('aria-label');
+      return;
+    }
+
+    const tone = ['positive', 'warning', 'danger', 'neutral'].includes(insight.tone)
+      ? insight.tone
+      : 'neutral';
+    const context = String(insight.context || '当前场景');
+    const attitude = String(insight.attitude || '观望');
+    const summary = String(insight.summary || '周围人的态度暂时没有明显倾向。');
+    const basis = String(insight.basis || '暂无明显判断依据');
+    if (this.insightContextEl) this.insightContextEl.textContent = context;
+    if (this.insightAttitudeEl) {
+      this.insightAttitudeEl.textContent = `态度 · ${attitude}`;
+    }
+    if (this.insightSummaryEl) this.insightSummaryEl.textContent = summary;
+    if (this.insightBasisEl) this.insightBasisEl.textContent = `判断依据 · ${basis}`;
+    this.insightEl.dataset.tone = tone;
+    this.insightEl.setAttribute(
+      'aria-label',
+      `洞察人心。场景：${context}。态度：${attitude}。${summary}。判断依据：${basis}`
+    );
+    this.insightEl.setAttribute('aria-hidden', 'false');
+    this.insightEl.hidden = false;
+  }
+
+  show(characterName, text, onComplete, mood = null, options = {}) {
     // Lazy-init audio reference
     if (!this.audio && this.scene.audio) {
       this.audio = this.scene.audio;
     }
+
+    this._updateInsight(options?.insight);
 
     // === 当前节点情绪（用于打字速度调整）===
     this._currentMood = mood;
@@ -1183,6 +1222,7 @@ export class DialogSystem {
     this._setContinueControlState('hidden');
     this._stopPulse();
     this._updateSeenBadge(true);
+    this._updateInsight(null);
     this.onComplete = null;
     // 清理多段叙事状态
     this._segments = null;

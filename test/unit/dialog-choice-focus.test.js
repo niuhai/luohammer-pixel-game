@@ -13,6 +13,12 @@ beforeEach(() => {
             <button id="ui-dialog-speed"></button>
           </div>
         </div>
+        <div id="ui-dialog-insight" role="note" hidden>
+          <span class="ui-dialog-insight-context"></span>
+          <span class="ui-dialog-insight-attitude"></span>
+          <span class="ui-dialog-insight-summary"></span>
+          <span class="ui-dialog-insight-basis"></span>
+        </div>
         <div id="ui-dialog-text"></div>
         <button id="ui-dialog-continue" type="button"></button>
       </div>
@@ -28,6 +34,39 @@ afterEach(() => {
 });
 
 describe('DialogSystem - choice focus handoff', () => {
+  it('keeps structured attitude evidence inside the current dialog context', () => {
+    const scene = {
+      state: {},
+      vibrate: vi.fn(),
+      isGameplayInputBlocked: () => false
+    };
+    const system = new DialogSystem(scene);
+    const insight = {
+      context: '供应商围堵 · 还款谈判',
+      attitude: '试探',
+      tone: 'warning',
+      summary: '旁人察觉到你的紧绷，言语间多了几分试探。',
+      basis: '压力 9 ≥ 8'
+    };
+
+    system.show('老罗', '先把方案讲清楚。', null, null, { insight });
+
+    const element = document.getElementById('ui-dialog-insight');
+    expect(element.hidden).toBe(false);
+    expect(element.dataset.tone).toBe('warning');
+    expect(element.getAttribute('role')).toBe('note');
+    expect(element.getAttribute('aria-label')).toContain('压力 9 ≥ 8');
+    expect(element.querySelector('.ui-dialog-insight-context').textContent)
+      .toContain('供应商围堵');
+    expect(element.querySelector('.ui-dialog-insight-attitude').textContent)
+      .toContain('试探');
+
+    system._finishHide();
+    expect(element.hidden).toBe(true);
+    expect(element.getAttribute('aria-hidden')).toBe('true');
+    system.destroy();
+  });
+
   it('does not swallow native Enter or Space while choices are visible', () => {
     const scene = {
       state: {},

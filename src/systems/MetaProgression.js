@@ -323,6 +323,31 @@ export class MetaProgression {
   }
 
   /**
+   * 原子购买技能：所有资格与余额校验通过后，一次性扣除 EXP 并解锁。
+   * 任一步不满足都不会改变持久化数据。
+   */
+  purchaseSkill(skillId) {
+    if (this.data.unlockedSkills.includes(skillId)) return false;
+    const skill = this._getSkillDef(skillId);
+    if (!skill) return false;
+    if (skill.requires && !skill.requires.every(
+      requirement => this.data.unlockedSkills.includes(requirement)
+    )) return false;
+    if (skill.requiresAny && !skill.requiresAny.some(
+      requirement => this.data.unlockedSkills.includes(requirement)
+    )) return false;
+    if (skill.exclusiveWith && skill.exclusiveWith.some(
+      excluded => this.data.unlockedSkills.includes(excluded)
+    )) return false;
+    if (this.data.exp < skill.cost) return false;
+
+    this.data.exp -= skill.cost;
+    this.data.unlockedSkills.push(skillId);
+    this.save();
+    return true;
+  }
+
+  /**
    * 判断某技能是否因互斥而被锁定（互斥对象已解锁）
    */
   isLockedByExclusion(skillId) {

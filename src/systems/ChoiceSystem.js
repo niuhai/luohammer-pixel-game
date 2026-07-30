@@ -1,3 +1,12 @@
+import {
+  buildChoiceAlignmentInsight,
+  buildCheckOutcomePreview,
+  buildCheckSnapshot,
+  DECISION_STAT_LABELS,
+  describeDecisionEffects,
+  escapeDecisionText
+} from '../ui/DecisionPresentation.js';
+
 export class ChoiceSystem {
   constructor(scene) {
     this.scene = scene;
@@ -18,10 +27,7 @@ export class ChoiceSystem {
   /**
    * 属性中文名映射，用于门槛提示
    */
-  static STAT_LABELS = {
-    pride: '理想', wealth: '财富', reputation: '名声',
-    failures: '翻车', pressure: '压力', trust: '信任'
-  };
+  static STAT_LABELS = DECISION_STAT_LABELS;
 
   /**
    * Flag 中文名映射，用于门槛提示
@@ -127,62 +133,100 @@ export class ChoiceSystem {
   _buildCheckHint(choice, state) {
     if (!choice.check) return '';
     const check = choice.check;
-    const attrLabel = ChoiceSystem.STAT_LABELS[check.attr] || check.attr;
-    let hint = `【检定】需要 ${attrLabel} ≥ ${check.min}`;
+    const snapshot = buildCheckSnapshot(check, state);
+    const readiness = snapshot.passed
+      ? '<span class="choice-check-status ready">已满足</span>'
+      : `<span class="choice-check-status short">还差 ${snapshot.gap}</span>`;
+    const bonus = snapshot.bonus > 0
+      ? `<span class="choice-check-bonus">基础 ${snapshot.rawValue} + 加成 ${snapshot.bonus}</span>`
+      : '';
+    let detail = `
+      <span class="choice-check-line">
+        <span class="choice-check-label">◊ ${escapeDecisionText(snapshot.attrLabel)}检定</span>
+        <span class="choice-check-equation">${snapshot.value} / ${snapshot.target}</span>
+        ${readiness}
+      </span>
+      ${bonus}
+    `;
 
-    // 读心术技能：显示成功率
+    // 读心术技能：确定性检定不再伪造概率，改为揭示两条真实结果路径。
     if (state._showCheckInfo) {
-      const attrValue = state[check.attr] || 0;
-      let rate = (attrValue / (check.min + 2)) * 100;
-      rate = Math.max(10, Math.min(90, rate));
-      // 成功率按区间着色：<30% 红，30-70% 金，>70% 绿
-      const successColor = rate < 30 ? 'var(--color-danger)' : rate > 70 ? 'var(--color-success)' : 'var(--color-gold)';
-      hint += ` · <span style="color: ${successColor}">成功率：约${Math.round(rate)}%</span>`;
+      const preview = buildCheckOutcomePreview(check);
+      const success = preview.success || '推进剧情';
+      const fail = preview.fail || '进入另一条剧情';
+      detail += `
+        <span class="choice-check-preview">
+          <span class="success">成功 ${escapeDecisionText(success)}</span>
+          <span class="fail">失败 ${escapeDecisionText(fail)}</span>
+        </span>
+      `;
     }
 
-    return `<span class="choice-check-hint">${hint}</span>`;
+    return `<span class="choice-check-hint">${detail}</span>`;
   }
 
   /**
-   * 构建效果预览文本（用于先见之明技能自动预览）
-   * @param {object} choice - 选项对象
-   * @returns {string} 效果预览文本，无效果时返回空字符串
+   * 把先见之明呈现为独立的即时影响芯片，不与选项标题或命运方向混排。
    */
-  _buildEffectPreview(choice) {
-    const effects = choice.effects || {};
-    const parts = [];
-    if (effects.pride) parts.push(`理想${effects.pride > 0 ? '+' : ''}${effects.pride}`);
-    if (effects.wealth) parts.push(`财富${effects.wealth > 0 ? '+' : ''}${effects.wealth}`);
-    if (effects.reputation) parts.push(`名声${effects.reputation > 0 ? '+' : ''}${effects.reputation}`);
-    if (effects.trust) parts.push(`信任${effects.trust > 0 ? '+' : ''}${effects.trust}`);
-    if (effects.pressure) parts.push(`压力${effects.pressure > 0 ? '+' : ''}${effects.pressure}`);
-    if (effects.failures) parts.push(`翻车${effects.failures > 0 ? '+' : ''}${effects.failures}`);
-    return parts.length > 0 ? parts.join(' · ') : '';
+  _buildEffectPreviewPresentation(choice) {
+    const effects = describeDecisionEffects(choice.effects);
+    if (effects.length === 0) return '';
+    const tokens = effects.map(effect => `
+      <span class="choice-effect-token effect-${escapeDecisionText(effect.tone)}"
+        data-tone="${escapeDecisionText(effect.tone)}">${escapeDecisionText(effect.text)}</span>
+    `).join('');
+    const summary = effects.map(effect => effect.text).join('，');
+    return `
+      <span class="choice-auto-preview" role="note"
+        aria-label="先见之明，即时影响：${escapeDecisionText(summary)}">
+        <span class="choice-effect-source">◇ 先见之明</span>
+        <span class="choice-effect-scope">即时影响</span>
+        <span class="choice-effect-tokens">${tokens}</span>
+      </span>
+    `;
   }
 
   /**
-   * 推断选项导向（好/坏/中性），用于命运之眼技能
-   * @param {object} choice - 选项对象
-   * @returns {{label: string, cls: string}} 导向标签与样式类
+   * 把跨周目技能选项表达为“来源—动作—路线—得失”，而不是混在普通文案中。
    */
-  _inferAlignment(choice) {
-    const effects = choice.effects || {};
-    let score = 0;
-    if (effects.pride > 0) score += effects.pride;
-    if (effects.wealth > 0) score += effects.wealth;
-    if (effects.reputation > 0) score += effects.reputation;
-    if (effects.trust > 0) score += effects.trust;
-    if (effects.pressure < 0) score += 1;
-    if (effects.pride < 0) score += effects.pride;
-    if (effects.wealth < 0) score += effects.wealth;
-    if (effects.reputation < 0) score += effects.reputation;
-    if (effects.trust < 0) score += effects.trust;
-    if (effects.pressure > 0) score -= 1;
-    if (effects.failures > 0) score -= 2;
+  _buildTalentChoicePresentation(choice) {
+    const talent = choice?.talentChoice;
+    if (!talent) return '';
+    const name = escapeDecisionText(talent.name || '技能选项');
+    const kind = escapeDecisionText(talent.kind || '特殊路径');
+    const title = escapeDecisionText(choice.label || '使用技能');
+    const route = escapeDecisionText(talent.route || '沿安全路线继续');
+    const benefit = escapeDecisionText(talent.benefit || '');
+    const tradeoff = escapeDecisionText(talent.tradeoff || '');
+    return `
+      <span class="choice-talent-header">
+        <span class="choice-talent-badge">◈ ${name}</span>
+        <span class="choice-talent-kind">${kind}</span>
+      </span>
+      <span class="choice-talent-title">${title}</span>
+      <span class="choice-talent-route">${route}</span>
+      <span class="choice-talent-impact">
+        ${benefit ? `<span class="choice-talent-benefit">${benefit}</span>` : ''}
+        ${tradeoff ? `<span class="choice-talent-tradeoff">${tradeoff}</span>` : ''}
+      </span>
+    `;
+  }
 
-    if (score >= 2) return { label: '向好', cls: 'alignment-good' };
-    if (score <= -2) return { label: '向坏', cls: 'alignment-bad' };
-    return { label: '中性', cls: 'alignment-neutral' };
+  _buildAlignmentPresentation(choice) {
+    const insight = buildChoiceAlignmentInsight(choice);
+    const type = escapeDecisionText(insight.type);
+    const label = escapeDecisionText(insight.label);
+    const basis = escapeDecisionText(insight.basis);
+    const scope = escapeDecisionText(insight.scope);
+    return `
+      <span class="choice-alignment alignment-${type}"
+        aria-label="命运之眼：${label}。${basis}。${scope}">
+        <span class="choice-alignment-source">◉ 命运之眼</span>
+        <span class="choice-alignment-verdict">${label}</span>
+        <span class="choice-alignment-basis">${basis}</span>
+        <span class="choice-alignment-scope">${scope}</span>
+      </span>
+    `;
   }
 
   show(choices, onChoice) {
@@ -280,38 +324,39 @@ export class ChoiceSystem {
 
       // === 跨周目技能：命运之眼 — 显示选项导向（好/坏/中性）===
       let alignmentHtml = '';
-      if (state._showAlignment && !locked) {
-        const align = this._inferAlignment(choice);
-        alignmentHtml = `<span class="choice-alignment ${align.cls}">${align.label}</span>`;
+      if (state._showAlignment && !locked && !choice.talentChoice) {
+        alignmentHtml = this._buildAlignmentPresentation(choice);
       }
 
       // === 跨周目技能：先见之明 — 选项默认显示效果预览（无需长按）===
       let autoPreviewHtml = '';
-      if (state._autoPreview && !locked) {
-        const previewText = this._buildEffectPreview(choice);
-        if (previewText) {
-          autoPreviewHtml = `<span class="choice-auto-preview">${previewText}</span>`;
-        }
+      if (state._autoPreview && !locked && !choice.talentChoice) {
+        autoPreviewHtml = this._buildEffectPreviewPresentation(choice);
       }
 
       const btn = document.createElement('button');
-      btn.className = 'ui-choice-btn' + (locked ? ' locked' : '');
+      btn.className = 'ui-choice-btn' +
+        (locked ? ' locked' : '') +
+        (choice.talentChoice ? ' talent-choice' : '');
       btn.type = 'button';
       btn.setAttribute('aria-describedby', 'ui-choice-context-meta');
       btn.setAttribute('aria-posinset', String(i + 1));
       btn.setAttribute('aria-setsize', String(choices.length));
+      if (choice.talentChoice) {
+        btn.dataset.talentSource = String(choice.talentChoice.id || '');
+      }
       if (!locked && i < 9) btn.setAttribute('aria-keyshortcuts', marker);
       // 任务1：选项逐个 stagger 入场，每个按钮延迟 80ms 出现
       btn.style.animationDelay = `${i * 80}ms`;
       const checkHintHtml = this._buildCheckHint(choice, state);
+      const talentChoiceHtml = this._buildTalentChoicePresentation(choice);
       btn.innerHTML = `
         <span class="corner-deco tl"></span>
         <span class="corner-deco tr"></span>
         <span class="corner-deco bl"></span>
         <span class="corner-deco br"></span>
         <span class="ui-choice-marker">${locked ? '<span class="lock-icon">▣</span>' : `<span class="marker-icon">${marker}</span><span class="marker-key-hint">${marker}</span>`}</span>
-        <span class="ui-choice-text">${choice.label}${checkHintHtml}${autoPreviewHtml}</span>
-        ${alignmentHtml}
+        <span class="ui-choice-text">${talentChoiceHtml || `${choice.label}${checkHintHtml}${autoPreviewHtml}${alignmentHtml}`}</span>
         ${locked ? `<span class="ui-choice-lock-hint">${lockHint}</span>` : '<span class="ui-choice-arrow">→</span>'}
       `;
 
@@ -397,12 +442,15 @@ export class ChoiceSystem {
       this._currentBtns.push(btn);
     });
 
-    // R45: "还有更多选项"吸底提示——sticky 定位不随内容滚走，显隐由 _updateScrollHint 控制
-    const moreHint = document.createElement('div');
-    moreHint.className = 'ui-choices-more';
-    moreHint.setAttribute('aria-hidden', 'true');
-    moreHint.textContent = '▼';
-    this.el.appendChild(moreHint);
+    // R45: 只有 5+ 的限高滚动面板才需要“还有更多选项”提示。
+    // 3-4 项布局会按内容自然撑开，插入带负边距的 sticky 提示反而会制造假溢出。
+    if (count > 4) {
+      const moreHint = document.createElement('div');
+      moreHint.className = 'ui-choices-more';
+      moreHint.setAttribute('aria-hidden', 'true');
+      moreHint.textContent = '▼';
+      this.el.appendChild(moreHint);
+    }
 
     // 数字键快捷选择（1-9）— 与 A 自动播放、S 速度切换等全局快捷键解耦
     this._keyHandler = (event) => {

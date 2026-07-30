@@ -114,6 +114,7 @@ describe('ChoiceSystem - 同局支线防重复', () => {
     expect(markers).toEqual(['1', '2', '3', '4', '5', '6', '7', '8']);
     expect(document.querySelector('#ui-choices').textContent).not.toContain('?');
     expect(buttons[7].getAttribute('aria-keyshortcuts')).toBe('8');
+    expect(document.querySelector('.ui-choices-more')).not.toBeNull();
 
     const keyHandler = scene.input.keyboard.on.mock.calls[0][1];
     keyHandler({ key: 'a' });
@@ -153,6 +154,117 @@ describe('ChoiceSystem - 同局支线防重复', () => {
     expect(choices.getAttribute('aria-label')).toContain('1 项可选');
     expect(document.querySelector('.ui-choice-context').textContent).toContain('做出你的选择');
     expect(document.activeElement).toBe(buttons[1]);
+  });
+
+  it('把确定性检定表达为当前值、差距和真实结果路径', () => {
+    const scene = createScene({
+      reputation: 4,
+      trust: 5,
+      talentSpecials: ['trust_check_bonus'],
+      _showCheckInfo: true,
+      history: [],
+      flags: new Set()
+    });
+    const system = new ChoiceSystem(scene);
+
+    system.show([{
+      label: '公开回应',
+      next: 'next',
+      check: {
+        attr: 'reputation',
+        min: 6,
+        successEffects: { trust: 1 },
+        failEffects: { reputation: -2, pressure: 3 }
+      }
+    }], vi.fn());
+
+    const hint = document.querySelector('.choice-check-hint');
+    expect(hint.textContent.replace(/\s+/g, ' ').trim()).toContain('名声检定 5 / 6 还差 1');
+    expect(hint.textContent).toContain('基础 4 + 加成 1');
+    expect(hint.textContent).toContain('成功 信任↑');
+    expect(hint.textContent).toContain('失败 名声↓ · 压力↑');
+    expect(hint.textContent).not.toContain('成功率');
+  });
+
+  it('把命运之眼的结论、依据和可见范围放回选项正文', () => {
+    const scene = createScene({
+      _showAlignment: true,
+      history: [],
+      flags: new Set()
+    });
+    const system = new ChoiceSystem(scene);
+
+    system.show([
+      {
+        label: '接受期限换取继续供货',
+        next: 'tradeoff',
+        effects: { trust: 2, pressure: 2 }
+      },
+      {
+        label: '把答案留到以后',
+        next: 'unknown',
+        flag: 'future_story'
+      }
+    ], vi.fn());
+
+    const alignments = [...document.querySelectorAll('.choice-alignment')];
+    expect(alignments).toHaveLength(2);
+    expect(alignments[0].classList.contains('alignment-mixed')).toBe(true);
+    expect(alignments[0].querySelector('.choice-alignment-verdict').textContent)
+      .toBe('有得有失');
+    expect(alignments[0].querySelector('.choice-alignment-basis').textContent)
+      .toContain('收益与代价并存');
+    expect(alignments[1].classList.contains('alignment-unknown')).toBe(true);
+    expect(alignments[1].querySelector('.choice-alignment-verdict').textContent)
+      .toBe('走向未明');
+    expect(alignments.every(alignment =>
+      alignment.closest('.ui-choice-text')
+    )).toBe(true);
+    expect(alignments[1].getAttribute('aria-label')).toContain('叙事后果仍未知');
+  });
+
+  it('把先见之明的即时变化呈现为带收益代价语义的独立芯片', () => {
+    const scene = createScene({
+      _autoPreview: true,
+      _showAlignment: true,
+      history: [],
+      flags: new Set()
+    });
+    const system = new ChoiceSystem(scene);
+
+    system.show([{
+      label: '押上全部筹码',
+      next: 'all_in',
+      effects: {
+        pride: 1,
+        wealth: -2,
+        trust: 2,
+        pressure: 2,
+        failures: 1
+      }
+    }], vi.fn());
+
+    const preview = document.querySelector('.choice-auto-preview');
+    const tokens = [...document.querySelectorAll('.choice-effect-token')];
+    expect(preview.closest('.ui-choice-text')).not.toBeNull();
+    expect(preview.querySelector('.choice-effect-source').textContent).toContain('先见之明');
+    expect(preview.querySelector('.choice-effect-scope').textContent).toBe('即时影响');
+    expect(tokens.map(token => token.textContent.trim())).toEqual([
+      '理想 +1',
+      '财富 -2',
+      '信任 +2',
+      '压力 +2',
+      '翻车 +1'
+    ]);
+    expect(tokens.map(token => token.dataset.tone)).toEqual([
+      'positive',
+      'negative',
+      'positive',
+      'negative',
+      'negative'
+    ]);
+    expect(preview.getAttribute('aria-label')).toContain('即时影响');
+    expect(document.querySelectorAll('.choice-alignment')).toHaveLength(1);
   });
 
   it('方向键跳过锁定项移动焦点，退场后请求归还剧情焦点', () => {
@@ -206,6 +318,41 @@ describe('ChoiceSystem - 同局支线防重复', () => {
 
     button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(onChoice).toHaveBeenCalledOnce();
+  });
+
+  it('把技能选项呈现为来源、路线和得失，不叠加通用导向标签', () => {
+    const scene = createScene({
+      _showAlignment: true,
+      _autoPreview: true,
+      history: [],
+      flags: new Set()
+    });
+    const system = new ChoiceSystem(scene);
+
+    system.show([{
+      label: '以圆滑方式应对，留有余地',
+      next: 'installment',
+      effects: { trust: 1, pressure: 1 },
+      talentChoice: {
+        id: 'well_connected',
+        name: '八面玲珑',
+        kind: '协商路径',
+        route: '避开名声检定 · 沿「分期还款」继续',
+        benefit: '信任 +1',
+        tradeoff: '压力 +1'
+      }
+    }], vi.fn());
+
+    const button = document.querySelector('.ui-choice-btn');
+    expect(button.classList.contains('talent-choice')).toBe(true);
+    expect(button.dataset.talentSource).toBe('well_connected');
+    expect(button.querySelector('.choice-talent-badge').textContent).toContain('八面玲珑');
+    expect(button.querySelector('.choice-talent-route').textContent).toContain('名声检定');
+    expect(button.querySelector('.choice-talent-benefit').textContent).toBe('信任 +1');
+    expect(button.querySelector('.choice-talent-tradeoff').textContent).toBe('压力 +1');
+    expect(button.querySelector('.choice-alignment')).toBeNull();
+    expect(button.querySelector('.choice-auto-preview')).toBeNull();
+    expect(document.querySelector('.ui-choices-more')).toBeNull();
   });
 
   it('新选项出现时取消旧退场计时器，不会误清空当前选择', () => {

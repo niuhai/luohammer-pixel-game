@@ -57,6 +57,7 @@ export class TalentSystem {
     this.hintEl = this.overlay.querySelector('.ui-talent-hint');
     this.subtitleEl = this.overlay.querySelector('.ui-talent-subtitle');
     this.comboEl = this.overlay.querySelector('.ui-talent-combo');
+    this.skipBtn = document.getElementById('ui-talent-skip');
     this.selectedTalents = [];
     this.onSelect = null;
     this.maxSelection = TALENT_PICK_COUNT;
@@ -67,7 +68,9 @@ export class TalentSystem {
     this._revealTimers = new Set();
     this._isRevealing = false;
     this._revealedCount = 0;
+    this._activeRevealIndex = -1;
     this._rerollClickHandler = () => this._performReroll();
+    this._skipRevealClickHandler = () => this._skipReveal();
 
     // 切换周目会重建 TalentSystem；动态按钮不能复用旧实例遗留的闭包监听。
     const staleRerollBtn = document.getElementById('ui-talent-reroll');
@@ -80,6 +83,7 @@ export class TalentSystem {
       }
     };
     this.confirmBtn.addEventListener('click', this._confirmClickHandler);
+    this.skipBtn?.addEventListener('click', this._skipRevealClickHandler);
   }
 
   /**
@@ -108,7 +112,17 @@ export class TalentSystem {
       TALENT_BACK_HOLD_MS;
     this._isRevealing = !reducedMotion;
     this._revealedCount = reducedMotion ? this.offerCount : 0;
+    this._activeRevealIndex = -1;
     this.overlay.classList.remove('reveal-complete');
+    if (this.skipBtn) {
+      this.skipBtn.hidden = !this._isRevealing;
+      this.skipBtn.disabled = !this._isRevealing;
+      this.skipBtn.textContent = '跳过揭晓 · 0/5';
+      this.skipBtn.setAttribute(
+        'aria-label',
+        `跳过天赋逐张揭晓，直接查看全部 ${this.offerCount} 张天赋`
+      );
+    }
 
     if (this.subtitleEl) {
       this._readySubtitle =
@@ -135,6 +149,7 @@ export class TalentSystem {
       card.setAttribute('data-rarity', talent.rarity);
       card.setAttribute('data-position', `${_i + 1}/${talents.length}`);
       card.setAttribute('data-talent-id', talent.id);
+      card.setAttribute('data-reveal-state', reducedMotion ? 'settled' : 'pending');
       card.setAttribute('aria-pressed', 'false');
       const baseAriaLabel =
         `第 ${_i + 1} 张，共 ${talents.length} 张；${talent.name}，${rarityLabels[talent.rarity]}天赋`;
@@ -194,6 +209,12 @@ export class TalentSystem {
 
       if (!reducedMotion) {
         this._scheduleRevealTask(() => {
+          this._setActiveReveal(card, _i);
+        }, revealDelay);
+        this._scheduleRevealTask(() => {
+          card.classList.remove('is-reveal-active');
+          card.classList.add('is-reveal-settled');
+          card.dataset.revealState = 'settled';
           this._revealedCount = Math.max(this._revealedCount, _i + 1);
           if (this._revealedCount >= this.offerCount) {
             this._completeReveal();
@@ -207,6 +228,12 @@ export class TalentSystem {
     this.overlay.classList.add('visible');
     if (reducedMotion) {
       this._completeReveal();
+    } else {
+      requestAnimationFrame(() => {
+        if (this._isRevealing && this.skipBtn && !this.skipBtn.hidden) {
+          this.skipBtn.focus({ preventScroll: true });
+        }
+      });
     }
 
     // 音效落在翻牌经过 90° 的瞬间，视觉与听觉共用同一个 stagger 节奏。
@@ -255,6 +282,41 @@ export class TalentSystem {
   _clearRevealTimers() {
     for (const timer of this._revealTimers) clearTimeout(timer);
     this._revealTimers.clear();
+  }
+
+  _setActiveReveal(card, index) {
+    if (!this._isRevealing || !card?.isConnected) return;
+    for (const candidate of this.cardsEl.querySelectorAll('.ui-talent-card')) {
+      if (
+        candidate.classList.contains('is-reveal-active') &&
+        !candidate.classList.contains('is-reveal-settled')
+      ) {
+        candidate.dataset.revealState = 'flipping';
+      }
+      candidate.classList.remove('is-reveal-active');
+    }
+    card.classList.add('is-reveal-active');
+    card.dataset.revealState = 'active';
+    this._activeRevealIndex = index;
+    this._updateRevealProgress();
+  }
+
+  _skipReveal() {
+    if (!this._isRevealing) return;
+    this._clearRevealTimers();
+    const animations = typeof document.getAnimations === 'function'
+      ? document.getAnimations()
+      : [];
+    for (const animation of animations) {
+      const target = animation.effect?.target;
+      if (target instanceof Element && target.closest('.ui-talent-card')) {
+        animation.cancel();
+      }
+    }
+    this._completeReveal(
+      [...this.cardsEl.querySelectorAll('.ui-talent-card')],
+      { forceFocus: true }
+    );
   }
 
   /**
@@ -327,27 +389,37 @@ export class TalentSystem {
     this.overlay.setAttribute('aria-busy', 'true');
     this.overlay.dataset.phase = 'revealing';
     if (this.hintEl) {
+      const activeLabel = this._activeRevealIndex >= 0
+        ? `正在揭晓第 ${this._activeRevealIndex + 1} 张`
+        : '天赋揭晓中';
       this.hintEl.innerHTML =
-        `天赋揭晓中 · <span>${this._revealedCount}/${this.offerCount}</span>`;
+        `${activeLabel} · 已揭晓 <span>${this._revealedCount}/${this.offerCount}</span>`;
     }
     this.confirmBtn.disabled = true;
     this.confirmBtn.classList.remove('visible');
-    this.confirmBtn.textContent = `请等待天赋揭晓 ${this._revealedCount}/${this.offerCount}`;
+    this.confirmBtn.textContent =
+      `请等待天赋揭晓 ${this._revealedCount}/${this.offerCount}`;
+    if (this.skipBtn) {
+      this.skipBtn.textContent =
+        `跳过揭晓 · ${this._revealedCount}/${this.offerCount}`;
+    }
     if (this._rerollBtn) this._rerollBtn.disabled = true;
   }
 
-  _completeReveal(cards = null) {
+  _completeReveal(cards = null, { forceFocus = false } = {}) {
     if (!this.overlay || !this.scene) return;
     const talentCards = cards || [...this.cardsEl.querySelectorAll('.ui-talent-card')];
     for (const card of talentCards) {
       card.disabled = false;
       card.removeAttribute('aria-disabled');
       card.tabIndex = 0;
-      card.classList.remove('is-dealing');
-      card.classList.add('is-revealed');
+      card.classList.remove('is-dealing', 'is-reveal-active');
+      card.classList.add('is-revealed', 'is-reveal-settled');
+      card.dataset.revealState = 'settled';
     }
     this._isRevealing = false;
     this._revealedCount = this.offerCount;
+    this._activeRevealIndex = -1;
     this.overlay.setAttribute('aria-busy', 'false');
     this.overlay.dataset.phase = 'choosing';
     this.overlay.classList.add('reveal-complete');
@@ -356,6 +428,11 @@ export class TalentSystem {
     }
     this.confirmBtn.disabled = true;
     this.confirmBtn.textContent = `请选择 ${this.maxSelection} 个天赋`;
+    const focusWasOnSkip = document.activeElement === this.skipBtn;
+    if (this.skipBtn) {
+      this.skipBtn.hidden = true;
+      this.skipBtn.disabled = true;
+    }
     if (this._rerollBtn) {
       this._rerollBtn.disabled = false;
       this._rerollBtn.setAttribute(
@@ -364,7 +441,7 @@ export class TalentSystem {
       );
     }
     this._updateSelectionSummary();
-    this._focusFirstAvailableCard();
+    this._focusFirstAvailableCard({ force: forceFocus || focusWasOnSkip });
   }
 
   _syncSelectedCardState() {
@@ -392,9 +469,15 @@ export class TalentSystem {
     }
   }
 
-  _focusFirstAvailableCard() {
+  _focusFirstAvailableCard({ force = false } = {}) {
     if (!this.overlay?.classList.contains('visible')) return;
-    if (this.overlay.contains(document.activeElement)) return;
+    const activeElement = document.activeElement;
+    const activeIsUsable = activeElement &&
+      this.overlay.contains(activeElement) &&
+      !activeElement.hidden &&
+      !activeElement.disabled &&
+      getComputedStyle(activeElement).display !== 'none';
+    if (!force && activeIsUsable) return;
     const firstCard = this.cardsEl.querySelector('.ui-talent-card:not([disabled])');
     firstCard?.focus({ preventScroll: true });
   }
@@ -459,9 +542,14 @@ export class TalentSystem {
     this.selectedTalents = [];
     this._isRevealing = false;
     this._revealedCount = 0;
+    this._activeRevealIndex = -1;
     this.overlay.setAttribute('aria-busy', 'false');
     delete this.overlay.dataset.phase;
     this.overlay.classList.remove('reveal-complete');
+    if (this.skipBtn) {
+      this.skipBtn.hidden = true;
+      this.skipBtn.disabled = true;
+    }
     if (this.comboEl) {
       this.comboEl.textContent = '';
       this.comboEl.classList.remove('visible');
@@ -480,6 +568,10 @@ export class TalentSystem {
       this.confirmBtn.removeEventListener('click', this._confirmClickHandler);
       this._confirmClickHandler = null;
     }
+    if (this.skipBtn && this._skipRevealClickHandler) {
+      this.skipBtn.removeEventListener('click', this._skipRevealClickHandler);
+      this._skipRevealClickHandler = null;
+    }
     if (this._rerollBtn) {
       this._rerollBtn.removeEventListener('click', this._rerollClickHandler);
       this._rerollBtn.remove();
@@ -488,6 +580,7 @@ export class TalentSystem {
     this.hide();
     this.onSelect = null;
     this._onReroll = null;
+    this.skipBtn = null;
     this.scene = null;
   }
 }

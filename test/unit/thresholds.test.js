@@ -1,4 +1,4 @@
-// checkThresholdTriggers 阈值触发器测试（16 个触发器）
+// checkThresholdTriggers 阈值触发器测试（18 个触发器）
 import { describe, it, expect } from 'vitest';
 import { checkThresholdTriggers } from '../../src/data/effects.js';
 
@@ -20,6 +20,10 @@ const TRIGGERS = [
   { id: 'realist', flag: 'realist_triggered', condition: s => s.pride <= 1, setup: { pride: 1 } },
   { id: 'distrusted', flag: 'distrusted_triggered', condition: s => s.trust <= 1, setup: { trust: 1 } },
   { id: 'anxiety', flag: 'anxiety_triggered', condition: s => s.pressure >= 6, setup: { pressure: 6 } },
+  { id: 'pressure_release', flag: 'pressure_release_triggered',
+    condition: s => s.pressure >= 8, setup: { pressure: 8 } },
+  { id: 'retired_peace', flag: 'retired_peace_triggered',
+    condition: () => true, setup: {}, initialFlags: ['retired'] },
   { id: 'rich', flag: 'rich_triggered', condition: s => s.wealth >= 9, setup: { wealth: 9 } },
   { id: 'indomitable', flag: 'indomitable_triggered', condition: s => (s.failures || 0) >= 5, setup: { failures: 5 } },
   { id: 'moderate', flag: 'moderate_triggered', condition: s =>
@@ -42,21 +46,23 @@ const TRIGGERS = [
 ];
 
 describe('checkThresholdTriggers - 单触发器行为', () => {
-  TRIGGERS.forEach(({ id, flag, setup, miss }) => {
+  TRIGGERS.forEach(({ id, flag, setup, miss, initialFlags = [] }) => {
     describe(`触发器 [${id}]`, () => {
       it('满足条件时触发', () => {
-        const triggers = checkThresholdTriggers(makeState(setup), new Set());
+        const triggers = checkThresholdTriggers(makeState(setup), new Set(initialFlags));
         const found = triggers.find(t => t.id === id);
         expect(found, `应触发 ${id}`).toBeDefined();
         expect(found.flag).toBe(flag);
         expect(found.effects, `${id} 应有 effects`).toBeTypeOf('object');
         expect(found.text, `${id} 应有 text`).toBeTruthy();
+        expect(found.title, `${id} 应说明事件名称`).toBeTruthy();
+        expect(found.cause, `${id} 应说明触发原因`).toBeTruthy();
       });
 
       it('flag 已存在时不重复触发', () => {
         const triggers = checkThresholdTriggers(
           makeState(setup),
-          new Set([flag])
+          new Set([...initialFlags, flag])
         );
         const found = triggers.find(t => t.id === id);
         expect(found, `${id} 不应重复触发`).toBeUndefined();

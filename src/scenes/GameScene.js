@@ -48,6 +48,8 @@ import {
   describeDecisionEffects,
   escapeDecisionText
 } from '../ui/DecisionPresentation.js';
+import { ConsequenceOverlay } from '../ui/ConsequenceOverlay.js';
+import { buildWellConnectedChoice } from '../ui/TalentChoicePresentation.js';
 
 // 关键冲击场景集合：进入这些场景时触发白闪，增强转场冲击感
 // 落实项目硬约束：冰箱砸碎/法庭/脱口秀等关键场景转场应有 1-2 帧白闪
@@ -646,6 +648,7 @@ export class GameScene extends Phaser.Scene {
     this.achievementPopup = new AchievementPopup(this);
     this.talentSystem = new TalentSystem(this);
     this.randomEventSystem = new RandomEventSystem(this);
+    this.consequenceOverlay = new ConsequenceOverlay(this);
     this.debug = new DebugLogger();
 
     // 注册场景 shutdown 事件，确保场景切换时清理资源
@@ -1043,6 +1046,7 @@ export class GameScene extends Phaser.Scene {
       '#ui-history-note-overlay.visible',
       '#ui-achievement-gallery-overlay.visible',
       '#ui-random-event-overlay.visible',
+      '#ui-consequence-overlay.visible',
       '#ui-talent-overlay.visible',
       '.ui-settlement-overlay.visible',
       '.check-animation-overlay.visible'
@@ -1224,14 +1228,6 @@ export class GameScene extends Phaser.Scene {
     const currentStage = getStageByNodeId(this.state.currentNode);
     this.stageProgress?.update(currentStage?.id, node.progress || 0);
 
-    // === 跨周目技能：洞察人心 — 进入节点时显示 NPC 真实态度提示 ===
-    if (this.state._showNpcAttitude) {
-      try {
-        const attitudeHint = this._inferNpcAttitude(node);
-        if (attitudeHint) toast.info(attitudeHint, 3500);
-      } catch(e) {}
-    }
-
     // === 资源懒加载：先确保当前节点所需纹理就绪再渲染 ===
     // 并行加载场景背景 + 角色立绘，避免串行等待
     const poseMap = {
@@ -1301,6 +1297,9 @@ export class GameScene extends Phaser.Scene {
     // 动态名字解析：早期阶段 → 小罗，后期阶段 → 老罗
     const displayName = charInfo[0] === '罗远' ? this._resolveCharacterName(this.state.currentNode) : charInfo[0];
     const resolvedText = node.text ? this._replaceCharacterNameInText(node.text, this.state.currentNode) : node.text;
+    const attitudeInsight = this.state._showNpcAttitude
+      ? this._inferNpcAttitude(node, charInfo[1] || node.actSub || '当前场景')
+      : null;
     this.dialog.show(displayName, resolvedText, () => {
       if (node.choices && node.choices.length > 0) {
         // 选项中的"罗远"也做同样替换
@@ -1309,15 +1308,12 @@ export class GameScene extends Phaser.Scene {
           label: this._replaceCharacterNameInText(c.label || c, this.state.currentNode)
         }));
 
-        // === 跨周目技能：八面玲珑 — 解锁特殊对话选项（关键节点多一个选择）===
-        // 追加一个圆滑应对选项：小幅 trust/pressure 变化，跳转到首个非检定选项的 next 节点
+        // === 跨周目技能：八面玲珑 — 只在关键抉择提供可解释的协商路径 ===
         if (this.state._extraChoices) {
-          const fallback = resolvedChoices.find(c => c.next && !c.check);
-          resolvedChoices.push({
-            label: '◈ 【八面玲珑】以圆滑方式应对，留有余地',
-            next: fallback ? fallback.next : undefined,
-            effects: { trust: 1, pressure: 1 }
+          const talentChoice = buildWellConnectedChoice(resolvedChoices, this.state, {
+            context: node.actSub || charInfo[1] || '当前抉择'
           });
+          if (talentChoice) resolvedChoices.push(talentChoice);
         }
 
         this.choices.show(resolvedChoices, (choice) => { this.makeChoice(choice); });
@@ -1330,7 +1326,7 @@ export class GameScene extends Phaser.Scene {
           rate: 0.96
         });
       }
-    }, this._inferSpeechMood(node));
+    }, this._inferSpeechMood(node), { insight: attitudeInsight });
 
     // R26 P1：首次进入游戏时显示操作引导（一次性）
     if (this.isNewGame && this.state.currentNode === 'intro' && !this._tutorialShown) {
@@ -1505,9 +1501,10 @@ export class GameScene extends Phaser.Scene {
   /**
    * 洞察人心：根据节点与当前状态推断 NPC 真实态度提示文本
    * @param {object} node - 当前剧情节点
-   * @returns {string|null} 提示文本，无内容时返回 null
+   * @param {string} contextLabel - 当前剧情场景标签
+   * @returns {object|null} 可嵌入对话层的结构化态度线索
    */
-  _inferNpcAttitude(node) {
+  _inferNpcAttitude(node, contextLabel = '当前场景') {
     if (!node) return null;
     const state = this.state || {};
     const trust = state.trust ?? 5;
@@ -1515,18 +1512,48 @@ export class GameScene extends Phaser.Scene {
     const pressure = state.pressure ?? 0;
     // 根据信任/名声/压力组合推断 NPC 态度
     if (trust >= 8 && reputation >= 7) {
-      return '◉ 洞察人心：周围的人对你颇为信赖，态度友善。';
+      return {
+        context: contextLabel,
+        attitude: '友善',
+        tone: 'positive',
+        summary: '周围的人对你颇为信赖，态度友善。',
+        basis: `信任 ${trust} ≥ 8 · 名声 ${reputation} ≥ 7`
+      };
     }
     if (trust <= 2) {
-      return '◉ 洞察人心：公众信任低迷，你能感受到他人眼中的警惕。';
+      return {
+        context: contextLabel,
+        attitude: '警惕',
+        tone: 'danger',
+        summary: '公众信任低迷，你能感受到他人眼中的警惕。',
+        basis: `信任 ${trust} ≤ 2`
+      };
     }
     if (reputation <= 2) {
-      return '◉ 洞察人心：名声不佳，旁人态度冷淡甚至轻蔑。';
+      return {
+        context: contextLabel,
+        attitude: '冷淡',
+        tone: 'danger',
+        summary: '名声不佳，旁人的态度冷淡，甚至带着轻蔑。',
+        basis: `名声 ${reputation} ≤ 2`
+      };
     }
     if (pressure >= 8) {
-      return '◉ 洞察人心：你压力极高，旁人察觉到你的紧绷，言语间多了几分试探。';
+      return {
+        context: contextLabel,
+        attitude: '试探',
+        tone: 'warning',
+        summary: '旁人察觉到你的紧绷，言语间多了几分试探。',
+        basis: `压力 ${pressure} ≥ 8`
+      };
     }
-    return '◉ 洞察人心：众人的态度不咸不淡，仍在观望。';
+    return {
+      context: contextLabel,
+      attitude: '观望',
+      tone: 'neutral',
+      summary: '众人的态度不咸不淡，仍在观望。',
+      basis: `信任 ${trust} · 名声 ${reputation} · 压力 ${pressure}`
+    };
   }
 
   /**
@@ -2766,6 +2793,8 @@ export class GameScene extends Phaser.Scene {
    */
   _showConsequences(consequences, index, onComplete) {
     if (index >= consequences.length) {
+      this.consequenceOverlay.hide({ restoreFocus: false });
+      this.dialog.hide();
       onComplete();
       return;
     }
@@ -2773,12 +2802,47 @@ export class GameScene extends Phaser.Scene {
     const c = consequences[index];
     // 远期后果音效
     try { this.audio.playConsequence(); } catch(e) {}
-    this.dialog.show('往事回响', this._replaceCharacterNameInText(c.text, this.state.currentNode), () => {
-      if (c.effects) {
-        this._applyEffectsWithTalentFeedback(c.effects);
-        this.stats.update(this.state);
+    this.choices.hide(true);
+    this.dialog.hide();
+    const progress = {
+      label: '往事回响',
+      current: index + 1,
+      total: consequences.length
+    };
+    this.consequenceOverlay.showNotice({
+      kicker: '往事回响 · 旧选择正在兑现',
+      title: c.title || '先前选择产生了后果',
+      cause: c.cause || '源自此前的关键选择',
+      narrative: this._replaceCharacterNameInText(c.text, this.state.currentNode),
+      effects: c.effects,
+      progress,
+      actionLabel: '接受回响并查看结果',
+      onContinue: () => {
+        const beforeState = this._getConsequenceStateSnapshot();
+        if (c.effects) {
+          this._applyEffectsWithTalentFeedback(c.effects);
+          this.stats.update(this.state);
+        }
+        const afterState = this._getConsequenceStateSnapshot();
+        this.consequenceOverlay.showResult({
+          kicker: '往事回响 · 已兑现',
+          title: c.title || '后果已经落地',
+          cause: c.cause || '先前选择已经改变当前状态',
+          narrative: '过去不会只停在历史里。看清它对当前状态造成的变化，再继续。',
+          selectionKicker: '源自先前选择',
+          choiceLabel: c.sourceLabel || c.title || '曾经作出的决定',
+          effects: c.effects,
+          beforeState,
+          afterState,
+          progress,
+          actionLabel: index < consequences.length - 1
+            ? '查看下一段回响 →'
+            : '返回旅程 →',
+          onContinue: () => {
+            this._showConsequences(consequences, index + 1, onComplete);
+          }
+        });
       }
-      this._showConsequences(consequences, index + 1, onComplete);
     });
   }
 
@@ -3237,17 +3301,61 @@ export class GameScene extends Phaser.Scene {
     const currentNode = STORY[this.state.currentNode];
 
     // === 属性联动事件检测：在 applyEffects 之后、_goToNextNode 之前触发 ===
-    // 联动事件不阻断剧情流程，仅显示 toast 提示并应用额外效果
+    // 联动事件属于额外结算，先解释成立条件与影响，确认后再回到原流程。
     const comboTrigger = checkComboTriggers(this.state);
     if (comboTrigger) {
       try { this.debug.logComboTrigger(comboTrigger.id, comboTrigger.message); } catch(e) {}
-      try { toast.warning(comboTrigger.message, 4000); } catch(e) {}
-      if (comboTrigger.effects) {
-        this._applyEffectsWithTalentFeedback(comboTrigger.effects);
-        this.stats.update(this.state);
-      }
+      this._showComboTrigger(comboTrigger, choice, () => {
+        this._continueAfterComboChoice(choice, currentNode);
+      });
+      return;
     }
 
+    this._continueAfterComboChoice(choice, currentNode);
+  }
+
+  _showComboTrigger(comboTrigger, originalChoice, onComplete) {
+    const choiceLabel = String(originalChoice?.label || '刚刚的选择')
+      .replace(/^["“”']+|["“”']+$/g, '')
+      .trim();
+    const cause = `刚刚的选择「${choiceLabel}」推动组合成立 · ${comboTrigger.cause}`;
+    this.choices.hide(true);
+    this.dialog.hide();
+    this.consequenceOverlay.showNotice({
+      kicker: '属性联动 · 组合成立',
+      title: comboTrigger.title || '新的属性联动',
+      cause,
+      narrative: comboTrigger.text || comboTrigger.message,
+      effects: comboTrigger.effects,
+      actionLabel: '确认联动并查看结果',
+      onContinue: () => {
+        const beforeState = this._getConsequenceStateSnapshot();
+        if (comboTrigger.effects) {
+          this._applyEffectsWithTalentFeedback(comboTrigger.effects);
+          this.stats.update(this.state);
+        }
+        const afterState = this._getConsequenceStateSnapshot();
+        this.consequenceOverlay.showResult({
+          kicker: '属性联动 · 已生效',
+          title: `${comboTrigger.title || '属性联动'}已形成`,
+          cause: comboTrigger.cause,
+          narrative: '这组属性已经产生额外影响。确认实际变化后，原来的剧情才会继续。',
+          selectionKicker: '成立条件',
+          choiceLabel: comboTrigger.cause,
+          effects: comboTrigger.effects,
+          beforeState,
+          afterState,
+          actionLabel: '继续旅程 →',
+          onContinue: () => {
+            this.consequenceOverlay.hide({ restoreFocus: false });
+            onComplete();
+          }
+        });
+      }
+    });
+  }
+
+  _continueAfterComboChoice(choice, currentNode) {
     // 尝试触发随机事件
     const stage = getStageByNodeId(this.state.currentNode);
     if (stage) {
@@ -3283,10 +3391,6 @@ export class GameScene extends Phaser.Scene {
         if ((this.state.talentSpecials || []).includes('random_events_bias_positive')) {
           this._recordDirectTalentTrigger('random_events_bias_positive');
         }
-        // === 跨周目技能：预知未来 — 随机事件预兆提示 ===
-        if (this.state._showEventOmen) {
-          try { toast.info('◯ 预知未来：你预感到一个随机事件正在发生……', 3500); } catch(e) {}
-        }
         return;
       }
     }
@@ -3314,6 +3418,9 @@ export class GameScene extends Phaser.Scene {
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     const rawValue = Number.isFinite(context.rawValue) ? context.rawValue : attrValue;
     const bonus = Number.isFinite(context.bonus) ? context.bonus : Math.max(0, attrValue - rawValue);
+    const intervention = context.intervention && typeof context.intervention === 'object'
+      ? context.intervention
+      : null;
     const uid = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
     const resultId = `check-animation-title-${uid}`;
     const descriptionId = `check-animation-description-${uid}`;
@@ -3369,8 +3476,10 @@ export class GameScene extends Phaser.Scene {
     this._trackedTimeout(() => {
       const content = overlay.querySelector('.check-animation-content');
       if (!content) return;
-      const resultText = passed ? '检定成功' : '检定未通过';
-      const resultClass = passed ? 'success' : 'fail';
+      const resultText = intervention
+        ? '失败已被改写为成功'
+        : passed ? '检定成功' : '检定未通过';
+      const resultClass = intervention ? 'intervened' : passed ? 'success' : 'fail';
       const consequenceText = passed
         ? check.successText || '这次判断把你带向了有利的结果。'
         : check.failText || '门槛未满足，剧情将沿另一条路径继续。';
@@ -3389,6 +3498,48 @@ export class GameScene extends Phaser.Scene {
         : `
           <span class="check-animation-equation-part total"><strong>${attrValue}</strong><small>当前值</small></span>
         `;
+      const interventionMarkup = intervention
+        ? `
+          <section class="check-animation-intervention" aria-label="${escapeDecisionText(
+            intervention.title || '技能自动介入'
+          )}">
+            <div class="check-animation-intervention-title">
+              <span aria-hidden="true">◈</span>
+              ${escapeDecisionText(intervention.title || '技能自动介入')}
+            </div>
+            <p class="check-animation-intervention-description">
+              ${escapeDecisionText(
+                intervention.description || '技能改变了这次检定的最终结果。'
+              )}
+            </p>
+            <div class="check-animation-intervention-flow">
+              <span class="check-animation-intervention-state original">
+                <small>原始结果</small>
+                <strong>${escapeDecisionText(intervention.originalResult || '未通过')}</strong>
+              </span>
+              <span class="check-animation-intervention-arrow" aria-hidden="true">→</span>
+              <span class="check-animation-intervention-state final">
+                <small>最终结果</small>
+                <strong>${escapeDecisionText(intervention.finalResult || '成功')}</strong>
+              </span>
+            </div>
+            ${Number.isFinite(intervention.resourceBefore) &&
+              Number.isFinite(intervention.resourceAfter)
+              ? `
+                <div class="check-animation-intervention-resource">
+                  <span>${escapeDecisionText(intervention.resourceLabel || '技能次数')}</span>
+                  <span class="check-animation-intervention-resource-values">
+                    <strong>${intervention.resourceBefore}</strong>
+                    <span aria-hidden="true">→</span>
+                    <strong>${intervention.resourceAfter}</strong>
+                    <small>确认后消耗</small>
+                  </span>
+                </div>
+              `
+              : ''}
+          </section>
+        `
+        : '';
       content.innerHTML = `
         <div class="check-animation-kicker">◊ ${escapeDecisionText(attrLabel)}检定</div>
         <div class="check-animation-result ${resultClass}" id="${resultId}">${resultText}</div>
@@ -3398,6 +3549,7 @@ export class GameScene extends Phaser.Scene {
           <span class="check-animation-equation-symbol target-divider">/</span>
           <span class="check-animation-equation-part target"><strong>${check.min}</strong><small>门槛</small></span>
         </div>
+        ${interventionMarkup}
         <div class="check-animation-consequence" id="${descriptionId}">
           <span class="check-animation-consequence-label">剧情后果</span>
           <span>${escapeDecisionText(consequenceText)}</span>
@@ -3412,7 +3564,8 @@ export class GameScene extends Phaser.Scene {
             : '<span class="check-animation-effect neutral">属性暂未改变</span>'}
         </div>
         <button class="check-animation-continue" type="button">
-          接受结果并继续 <span aria-hidden="true">→</span>
+          ${intervention ? '确认翻盘结果并继续' : '接受结果并继续'}
+          <span aria-hidden="true">→</span>
         </button>
       `;
       actionButton = content.querySelector('.check-animation-continue');
@@ -3457,23 +3610,40 @@ export class GameScene extends Phaser.Scene {
       this._recordDirectTalentTrigger('trust_check_bonus');
     }
     const attrValue = snapshot.value;
-    let passed = snapshot.passed;
+    const passed = snapshot.passed;
     const attrLabel = snapshot.attrLabel;
 
     // === 跨周目技能：免费重试 ===
     if (!passed && this.state._freeRetry && this.state._freeRetry > 0) {
-      this.state._freeRetry--;
-      passed = true;
+      const retryBefore = this.state._freeRetry;
+      const retryAfter = Math.max(0, retryBefore - 1);
+      const outcomeEffects = this._resolveCheckOutcomeEffects(check, true);
       // 检定音效（特殊）
       try { this.audio.playAchievementRare(); } catch(e) {}
-      this.dialog.show('◊ 属性检定', `【${attrLabel}检定】${rawAttrValue}${checkBonus ? `+${checkBonus}` : ''}/${check.min} —— 失败！\n但「第二次机会」技能触发，自动转为成功！`, () => {
-        if (check.successEffects) {
-          this._applyEffectsWithTalentFeedback(check.successEffects);
+      this._showCheckAnimation(check, true, attrLabel, attrValue, () => {
+        this.state._freeRetry = retryAfter;
+        if (Object.keys(outcomeEffects).length > 0) {
+          this._applyEffectsWithTalentFeedback(outcomeEffects);
           this.stats.update(this.state);
         }
         const nextNode = check.successNext;
         try { this.debug.logCheck(check.attr, check.min, attrValue, true, nextNode); } catch(e) {}
         this._proceedToNode(choice, nextNode, currentNode);
+      }, {
+        rawValue: rawAttrValue,
+        bonus: checkBonus,
+        bonusSources: snapshot.bonusSources,
+        choiceLabel: choice.label,
+        outcomeEffects,
+        intervention: {
+          title: '第二次机会自动介入',
+          description: `原始${attrLabel}检定未达到门槛，技能将失败结果改写为成功。`,
+          resourceLabel: '重试机会',
+          resourceBefore: retryBefore,
+          resourceAfter: retryAfter,
+          originalResult: '未通过',
+          finalResult: '成功'
+        }
       });
       return;
     }
@@ -3575,27 +3745,99 @@ export class GameScene extends Phaser.Scene {
    */
   _offerPhoenixRevive(crashEvent, originalChoice, skipRandomEvent, continueCallback) {
     try { this.audio.playAchievementRare(); } catch(e) {}
-    this.dialog.show('▲ 不死鸟觉醒', '压力即将崩溃！\n「不死鸟」技能可消耗一次复活机会，将压力降至 3 并免于崩溃惩罚。是否使用？', () => {
-      // 提供两个选项：使用复活 / 硬扛崩溃
-      this.choices.show([
-        { label: '▲ 使用复活机会', effects: {}, _useRevive: true },
-        { label: '◉ 硬扛崩溃', effects: {}, _useRevive: false }
-      ], (choice) => {
-        this.choices.hide();
-        this.dialog.hide();
+    this.choices.hide(true);
+    this.dialog.hide();
+
+    const pressureBefore = Number(this.state.pressure) || 0;
+    const pressureMax = this.state.pressureMax || 10;
+    const safePressure = Math.min(pressureMax, 3);
+    const reviveCharges = Math.max(0, Number(this.state._phoenixRevive) || 0);
+    const crashChoiceCount = Array.isArray(crashEvent?.choices)
+      ? crashEvent.choices.length
+      : 0;
+    const choices = [
+      {
+        label: '消耗机会，立即复活',
+        previewEffects: { pressure: safePressure - pressureBefore },
+        note: `压力降至 ${safePressure} · 复活机会 ${reviveCharges} → ${Math.max(0, reviveCharges - 1)} · 跳过本次崩溃惩罚`,
+        tone: 'positive',
+        _useRevive: true
+      },
+      {
+        label: '保留机会，承受本次崩溃',
+        previewEffects: {},
+        note: `复活机会保持 ${reviveCharges} 次 · 进入 ${crashChoiceCount} 个崩溃恢复方案`,
+        tone: 'warning',
+        _useRevive: false
+      }
+    ];
+
+    this.consequenceOverlay.showDecision({
+      kicker: '技能介入 · 一次性机会',
+      title: '不死鸟可以截断这次崩溃',
+      cause: `压力 ${pressureBefore} / 上限 ${pressureMax} · 剩余复活 ${reviveCharges} 次`,
+      narrative: '这次技能介入会改变崩溃流程。消耗机会可立即回到安全线；保留机会则继续承担本次崩溃的恢复代价。',
+      mitigation: `不死鸟是每局限量资源，当前剩余机会 ${reviveCharges} 次。`,
+      choices,
+      onSelect: choice => {
+        const beforeState = this._getConsequenceStateSnapshot();
         if (choice._useRevive) {
-          // 使用复活：消耗机会，压力降至 3，跳过崩溃
-          this.state._phoenixRevive--;
-          const maxP = this.state.pressureMax || 10;
-          this.state.pressure = Math.min(maxP, 3);
+          this.state._phoenixRevive = Math.max(0, reviveCharges - 1);
+          this.state.pressure = safePressure;
           this.stats.update(this.state);
-          try { toast.success('▲ 不死鸟觉醒！压力已降至 3，本次免于崩溃。', 3500); } catch(e) {}
-          continueCallback();
-        } else {
-          // 不使用：进入正常崩溃流程
-          this._handlePressureCrash(crashEvent, originalChoice, skipRandomEvent);
+          const afterState = this._getConsequenceStateSnapshot();
+
+          return {
+            kicker: '技能介入 · 已生效',
+            title: '不死鸟已消耗，跳过崩溃',
+            cause: `压力 ${beforeState.pressure} → ${afterState.pressure} · 已回到安全线`,
+            narrative: '复活机会已经消耗，本次崩溃惩罚被截断。确认资源与压力变化后，原流程才会继续。',
+            selectionKicker: '你选择了',
+            choiceLabel: choice.label,
+            effects: { pressure: afterState.pressure - beforeState.pressure },
+            beforeState,
+            afterState,
+            extraTransitions: [
+              {
+                key: 'resource',
+                label: '复活机会',
+                before: reviveCharges,
+                after: this.state._phoenixRevive
+              }
+            ],
+            actionLabel: '确认复活结果 →',
+            onContinue: () => {
+              this.consequenceOverlay.hide({ restoreFocus: false });
+              continueCallback();
+            }
+          };
         }
-      });
+
+        return {
+          kicker: '技能介入 · 机会已保留',
+          title: '复活机会已保留',
+          cause: `剩余复活 ${reviveCharges} 次 · 即将进入本次崩溃恢复`,
+          narrative: '你没有消耗不死鸟。机会仍留给以后，但下一步必须承担这次压力崩溃的恢复代价。',
+          selectionKicker: '你选择了',
+          choiceLabel: choice.label,
+          effects: {},
+          beforeState,
+          afterState: beforeState,
+          extraTransitions: [
+            {
+              key: 'resource',
+              label: '复活机会',
+              before: reviveCharges,
+              after: reviveCharges
+            }
+          ],
+          actionLabel: '进入崩溃恢复 →',
+          onContinue: () => {
+            this.consequenceOverlay.hide({ restoreFocus: false });
+            this._handlePressureCrash(crashEvent, originalChoice, skipRandomEvent);
+          }
+        };
+      }
     });
   }
 
@@ -3629,26 +3871,61 @@ export class GameScene extends Phaser.Scene {
     // 延迟至演出高潮后弹出崩溃事件对话框（550ms：红闪0.3s收尾 + 大字落地反弹完成）
     // this.time.delayedCall 由 Phaser 时钟驱动，场景切换自动取消，无泄漏
     this.time.delayedCall(550, () => {
-      if (hasKeepStats) {
-        try { toast.info('◉ 绝境逢生：本次崩溃的负面损失已减半。', 3500); } catch(e) {}
-      }
-      // 用对话框显示崩溃事件
-        this.dialog.show('⚠ 压力崩溃', this._replaceCharacterNameInText(crashEvent.text, this.state.currentNode), () => {
-        this.choices.show(crashChoices, (choice) => {
+      this.choices.hide(true);
+      this.dialog.hide();
+      const pressureMax = this.state.pressureMax || 10;
+      this.consequenceOverlay.showDecision({
+        kicker: '系统中断 · 必须恢复',
+        title: '压力到达极限',
+        cause: `压力 ${this.state.pressure} / 上限 ${pressureMax} · 已达崩溃线`,
+        narrative: this._replaceCharacterNameInText(
+          crashEvent.text,
+          this.state.currentNode
+        ),
+        mitigation: hasKeepStats
+          ? '◉ 绝境逢生已生效：本次崩溃的负面损失减半。'
+          : null,
+        choices: crashChoices,
+        onSelect: choice => {
+          const beforeState = this._getConsequenceStateSnapshot();
           this._applyEffectsWithTalentFeedback(choice.effects);
           this.stats.update(this.state);
-          this.choices.hide();
-          this.dialog.hide();
+          const afterState = this._getConsequenceStateSnapshot();
+          const pressureRecovered = afterState.pressure < pressureMax;
 
-          // 继续原来的流程
-          if (skipRandomEvent) {
-            this._goToNextNode(originalChoice, STORY[this.state.currentNode]);
-          } else {
-            this._proceedAfterChoice(originalChoice);
-          }
-        });
+          return {
+            title: pressureRecovered ? '压力已回落，恢复控制' : '崩溃代价已结算',
+            cause: pressureRecovered
+              ? `压力 ${beforeState.pressure} → ${afterState.pressure} · 已脱离崩溃线`
+              : `压力 ${beforeState.pressure} → ${afterState.pressure} · 仍需留意风险`,
+            narrative: '恢复动作已经生效。先看清这次崩溃留下的变化，再决定继续。',
+            choiceLabel: choice.label,
+            effects: choice.effects,
+            beforeState,
+            afterState,
+            onContinue: () => {
+              this.consequenceOverlay.hide({ restoreFocus: false });
+              if (skipRandomEvent) {
+                this._goToNextNode(originalChoice, STORY[this.state.currentNode]);
+              } else {
+                this._proceedAfterChoice(originalChoice);
+              }
+            }
+          };
+        }
       });
     });
+  }
+
+  _getConsequenceStateSnapshot() {
+    return {
+      pride: Number(this.state.pride) || 0,
+      wealth: Number(this.state.wealth) || 0,
+      reputation: Number(this.state.reputation) || 0,
+      failures: Number(this.state.failures) || 0,
+      pressure: Number(this.state.pressure) || 0,
+      trust: Number(this.state.trust) || 0
+    };
   }
 
   /**
@@ -3656,7 +3933,8 @@ export class GameScene extends Phaser.Scene {
    */
   _showThresholdTriggers(triggers, index, onComplete, originalChoice) {
     if (index >= triggers.length) {
-      // 所有阈值事件处理完毕，隐藏对话框再继续主线/结局流程
+      // 所有阈值事件处理完毕，收起结果层再继续主线/结局流程
+      this.consequenceOverlay.hide({ restoreFocus: false });
       this.dialog.hide();
       // 阈值效果后重检压力崩溃
       this._checkPressureCrashOrProceed(onComplete, originalChoice);
@@ -3671,15 +3949,29 @@ export class GameScene extends Phaser.Scene {
     }
     // 阈值触发音效
     try { this.audio.playThresholdTrigger(); } catch(e) {}
-    this.dialog.show('✦ 隐藏事件', this._replaceCharacterNameInText(t.text, this.state.currentNode), () => {
-      if (t.effects) {
-        this._applyEffectsWithTalentFeedback(t.effects);
-        this.stats.update(this.state);
+    this.choices.hide(true);
+    this.dialog.hide();
+    this.consequenceOverlay.showNotice({
+      kicker: '阈值回响 · 状态将改变',
+      title: t.title || '隐藏事件',
+      cause: t.cause || '当前属性组合达到隐藏触发条件',
+      narrative: this._replaceCharacterNameInText(t.text, this.state.currentNode),
+      effects: t.effects,
+      progress: {
+        current: index + 1,
+        total: triggers.length
+      },
+      actionLabel: index < triggers.length - 1 ? '确认并查看下一件' : '确认变化',
+      onContinue: () => {
+        if (t.effects) {
+          this._applyEffectsWithTalentFeedback(t.effects);
+          this.stats.update(this.state);
+        }
+        if (t.flag) {
+          this.state.flags.add(t.flag);
+        }
+        this._showThresholdTriggers(triggers, index + 1, onComplete, originalChoice);
       }
-      if (t.flag) {
-        this.state.flags.add(t.flag);
-      }
-      this._showThresholdTriggers(triggers, index + 1, onComplete, originalChoice);
     });
   }
 
@@ -4185,6 +4477,11 @@ export class GameScene extends Phaser.Scene {
     if (this.randomEventSystem) {
       this.randomEventSystem.destroy();
       this.randomEventSystem = null;
+    }
+    // 清理压力崩溃 / 阈值因果结果层
+    if (this.consequenceOverlay) {
+      this.consequenceOverlay.destroy();
+      this.consequenceOverlay = null;
     }
     // 清理 SaveSystem
     this.save = null;

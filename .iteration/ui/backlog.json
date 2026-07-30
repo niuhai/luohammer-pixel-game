@@ -688,7 +688,7 @@
       "impact": 4,
       "confidence": 4,
       "effort": 3,
-      "status": "active",
+      "status": "done",
       "corePath": true,
       "lastEvidenceAt": "2026-07-29",
       "evidenceRequired": [
@@ -697,7 +697,626 @@
         "keyboard_screenreader_lifecycle"
       ],
       "minimumVerification": "L3",
-      "startedAt": "2026-07-29T13:27:53.232Z"
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E2",
+      "lastDecision": "CONTINUE",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/ui/evidence/R025/before/desktop-1440-priority-queue.png",
+        ".iteration/ui/evidence/R025/before/mobile-390-priority-queue.png",
+        ".iteration/ui/evidence/R025/before/report.json",
+        ".iteration/ui/evidence/R025/after/desktop-1440-priority-queue.png",
+        ".iteration/ui/evidence/R025/after/mobile-390-priority-queue.png",
+        ".iteration/ui/evidence/R025/after/report.json"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E2",
+        "guardrails": "PASS",
+        "counterevidence": "证据来自本地 Chromium 的合成通知突发与程序化悬停/焦点；尚未覆盖真实读屏器的播报完成时点、Safari/iOS、长时间高频队列饥饿，以及多语言超长文案和真实触屏辅助技术。",
+        "capabilityDelta": "SEED：建立单活动优先级通知、错误抢占回队、播报保护期、暂停恢复、44px 关闭/Escape 与对话避让模式，并将跨场景失效调用和存档私有提示收编到同一生命周期。",
+        "verificationCostSeconds": 1920,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-29T14:19:15.456Z"
+      }
+    },
+    {
+      "id": "UI-026",
+      "area": "gameplay-events",
+      "title": "随机事件与属性检定的决策层级和跨端反馈",
+      "hypothesis": "把随机事件、属性检定条件、风险收益和结算结果组织成连续且可聚焦的决策层级，可以让玩家在高压剧情节点快速理解为什么触发、选项会影响什么以及结果如何落地，同时避免手机端误选或信息被遮挡。",
+      "impact": 5,
+      "confidence": 3,
+      "effort": 4,
+      "status": "done",
+      "corePath": true,
+      "lastEvidenceAt": "2026-07-29",
+      "evidenceRequired": [
+        "deterministic_random_event_before_after",
+        "check_result_and_choice_hierarchy",
+        "six_view_keyboard_touch_guardrail"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E2",
+      "lastDecision": "CONTINUE",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/evidence/R026/before/desktop-1440x900-event.png",
+        ".iteration/evidence/R026/before/desktop-1440x900-event-result.png",
+        ".iteration/evidence/R026/before/desktop-1440x900-check-result.png",
+        ".iteration/evidence/R026/before/mobile-390x844-event.png",
+        ".iteration/evidence/R026/before/mobile-390x844-event-result.png",
+        ".iteration/evidence/R026/before/mobile-390x844-check-result.png",
+        ".iteration/evidence/R026/before/decision-matrix.json",
+        ".iteration/evidence/R026/after/desktop-1440x900-event.png",
+        ".iteration/evidence/R026/after/desktop-1440x900-event-result.png",
+        ".iteration/evidence/R026/after/desktop-1440x900-check-result.png",
+        ".iteration/evidence/R026/after/mobile-390x844-event.png",
+        ".iteration/evidence/R026/after/mobile-390x844-event-result.png",
+        ".iteration/evidence/R026/after/mobile-390x844-check-result.png",
+        ".iteration/evidence/R026/after/decision-matrix.json"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E2",
+        "guardrails": "PASS",
+        "counterevidence": "证据来自本地 Chromium 的确定性事件和检定探针；尚未覆盖真实玩家是否愿意接受两次显式确认、真实读屏器播报、Safari/iOS、极端长文案，以及高频随机事件下额外确认对节奏的长期影响。",
+        "capabilityDelta": "COMPOUNDING：六视口关键帧探针扩展到选择前影响、结果确认和检定公式三段链路，并建立 ChoiceSystem 与 GameScene 共用的规则呈现快照，能继续复用于压力崩溃和阈值结算。",
+        "verificationCostSeconds": 900,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-29T15:04:17.847Z"
+      }
+    },
+    {
+      "id": "UI-027",
+      "area": "gameplay-consequences",
+      "title": "压力崩溃与阈值触发的因果说明和恢复控制",
+      "hypothesis": "把压力崩溃、阈值触发的原因、属性变化和恢复动作组织成可暂停阅读的结果链，可以让玩家理解为什么被打断、损失如何发生以及接下来能做什么，而不是只看到强烈动画后被动推进。",
+      "impact": 5,
+      "confidence": 3,
+      "effort": 4,
+      "status": "done",
+      "corePath": true,
+      "lastEvidenceAt": "2026-07-29",
+      "evidenceRequired": [
+        "pressure_crash_cause_and_result",
+        "threshold_trigger_readability",
+        "six_view_recovery_focus_guardrail"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E2",
+      "lastDecision": "CONTINUE",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/evidence/R027/before/desktop-1440x900-crash-decision.png",
+        ".iteration/evidence/R027/after/desktop-1440x900-crash-decision.png",
+        ".iteration/evidence/R027/after/desktop-1440x900-crash-result.png",
+        ".iteration/evidence/R027/before/mobile-390x844-crash-decision.png",
+        ".iteration/evidence/R027/after/mobile-390x844-crash-decision.png",
+        ".iteration/evidence/R027/before/mobile-390x844-threshold.png",
+        ".iteration/evidence/R027/after/mobile-390x844-threshold.png"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E2",
+        "guardrails": "PASS",
+        "counterevidence": "当前证据仍来自自动化探针与设计审计，尚无真实玩家数据证明理解时间或误操作率下降；不死鸟复活分支仍沿用普通剧情选择，后续可继续统一。",
+        "capabilityDelta": "COMPOUNDING：在共享决策表达层上新增可复用的因果—选择—结果模态机制，并建立六视口、焦点、单次结算与属性同源说明护栏。",
+        "verificationCostSeconds": 498,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-29T15:51:08.975Z"
+      }
+    },
+    {
+      "id": "UI-028",
+      "area": "gameplay-consequences",
+      "title": "属性联动与往事回响的来源归因和延迟后果链",
+      "hypothesis": "把即时属性联动和跨阶段的往事回响统一为来源可追溯、影响可预读、需要确认的回响链，可以让玩家把当前数值变化与先前选择建立联系，而不是错过四秒 Toast 或只看到没有来源与代价的普通剧情框。",
+      "impact": 5,
+      "confidence": 4,
+      "effort": 4,
+      "status": "done",
+      "corePath": true,
+      "dependsOn": [
+        "UI-027"
+      ],
+      "evidenceRequired": [
+        "combo_trigger_cause_and_applied_effect",
+        "delayed_consequence_source_and_queue",
+        "six_view_echo_focus_guardrail"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E2",
+      "lastDecision": "CONTINUE",
+      "lastEvidenceAt": "2026-07-29",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/evidence/R028/before/desktop-1440x900-combo-notice.png",
+        ".iteration/evidence/R028/after/desktop-1440x900-combo-notice.png",
+        ".iteration/evidence/R028/after/desktop-1440x900-combo-result.png",
+        ".iteration/evidence/R028/before/mobile-390x844-combo-notice.png",
+        ".iteration/evidence/R028/after/mobile-390x844-combo-notice.png",
+        ".iteration/evidence/R028/before/mobile-390x844-echo-notice.png",
+        ".iteration/evidence/R028/after/mobile-390x844-echo-notice.png",
+        ".iteration/evidence/R028/after/mobile-390x844-echo-result.png"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E2",
+        "guardrails": "PASS",
+        "counterevidence": "证据仍来自本地 Chromium 探针，尚无真实玩家数据验证两段确认的节奏成本；连续多条回响可能增加点击负担，且来源文案是按 flag 维护的概括，并非所有路径都保存了玩家当时的原句。",
+        "capabilityDelta": "COMPOUNDING：共享因果结果层扩展到即时组合与跨阶段回响，并建立五类联动、32 个来源映射、确认前不改数值、结果前不推进和连续队列护栏。",
+        "verificationCostSeconds": 456,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-29T16:13:24.596Z"
+      }
+    },
+    {
+      "id": "UI-029",
+      "area": "gameplay-talents",
+      "title": "不死鸟复活机会的代价比较与技能介入结果链",
+      "hypothesis": "把不死鸟的剩余机会、使用后的安全线、放弃后的崩溃代价和最终结算放在同一条可比较的技能介入链中，可以让玩家理解自己正在消耗什么、避免什么，以及为什么剧情被技能打断，而不是在普通剧情选项里凭感觉决定。",
+      "impact": 4,
+      "confidence": 4,
+      "effort": 3,
+      "status": "done",
+      "corePath": true,
+      "dependsOn": [
+        "UI-027"
+      ],
+      "evidenceRequired": [
+        "phoenix_charge_and_safe_line",
+        "revive_vs_crash_cost_comparison",
+        "six_view_talent_intervention_guardrail"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E2",
+      "lastDecision": "CONTINUE",
+      "lastEvidenceAt": "2026-07-29",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/evidence/R029/before/desktop-1440x900-phoenix-offer.png",
+        ".iteration/evidence/R029/after/desktop-1440x900-phoenix-offer.png",
+        ".iteration/evidence/R029/after/desktop-1440x900-phoenix-revive-result.png",
+        ".iteration/evidence/R029/after/desktop-1440x900-phoenix-preserve-result.png",
+        ".iteration/evidence/R029/before/mobile-390x844-phoenix-offer.png",
+        ".iteration/evidence/R029/after/mobile-390x844-phoenix-offer.png",
+        ".iteration/evidence/R029/after/mobile-390x844-phoenix-revive-result.png",
+        ".iteration/evidence/R029/after/mobile-390x844-phoenix-preserve-result.png",
+        ".iteration/evidence/R029/after/mobile-390x844-phoenix-crash-handoff.png"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E2",
+        "guardrails": "PASS",
+        "counterevidence": "证据来自本地 Chromium 和直接构造的技能可用状态，尚未覆盖玩家完整解锁不死鸟的真实长流程、未来多次充能配置或真实玩家对额外结果确认节奏的接受度。",
+        "capabilityDelta": "COMPOUNDING：共享因果结果层新增限量资源预览与转场，建立六视口使用/保留双分支、确认前不消耗资源、结果前不推进及崩溃交接护栏。",
+        "verificationCostSeconds": 486,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-29T16:39:47.485Z"
+      }
+    },
+    {
+      "id": "UI-030",
+      "area": "gameplay-checks",
+      "title": "第二次机会自动翻盘的检定归因与资源结算",
+      "hypothesis": "把原始检定失败、第二次机会的自动介入、剩余次数变化、成功收益和最终分支组织成可确认的翻盘结果链，可以让玩家理解失败为什么被改写、资源何时消耗以及成功带来了什么，而不是在普通剧情框中直接被改判。",
+      "impact": 4,
+      "confidence": 4,
+      "effort": 3,
+      "status": "done",
+      "corePath": true,
+      "dependsOn": [
+        "UI-026",
+        "UI-029"
+      ],
+      "evidenceRequired": [
+        "failed_check_formula_and_intervention",
+        "second_chance_charge_and_success_result",
+        "six_view_retry_focus_guardrail"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E2",
+      "lastDecision": "CONTINUE",
+      "lastEvidenceAt": "2026-07-29",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/evidence/R030/before/desktop-1440x900-second-chance-result.png",
+        ".iteration/evidence/R030/after/desktop-1440x900-second-chance-result.png",
+        ".iteration/evidence/R030/before/mobile-390x844-second-chance-result.png",
+        ".iteration/evidence/R030/after/mobile-390x844-second-chance-result.png"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E2",
+        "guardrails": "PASS",
+        "counterevidence": "证据来自直接构造的单次重试状态与本地 Chromium，尚未覆盖玩家完整解锁路径、多次充能配置或真实用户对额外确认节奏的接受度。",
+        "capabilityDelta": "COMPOUNDING：共享检定结果层新增失败改写、限量资源结算和确认前不落地护栏，并固化六视口自动翻盘回归。",
+        "verificationCostSeconds": 540,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-29T17:10:33.295Z"
+      }
+    },
+    {
+      "id": "UI-031",
+      "area": "gameplay-talents",
+      "title": "预知未来的事件预兆与揭示交接",
+      "hypothesis": "让“预知未来”在随机事件模态出现前先呈现事件主题、稀有度和可能波及的属性，并由玩家确认揭示，可以让技能真正提供预判价值，同时避免瞬时 Toast 与事件卡同步争抢注意。",
+      "impact": 4,
+      "confidence": 5,
+      "effort": 3,
+      "status": "done",
+      "corePath": true,
+      "dependsOn": [
+        "UI-026"
+      ],
+      "evidenceRequired": [
+        "omen_before_event_and_information_gain",
+        "reveal_focus_and_single_event_flow",
+        "six_view_omen_guardrail"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E2",
+      "lastDecision": "CONTINUE",
+      "lastEvidenceAt": "2026-07-29",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/evidence/R031/before/desktop-1440x900-foresight-omen.png",
+        ".iteration/evidence/R031/after/desktop-1440x900-foresight-omen.png",
+        ".iteration/evidence/R031/after/desktop-1440x900-foresight-reveal.png",
+        ".iteration/evidence/R031/before/mobile-390x844-foresight-omen.png",
+        ".iteration/evidence/R031/after/mobile-390x844-foresight-omen.png",
+        ".iteration/evidence/R031/after/mobile-390x844-foresight-reveal.png"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E2",
+        "guardrails": "PASS",
+        "counterevidence": "证据来自直接构造的单个稀有事件与本地 Chromium，尚未覆盖真实技能解锁长流程、所有隐藏或无数值事件，以及玩家是否认为额外揭示步骤拖慢节奏。",
+        "capabilityDelta": "COMPOUNDING：随机事件决策层新增可复用的事件前预兆阶段、属性范围汇总与同模态焦点交接，并固化六视口和单次完成护栏。",
+        "verificationCostSeconds": 552,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-29T17:32:21.974Z"
+      }
+    },
+    {
+      "id": "UI-032",
+      "area": "gameplay-talents",
+      "title": "洞察人心的态度线索与对话上下文",
+      "hypothesis": "把“洞察人心”的态度、判断依据和当前对话对象嵌入剧情阅读层，并保持到玩家完成本段阅读，可以让技能提供稳定可用的关系线索，同时避免每个节点重复 Toast 排队和瞬时消失。",
+      "impact": 4,
+      "confidence": 5,
+      "effort": 3,
+      "status": "done",
+      "corePath": true,
+      "dependsOn": [
+        "UI-025"
+      ],
+      "evidenceRequired": [
+        "structured_attitude_and_trigger_basis",
+        "dialog_persistence_without_toast_competition",
+        "six_view_attitude_guardrail"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E2",
+      "lastDecision": "CONTINUE",
+      "lastEvidenceAt": "2026-07-29",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/evidence/R032/before/desktop-1440x900-attitude-dialog.png",
+        ".iteration/evidence/R032/after/desktop-1440x900-attitude-dialog.png",
+        ".iteration/evidence/R032/before/mobile-390x844-attitude-dialog.png",
+        ".iteration/evidence/R032/after/mobile-390x844-attitude-dialog.png"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E2",
+        "guardrails": "PASS",
+        "counterevidence": "证据来自直接构造的高压力谈判与本地 Chromium，尚未覆盖真实技能解锁长流程、所有 NPC 的作者化态度差异，以及玩家对底部信息密度的长期感受。",
+        "capabilityDelta": "COMPOUNDING：对话系统新增可复用的结构化洞察上下文、生命周期清理与无通知竞争护栏，并固化六视口和阅读阶段持久性验证。",
+        "verificationCostSeconds": 573,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-29T17:57:27.247Z"
+      }
+    },
+    {
+      "id": "UI-033",
+      "area": "gameplay-talents",
+      "title": "八面玲珑的关键节点协商路径与去向说明",
+      "hypothesis": "把“八面玲珑”限定在含门槛或检定的关键抉择，用独立技能样式说明来源、避开的风险、沿用路线和额外代价，并在没有安全出口时不注入，可以让额外选项成为可理解的协商路径，而不是每个节点重复出现的万能按钮。",
+      "impact": 4,
+      "confidence": 5,
+      "effort": 3,
+      "status": "done",
+      "corePath": true,
+      "dependsOn": [
+        "UI-026"
+      ],
+      "evidenceRequired": [
+        "critical_node_eligibility_and_safe_fallback",
+        "skill_route_source_benefit_tradeoff",
+        "six_view_choice_capacity_and_keyboard_guardrail"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E2",
+      "lastDecision": "CONTINUE",
+      "lastEvidenceAt": "2026-07-29",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/evidence/R033/before/desktop-1440x900-well-connected-choice.png",
+        ".iteration/evidence/R033/after/desktop-1440x900-well-connected-choice.png",
+        ".iteration/evidence/R033/before/mobile-390x844-well-connected-choice.png",
+        ".iteration/evidence/R033/after/mobile-390x844-well-connected-choice.png"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E2",
+        "guardrails": "PASS",
+        "counterevidence": "证据来自规则扫描、合成供应商谈判和本地 Chromium；52 个关键节点虽都有安全出口，但沿第一个可用非检定路线仍是通用规则，尚未逐节点由剧情作者确认语义，也没有真实玩家验证额外信息是否加快决策。",
+        "capabilityDelta": "COMPOUNDING：新增可复用的技能选择资格、安全出口和来源—路线—得失呈现层，并固化完整故事扫描、六视口命中、数字键单次选择及4/5项滚动分流护栏。",
+        "verificationCostSeconds": 588,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-29T18:37:23.617Z"
+      }
+    },
+    {
+      "id": "UI-034",
+      "area": "gameplay-talents",
+      "title": "命运之眼的真实方向分类与判断依据",
+      "hypothesis": "把“命运之眼”从无样式的好坏中性标签升级为区分向好、向坏、有得有失、检定分叉和走向未明的结构化指引，并显示判断范围与依据，可以让玩家区分可见数值趋势和未知叙事，不再把代价抵消或无数据误读为中性。",
+      "impact": 4,
+      "confidence": 5,
+      "effort": 3,
+      "status": "done",
+      "corePath": true,
+      "dependsOn": [
+        "UI-026"
+      ],
+      "evidenceRequired": [
+        "alignment_truth_categories_and_basis",
+        "no_false_neutral_for_mixed_or_unknown",
+        "six_view_alignment_capacity_and_keyboard_guardrail"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E2",
+      "lastDecision": "CONTINUE",
+      "lastEvidenceAt": "2026-07-29",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/evidence/R034/before/desktop-1440x900-destiny-alignment.png",
+        ".iteration/evidence/R034/after/desktop-1440x900-destiny-alignment.png",
+        ".iteration/evidence/R034/before/mobile-390x844-destiny-alignment.png",
+        ".iteration/evidence/R034/after/mobile-390x844-destiny-alignment.png"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E2",
+        "guardrails": "PASS",
+        "counterevidence": "证据来自完整故事静态扫描、合成四类选择与本地 Chromium；分类只描述可见即时数值和检定结果，不能替玩家定义主观好坏，也无法推断 flag 或后续叙事的长期价值，尚无真实玩家数据验证新增信息是否缩短理解时间。",
+        "capabilityDelta": "COMPOUNDING：共享决策表达层新增收益—代价—未知—检定分叉的真实分类和范围声明，并固化660项故事扫描、六视口容量、无障碍说明与数字键单次选择护栏。",
+        "verificationCostSeconds": 591,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-29T18:59:12.947Z"
+      }
+    },
+    {
+      "id": "UI-035",
+      "area": "gameplay-talents",
+      "title": "先见之明的即时影响芯片与洞察层级",
+      "hypothesis": "把“先见之明”的即时效果预览从标题尾部裸文字改为带技能来源、即时范围和收益/代价语义色的紧凑数值芯片，并与“命运之眼”分层展示，可以让玩家先读精确变化、再读大致方向，不把数值串误当成选项标题或隐藏的长期后果。",
+      "impact": 4,
+      "confidence": 5,
+      "effort": 3,
+      "status": "done",
+      "corePath": true,
+      "dependsOn": [
+        "UI-034"
+      ],
+      "evidenceRequired": [
+        "structured_immediate_effect_tokens",
+        "foresight_destiny_hierarchy_without_duplication",
+        "six_view_multi_effect_capacity_and_keyboard_guardrail"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E2",
+      "lastDecision": "CONTINUE",
+      "lastEvidenceAt": "2026-07-29",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/evidence/R035/before/desktop-1440x900-foresight-effects.png",
+        ".iteration/evidence/R035/after/desktop-1440x900-foresight-effects.png",
+        ".iteration/evidence/R035/before/mobile-390x844-foresight-effects.png",
+        ".iteration/evidence/R035/after/mobile-390x844-foresight-effects.png"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E2",
+        "guardrails": "PASS",
+        "counterevidence": "证据来自完整故事静态扫描、合成6项变化压力场景与本地 Chromium；语义色和芯片分组是否降低真实扫读时间尚无用户数据，在4–6项变化且同时存在检定详情的极端节点仍可能信息过密，本轮未引入按需折叠。",
+        "capabilityDelta": "COMPOUNDING：共享决策表达层新增带来源、即时范围、收益代价语义和无障碍汇总的精确效果芯片，并固化622项覆盖扫描、6芯片六视口换行、跨技能去重与单次选择护栏。",
+        "verificationCostSeconds": 597,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-29T19:18:04.372Z"
+      }
+    },
+    {
+      "id": "UI-036",
+      "area": "meta-progression",
+      "title": "技能树状态说明、永久消费确认与跨端焦点闭环",
+      "hypothesis": "把技能树从内联样式和可点击 div 改为响应式可滚动对话框，明确可解锁、经验不足、前置与互斥状态，并为永久 EXP 消费增加确认和焦点闭环，可以让桌面、移动和键盘玩家安全理解并购买跨周目技能。",
+      "impact": 5,
+      "confidence": 5,
+      "effort": 4,
+      "status": "done",
+      "corePath": false,
+      "evidenceRequired": [
+        "skill_state_reason_and_exp_balance",
+        "purchase_confirmation_and_atomic_unlock",
+        "six_view_skill_tree_scroll_focus_guardrail"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E2",
+      "lastDecision": "CONTINUE",
+      "lastEvidenceAt": "2026-07-29",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/evidence/R036/before/desktop-1440x900-skill-tree.png",
+        ".iteration/evidence/R036/after/desktop-1440x900-skill-tree.png",
+        ".iteration/evidence/R036/before/mobile-390x844-skill-tree.png",
+        ".iteration/evidence/R036/after/mobile-390x844-skill-tree.png"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E2",
+        "guardrails": "PASS",
+        "counterevidence": "证据来自合成的预置解锁状态与本地 Chromium；尚无真实玩家验证五类文案是否足以解释复杂技能路线，也未覆盖触控设备屏幕阅读器。CSS color-mix 在本轮目标浏览器通过，旧版 WebView 可能退化为较弱视觉层级。",
+        "capabilityDelta": "COMPOUNDING：新增可复用的跨周目技能状态、原子购买和响应式对话框层，并固化五类购买资格、永久消费确认、六视口滚动与完整焦点恢复护栏。",
+        "verificationCostSeconds": 584,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-29T19:46:30.881Z"
+      }
+    },
+    {
+      "id": "UI-037",
+      "area": "meta-progression",
+      "title": "结局 EXP 结算与技能树成长入口",
+      "hypothesis": "在结局主收口区直接呈现本局 EXP、跨周目总余额和当前可解锁机会，并提供一键进入技能树的成长入口，可以让玩家理解这一局如何推动下一局，而不必先猜测“更多”菜单里藏着什么。",
+      "impact": 5,
+      "confidence": 5,
+      "effort": 3,
+      "status": "done",
+      "corePath": true,
+      "dependsOn": [
+        "UI-036"
+      ],
+      "evidenceRequired": [
+        "ending_exp_gain_total_and_opportunity",
+        "direct_skill_tree_entry_without_action_overload",
+        "six_view_growth_handoff_and_focus_guardrail"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E2",
+      "lastDecision": "CONTINUE",
+      "lastEvidenceAt": "2026-07-29",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/evidence/R037/before/desktop-1440x900-ending-growth.png",
+        ".iteration/evidence/R037/after/desktop-1440x900-ending-growth.png",
+        ".iteration/evidence/R037/before/mobile-390x844-ending-growth.png",
+        ".iteration/evidence/R037/after/mobile-390x844-ending-growth.png"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E2",
+        "guardrails": "PASS",
+        "counterevidence": "证据来自预置结局状态和本地 Chromium；尚无真实玩家数据证明成长条会提高技能树访问率，移动端固定区新增约 68px 占用。已覆盖可购买与购买后刷新，全部可选技能完成时的文案尚无视觉证据。",
+        "capabilityDelta": "COMPOUNDING：新增可复用的结局 EXP 增量—永久余额—购买机会交接层，并固化首次结局奖励、六视口固定区容量、直接进入技能树、购买后刷新及焦点往返护栏。",
+        "verificationCostSeconds": 594,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-29T20:13:01.280Z"
+      }
+    },
+    {
+      "id": "UI-038",
+      "area": "talent",
+      "title": "天赋逐张揭晓状态、跳过控制与焦点交接",
+      "hypothesis": "在保留牌背、错峰翻面和选中反馈的基础上，为当前翻牌与已揭晓卡片增加可感知状态，并提供重复周目可跳过的揭晓按钮，可以让玩家既看懂发牌节奏，也能按自己的节奏快速进入选择，且键盘焦点不会滞留在隐藏控件。",
+      "impact": 4,
+      "confidence": 5,
+      "effort": 3,
+      "status": "done",
+      "corePath": true,
+      "dependsOn": [
+        "UI-004"
+      ],
+      "evidenceRequired": [
+        "active_and_completed_card_reveal_states",
+        "skip_reveal_control_and_immediate_ready_handoff",
+        "six_view_reveal_capacity_and_focus_guardrail"
+      ],
+      "minimumVerification": "L3",
+      "lastOutcome": "IMPROVED",
+      "lastValue": "V2",
+      "lastEvidenceGrade": "E2",
+      "lastDecision": "CONTINUE",
+      "lastEvidenceAt": "2026-07-29",
+      "attempts": 1,
+      "evidence": [
+        ".iteration/evidence/R038/before/desktop-1440x900-talent-reveal.png",
+        ".iteration/evidence/R038/after/desktop-1440x900-talent-reveal.png",
+        ".iteration/evidence/R038/before/mobile-390x844-talent-reveal.png",
+        ".iteration/evidence/R038/after/mobile-390x844-talent-reveal.png"
+      ],
+      "lastSettlement": {
+        "outcome": "IMPROVED",
+        "value": "V2",
+        "evidenceGrade": "E2",
+        "guardrails": "PASS",
+        "counterevidence": "自动化中间帧和本地 Chromium 只能证明状态可见、容量与焦点正确，尚无真实玩家数据证明跳过率、节奏偏好或选牌决策效率提升；移动端纵向翻牌仍会在动画中产生较大留白。",
+        "capabilityDelta": "COMPOUNDING：固化逐卡揭晓状态机、可中断动画收口、隐藏控件焦点交接、六视口容量矩阵与基于真实动画完成事件的稳定护栏。",
+        "verificationCostSeconds": 640,
+        "decision": "CONTINUE",
+        "closedAt": "2026-07-29T21:02:19.610Z"
+      }
+    },
+    {
+      "id": "UI-039",
+      "area": "talent",
+      "title": "横竖卡面自适应翻牌轴与移动揭晓节奏",
+      "hypothesis": "让桌面纵向卡片继续沿 Y 轴翻转，而手机横向卡片改沿 X 轴翻转，并在揭晓阶段把进度区贴近牌组，可以避免移动端出现竖直细片和大段空白，让同一套发牌演出在不同卡片比例下都保持稳定、连贯且容易追踪。",
+      "impact": 4,
+      "confidence": 4,
+      "effort": 3,
+      "status": "active",
+      "corePath": true,
+      "dependsOn": [
+        "UI-038"
+      ],
+      "evidenceRequired": [
+        "aspect_ratio_adaptive_flip_axis_and_stable_slots",
+        "reveal_progress_deck_proximity_without_capacity_loss",
+        "six_view_flip_motion_and_reduced_motion_guardrail"
+      ],
+      "minimumVerification": "L3",
+      "startedAt": "2026-07-29T21:04:30.071Z"
     },
     {
       "id": "UI-FREEZE-INTRO",

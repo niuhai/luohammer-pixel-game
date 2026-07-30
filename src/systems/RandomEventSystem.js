@@ -8,16 +8,11 @@
 
 import { getAvailableEvents, pickRandomEvent, resolveRandomEffects } from '../data/events-random.js';
 import { getStageByNodeId } from '../data/stages.js';
-
-// 属性中文名映射（与实际状态字段保持一致）
-const STAT_LABELS = {
-  pride: '理想',
-  wealth: '财富',
-  reputation: '名声',
-  failures: '翻车',
-  pressure: '压力',
-  trust: '信任'
-};
+import {
+  describeDecisionEffects,
+  escapeDecisionText,
+  summarizeDecisionEffects
+} from '../ui/DecisionPresentation.js';
 
 export class RandomEventSystem {
   constructor(scene) {
@@ -31,6 +26,10 @@ export class RandomEventSystem {
     this._choicesEl = document.getElementById('ui-random-event-choices');
     this._feedbackEl = document.getElementById('ui-random-event-feedback');
     this._feedbackListEl = document.getElementById('ui-random-event-feedback-list');
+    this._feedbackTitleEl = document.getElementById('ui-random-event-feedback-title');
+    this._feedbackEventEl = document.getElementById('ui-random-event-feedback-event');
+    this._feedbackChoiceEl = document.getElementById('ui-random-event-feedback-choice');
+    this._feedbackContinueEl = document.getElementById('ui-random-event-feedback-continue');
     // R82 F2：标签/图标引用——隐藏事件时改写为"✦ 隐藏事件"金签名
     this._labelEl = this._overlay ? this._overlay.querySelector('.ui-random-event-label') : null;
     this._iconEl = this._overlay ? this._overlay.querySelector('.ui-random-event-header-icon') : null;
@@ -42,6 +41,8 @@ export class RandomEventSystem {
     this._closeTimeout = null;
     this._feedbackTimeout = null;
     this._onCloseAnimationEnd = null;
+    this._feedbackKeyHandler = null;
+    this._feedbackContinueHandler = null;
     this._previousFocus = null;
 
     // 移动端触控高亮
@@ -59,9 +60,13 @@ export class RandomEventSystem {
       this._overlay.setAttribute('aria-describedby', 'ui-random-event-body');
     }
     if (this._feedbackEl) {
-      this._feedbackEl.setAttribute('role', 'status');
-      this._feedbackEl.setAttribute('aria-live', 'assertive');
-      this._feedbackEl.setAttribute('aria-atomic', 'true');
+      this._feedbackEl.setAttribute('role', 'dialog');
+      this._feedbackEl.setAttribute('aria-modal', 'true');
+      this._feedbackEl.setAttribute('aria-labelledby', 'ui-random-event-feedback-title');
+      this._feedbackEl.setAttribute(
+        'aria-describedby',
+        'ui-random-event-feedback-choice ui-random-event-feedback-list'
+      );
     }
   }
 
@@ -97,7 +102,7 @@ export class RandomEventSystem {
 
     this.onComplete = onComplete;
     this._currentEvent = event;
-    this._showEvent(event);
+    this._presentEvent(event);
     // 触发后重置计数
     this._nodesSinceLastEvent = 0;
     return true;
@@ -123,16 +128,120 @@ export class RandomEventSystem {
     return chance;
   }
 
-  _showEvent(event) {
-    // R20 P2-003：DOM 元素防御性 null 检查，避免 index.html 结构变更时静默崩溃
+  _presentEvent(event) {
+    if (this.scene?.state?._showEventOmen) {
+      this._showOmen(event);
+      return;
+    }
+    this._showEvent(event);
+  }
+
+  _showOmen(event) {
     if (!this._overlay || !this._titleEl || !this._bodyEl || !this._choicesEl) {
-      console.warn('[RandomEvent] DOM elements not ready, skipping event');
+      console.warn('[RandomEvent] DOM elements not ready, skipping event omen');
       return;
     }
 
     this._previousFocus = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
+    this._clearEventKeyHandler();
+    this._clearTouchHandlers();
+
+    const impactLabels = [...new Set(
+      (event.choices || []).flatMap(choice =>
+        describeDecisionEffects(choice.effects).map(effect => effect.label)
+      )
+    )];
+    const rarityLabels = {
+      common: '常见事件',
+      rare: '稀有事件',
+      legendary: '传奇事件'
+    };
+    const rarityLabel = event.hidden
+      ? '隐藏事件'
+      : rarityLabels[event.rarity] || '未知事件';
+    const eventTitle = event.title || '未知变化';
+
+    this._overlay.dataset.eventStage = 'omen';
+    this._overlay.classList.remove(
+      'closing',
+      'active',
+      'shake',
+      'rarity-common',
+      'rarity-rare',
+      'rarity-legendary',
+      'hidden-event',
+      'event-revealed'
+    );
+    this._overlay.querySelector('.ui-random-event-card')?.classList.remove('event-revealed');
+    this._overlay.classList.add('visible', 'omen-stage');
+    if (this._labelEl) this._labelEl.textContent = '预知未来 · 事件预兆';
+    if (this._iconEl) this._iconEl.textContent = '◉';
+    this._titleEl.textContent = `你预感到「${eventTitle}」正在靠近`;
+    this._bodyEl.textContent =
+      '事情尚未发生，但你已经看见它可能波及的范围。揭示事件后，再决定如何应对。';
+    this._choicesEl.innerHTML = `
+      <div class="ui-random-event-omen-summary" aria-label="事件预兆详情">
+        <div class="ui-random-event-omen-row">
+          <span class="ui-random-event-omen-key">事件级别</span>
+          <strong>${escapeDecisionText(rarityLabel)}</strong>
+        </div>
+        <div class="ui-random-event-omen-row impact-row">
+          <span class="ui-random-event-omen-key">可能波及</span>
+          <span class="ui-random-event-omen-impacts">
+            ${impactLabels.length > 0
+              ? impactLabels.map(label => `
+                <span class="ui-random-event-omen-impact">
+                  ${escapeDecisionText(label)}
+                </span>
+              `).join('')
+              : '<span class="ui-random-event-omen-impact neutral">方向未明</span>'}
+          </span>
+        </div>
+      </div>
+      <button
+        class="ui-random-event-omen-reveal"
+        type="button"
+        aria-label="揭示事件：${escapeDecisionText(eventTitle)}"
+      >
+        <span>揭示将要发生的事件</span>
+        <span aria-hidden="true">→</span>
+      </button>
+    `;
+
+    const revealButton = this._choicesEl.querySelector('.ui-random-event-omen-reveal');
+    revealButton?.addEventListener('click', () => {
+      this._showEvent(event, { fromOmen: true });
+    }, { once: true });
+    this._keyHandler = (keyboardEvent) => {
+      if (keyboardEvent.key !== 'Tab') return;
+      keyboardEvent.preventDefault();
+      revealButton?.focus({ preventScroll: true });
+    };
+    this.scene.input.keyboard.on('keydown', this._keyHandler);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        this._overlay.classList.add('active');
+        revealButton?.focus({ preventScroll: true });
+      });
+    });
+  }
+
+  _showEvent(event, options = {}) {
+    // R20 P2-003：DOM 元素防御性 null 检查，避免 index.html 结构变更时静默崩溃
+    if (!this._overlay || !this._titleEl || !this._bodyEl || !this._choicesEl) {
+      console.warn('[RandomEvent] DOM elements not ready, skipping event');
+      return;
+    }
+
+    if (!options.fromOmen) {
+      this._previousFocus = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    }
+    this._clearEventKeyHandler();
 
     // 角色名字替换：根据当前阶段使用 小罗/老罗
     const currentNode = this.scene.state && this.scene.state.currentNode;
@@ -153,18 +262,38 @@ export class RandomEventSystem {
     const markers = ['1', '2'];
 
     event.choices.forEach((choice, i) => {
+      const variance = choice.effectVariance || event.effectVariance || {};
+      const impactEntries = describeDecisionEffects(choice.effects, { directionOnly: true });
+      const impactSummary = impactEntries.map(effect => effect.text).join(' · ') || '局势不变';
+      const hasVariance = Object.keys(variance).length > 0;
       const btn = document.createElement('button');
       btn.className = 'ui-random-event-choice-btn';
       btn.type = 'button';
       if (i < 9) btn.setAttribute('aria-keyshortcuts', markers[i] || String(i + 1));
-      btn.setAttribute('aria-label', `${markers[i] || i + 1}：${replaceName(choice.label)}`);
+      btn.setAttribute(
+        'aria-label',
+        `${markers[i] || i + 1}：${replaceName(choice.label)}。影响预览：${impactSummary}${hasVariance ? '，结果可能波动' : ''}`
+      );
       btn.innerHTML = `
         <span class="corner-deco tl" aria-hidden="true"></span>
         <span class="corner-deco tr" aria-hidden="true"></span>
         <span class="corner-deco bl" aria-hidden="true"></span>
         <span class="corner-deco br" aria-hidden="true"></span>
         <span class="ui-random-event-choice-marker" aria-hidden="true">${markers[i] || '?'}</span>
-        <span class="ui-random-event-choice-text">${replaceName(choice.label)}</span>
+        <span class="ui-random-event-choice-text">
+          <span class="ui-random-event-choice-copy">${escapeDecisionText(replaceName(choice.label))}</span>
+          <span class="ui-random-event-choice-impact" aria-hidden="true">
+            <span class="ui-random-event-choice-impact-label">影响预览</span>
+            ${impactEntries.length > 0
+              ? impactEntries.map(effect => `
+                <span class="ui-random-event-impact-token ${effect.tone}">
+                  ${escapeDecisionText(effect.text)}
+                </span>
+              `).join('')
+              : '<span class="ui-random-event-impact-token neutral">局势不变</span>'}
+            ${hasVariance ? '<span class="ui-random-event-impact-variance">可能波动</span>' : ''}
+          </span>
+        </span>
         <span class="ui-random-event-choice-arrow" aria-hidden="true">→</span>
       `;
 
@@ -210,6 +339,18 @@ export class RandomEventSystem {
         }
         return;
       }
+      if (['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown'].includes(e.key)) {
+        e.preventDefault();
+        const buttons = [...this._choicesEl.querySelectorAll('.ui-random-event-choice-btn:not(:disabled)')];
+        if (buttons.length === 0) return;
+        const currentIndex = buttons.indexOf(document.activeElement);
+        const delta = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : -1;
+        const nextIndex = currentIndex < 0
+          ? 0
+          : (currentIndex + delta + buttons.length) % buttons.length;
+        buttons[nextIndex].focus({ preventScroll: true });
+        return;
+      }
       const keyMap = { '1': 0, '2': 1 };
       const idx = keyMap[e.key.toLowerCase()];
       if (idx !== undefined && idx < event.choices.length) {
@@ -220,7 +361,15 @@ export class RandomEventSystem {
     this.scene.input.keyboard.on('keydown', this._keyHandler);
 
     // 根据稀有度设置视觉风格
-    this._overlay.classList.remove('rarity-common', 'rarity-rare', 'rarity-legendary', 'hidden-event');
+    this._overlay.dataset.eventStage = 'decision';
+    this._overlay.querySelector('.ui-random-event-card')?.classList.remove('event-revealed');
+    this._overlay.classList.remove(
+      'omen-stage',
+      'rarity-common',
+      'rarity-rare',
+      'rarity-legendary',
+      'hidden-event'
+    );
     if (event.rarity) {
       this._overlay.classList.add(`rarity-${event.rarity}`);
     }
@@ -238,9 +387,18 @@ export class RandomEventSystem {
     }
 
     // 两阶段显示：先设 visible(display:flex, opacity:0)，下一帧设 active(触发动画)
-    this._overlay.classList.remove('closing', 'active', 'shake');
+    this._overlay.classList.remove('closing', 'shake', 'event-revealed');
     this._overlay.classList.add('visible');
 
+    if (options.fromOmen) {
+      const card = this._overlay.querySelector('.ui-random-event-card');
+      card?.classList.add('event-revealed');
+      const firstChoice = this._choicesEl.querySelector('.ui-random-event-choice-btn');
+      firstChoice?.focus({ preventScroll: true });
+      return;
+    }
+
+    this._overlay.classList.remove('active');
     // 使用 requestAnimationFrame 确保 display:flex 已生效后再触发动画
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -272,10 +430,7 @@ export class RandomEventSystem {
     if (this._overlay.classList.contains('closing')) return;
 
     // 移除键盘监听
-    if (this._keyHandler) {
-      this.scene.input.keyboard.off('keydown', this._keyHandler);
-      this._keyHandler = null;
-    }
+    this._clearEventKeyHandler();
 
     // 退出动画
     this._overlay.classList.add('closing');
@@ -308,16 +463,21 @@ export class RandomEventSystem {
       this._overlay.removeAttribute('aria-busy');
       this._choicesEl.innerHTML = '';
       this._clearTouchHandlers();
-      this._restoreFocus();
 
       // 解析随机效果波动
-      const finalEffects = resolveRandomEffects(choice.effects, choice.effectVariance);
+      const finalEffects = resolveRandomEffects(
+        choice.effects,
+        choice.effectVariance || event.effectVariance
+      );
 
-      // 显示属性变化反馈
+      // 选择与属性变化保持在同一条结果链，玩家确认后再推进剧情。
       this._showFeedback(finalEffects, () => {
         const complete = this.onComplete;
         this.onComplete = null;
         if (complete) complete(finalEffects, choice.flag || null, event.id);
+      }, {
+        eventTitle: event.title || '随机事件',
+        choiceLabel: choice.label || '已做出选择'
       });
     };
 
@@ -333,46 +493,84 @@ export class RandomEventSystem {
     this._closeTimeout = setTimeout(doClose, 400);
   }
 
-  _showFeedback(effects, callback) {
-    const entries = Object.entries(effects);
-    if (entries.length === 0) {
+  _showFeedback(effects, callback, context = {}) {
+    if (!this._feedbackEl || !this._feedbackListEl) {
       if (callback) callback();
       return;
     }
-
+    const entries = describeDecisionEffects(effects);
+    this._clearFeedbackInteraction();
     this._feedbackListEl.innerHTML = '';
-    if (this._feedbackTimeout) {
-      clearTimeout(this._feedbackTimeout);
-      this._feedbackTimeout = null;
-    }
-
-    entries.forEach(([key, value], index) => {
-      const label = STAT_LABELS[key] || key;
+    entries.forEach((effect) => {
       const item = document.createElement('div');
-      const isPositive = value > 0;
-      item.className = `ui-random-event-feedback-item ${isPositive ? 'positive' : 'negative'}`;
-      item.textContent = `${label} ${isPositive ? '+' : ''}${value}`;
-      item.style.animationDelay = `${index * 0.18}s`;
+      item.className = `ui-random-event-feedback-item ${effect.tone}`;
+      item.innerHTML = `
+        <span class="ui-random-event-feedback-stat">${escapeDecisionText(effect.label)}</span>
+        <span class="ui-random-event-feedback-value">${effect.value > 0 ? '+' : ''}${effect.value}</span>
+      `;
       this._feedbackListEl.appendChild(item);
     });
+    if (entries.length === 0) {
+      const item = document.createElement('div');
+      item.className = 'ui-random-event-feedback-item neutral';
+      item.textContent = '局势暂未改变';
+      this._feedbackListEl.appendChild(item);
+    }
 
-    const feedbackSummary = entries.map(([key, value]) => {
-      const label = STAT_LABELS[key] || key;
-      return `${label}${value > 0 ? '增加' : '减少'}${Math.abs(value)}`;
-    }).join('，');
-    this._feedbackEl.setAttribute('aria-label', `选择结果：${feedbackSummary}`);
+    if (this._feedbackTitleEl) this._feedbackTitleEl.textContent = '选择已落地';
+    if (this._feedbackEventEl) {
+      this._feedbackEventEl.textContent = context.eventTitle || '随机事件';
+    }
+    if (this._feedbackChoiceEl) {
+      this._feedbackChoiceEl.textContent = context.choiceLabel || '已做出选择';
+    }
+    const feedbackSummary = summarizeDecisionEffects(effects) || '局势暂未改变';
+    this._feedbackEl.setAttribute(
+      'aria-label',
+      `选择已落地：${context.choiceLabel || '已做出选择'}。结果：${feedbackSummary}`
+    );
     this._feedbackEl.classList.add('visible');
 
-    // 反馈动画结束后关闭（考虑交错延迟 + 动画时长）
-    const staggerDelay = (entries.length - 1) * 180;
-    const totalDuration = 1800 + staggerDelay + 200; // 1.8s 动画 + 交错 + 缓冲
-    this._feedbackTimeout = setTimeout(() => {
-      this._feedbackTimeout = null;
+    let completed = false;
+    const complete = () => {
+      if (completed) return;
+      completed = true;
+      this._clearFeedbackInteraction();
       this._feedbackEl.classList.remove('visible');
       this._feedbackEl.removeAttribute('aria-label');
       this._feedbackListEl.innerHTML = '';
+      this._restoreFocus();
       if (callback) callback();
-    }, totalDuration);
+    };
+    this._feedbackContinueHandler = complete;
+    if (this._feedbackContinueEl) {
+      this._feedbackContinueEl.addEventListener('click', complete);
+    }
+    this._feedbackKeyHandler = (event) => {
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        this._feedbackContinueEl?.focus({ preventScroll: true });
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        complete();
+      }
+    };
+    this._feedbackEl.addEventListener('keydown', this._feedbackKeyHandler);
+    this._feedbackContinueEl?.focus({ preventScroll: true });
+    requestAnimationFrame(() => {
+      this._feedbackContinueEl?.focus({ preventScroll: true });
+    });
+  }
+
+  _clearFeedbackInteraction() {
+    if (this._feedbackKeyHandler && this._feedbackEl) {
+      this._feedbackEl.removeEventListener('keydown', this._feedbackKeyHandler);
+    }
+    if (this._feedbackContinueHandler && this._feedbackContinueEl) {
+      this._feedbackContinueEl.removeEventListener('click', this._feedbackContinueHandler);
+    }
+    this._feedbackKeyHandler = null;
+    this._feedbackContinueHandler = null;
   }
 
   _restoreFocus() {
@@ -394,11 +592,14 @@ export class RandomEventSystem {
     this._touchHandlers = [];
   }
 
+  _clearEventKeyHandler() {
+    if (!this._keyHandler) return;
+    this.scene.input.keyboard.off('keydown', this._keyHandler);
+    this._keyHandler = null;
+  }
+
   hide() {
-    if (this._keyHandler) {
-      this.scene.input.keyboard.off('keydown', this._keyHandler);
-      this._keyHandler = null;
-    }
+    this._clearEventKeyHandler();
     if (this._closeTimeout) {
       clearTimeout(this._closeTimeout);
       this._closeTimeout = null;
@@ -407,6 +608,7 @@ export class RandomEventSystem {
       clearTimeout(this._feedbackTimeout);
       this._feedbackTimeout = null;
     }
+    this._clearFeedbackInteraction();
     if (this._onCloseAnimationEnd) {
       this._overlay.removeEventListener('animationend', this._onCloseAnimationEnd);
       this._onCloseAnimationEnd = null;
@@ -415,7 +617,19 @@ export class RandomEventSystem {
       this._overlay.removeEventListener('animationend', this._onShakeEnd);
       this._onShakeEnd = null;
     }
-    this._overlay.classList.remove('visible', 'active', 'closing', 'shake', 'rarity-common', 'rarity-rare', 'rarity-legendary', 'hidden-event');
+    this._overlay.classList.remove(
+      'visible',
+      'active',
+      'closing',
+      'shake',
+      'rarity-common',
+      'rarity-rare',
+      'rarity-legendary',
+      'hidden-event',
+      'omen-stage'
+    );
+    this._overlay.removeAttribute('data-event-stage');
+    this._overlay.querySelector('.ui-random-event-card')?.classList.remove('event-revealed');
     this._overlay.removeAttribute('aria-busy');
     this._choicesEl.innerHTML = '';
     this._clearTouchHandlers();

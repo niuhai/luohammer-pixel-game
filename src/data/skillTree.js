@@ -159,7 +159,7 @@ export const SKILL_TREES = {
       {
         id: 'foresight',
         name: '先见之明',
-        desc: '选项默认显示效果预览（无需长按）',
+        desc: '默认显示选择会立刻改变的属性数值（无需长按）',
         cost: 1,
         level: 1,
         effect: { type: 'auto_preview', value: true }
@@ -167,7 +167,7 @@ export const SKILL_TREES = {
       {
         id: 'mind_reader',
         name: '读心术',
-        desc: '显示选项的检定要求和成功率',
+        desc: '显示检定现状与成功、失败结果预览',
         cost: 2,
         level: 2,
         requires: ['foresight'],
@@ -176,7 +176,7 @@ export const SKILL_TREES = {
       {
         id: 'destiny_seer',
         name: '命运之眼',
-        desc: '可以看到每个选择导向的大致方向（好/坏/中性）',
+        desc: '区分选择的向好、向坏、得失、检定分叉与未知走向',
         cost: 3,
         level: 3,
         requires: ['mind_reader'],
@@ -343,8 +343,12 @@ export function calculateExpGain(state, ending) {
     else if (progress >= 50) exp += 1;
   }
 
-  // 首次达成结局额外奖励
-  if (ending && state.seenEndings && !state.seenEndings.includes(ending.id)) {
+  // 首次达成结局额外奖励。结局场景会在计算前完成持久化，因此优先使用
+  // 调用方已经判定的 isNew；保留 seenEndings 作为旧调用方式的兼容回退。
+  const isNewEnding = typeof ending?.isNew === 'boolean'
+    ? ending.isNew
+    : Boolean(ending && state.seenEndings && !state.seenEndings.includes(ending.id));
+  if (isNewEnding) {
     exp += 1;
   }
 

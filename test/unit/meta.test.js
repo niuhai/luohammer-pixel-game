@@ -133,6 +133,57 @@ describe('MetaProgression - 技能解锁', () => {
     const meta = new MetaProgression();
     expect(meta.unlockSkill('non_existent_skill')).toBe(false);
   });
+
+  it('purchaseSkill 校验通过后原子扣除 EXP 并持久化解锁', () => {
+    const meta = new MetaProgression();
+    meta.unlockSkill('tough_mind');
+    meta.unlockSkill('iron_will');
+    meta.unlockSkill('phoenix');
+    meta.addExp(5);
+
+    expect(meta.purchaseSkill('survival_instinct')).toBe(true);
+    expect(meta.getExp()).toBe(1);
+    expect(meta.getUnlockedSkills()).toContain('survival_instinct');
+
+    const stored = JSON.parse(localStorage.getItem('luohammer_meta_progress'));
+    expect(stored.exp).toBe(1);
+    expect(stored.unlockedSkills.filter(id => id === 'survival_instinct')).toHaveLength(1);
+  });
+
+  it('purchaseSkill 余额不足时不扣 EXP 且不解锁', () => {
+    const meta = new MetaProgression();
+    meta.unlockSkill('tough_mind');
+    meta.unlockSkill('iron_will');
+    meta.unlockSkill('phoenix');
+    meta.addExp(3);
+
+    expect(meta.purchaseSkill('survival_instinct')).toBe(false);
+    expect(meta.getExp()).toBe(3);
+    expect(meta.isSkillUnlocked('survival_instinct')).toBe(false);
+  });
+
+  it('purchaseSkill 前置不足时不扣 EXP', () => {
+    const meta = new MetaProgression();
+    meta.addExp(10);
+
+    expect(meta.purchaseSkill('iron_will')).toBe(false);
+    expect(meta.getExp()).toBe(10);
+    expect(meta.isSkillUnlocked('iron_will')).toBe(false);
+  });
+
+  it('purchaseSkill 互斥分支已选时不扣 EXP', () => {
+    const meta = new MetaProgression();
+    meta.unlockSkill('tough_mind');
+    meta.unlockSkill('iron_will');
+    meta.unlockSkill('phoenix');
+    meta.addExp(10);
+    meta.purchaseSkill('survival_instinct');
+    const balanceBeforeRejectedPurchase = meta.getExp();
+
+    expect(meta.purchaseSkill('mountain_calm')).toBe(false);
+    expect(meta.getExp()).toBe(balanceBeforeRejectedPurchase);
+    expect(meta.isSkillUnlocked('mountain_calm')).toBe(false);
+  });
 });
 
 describe('MetaProgression - 结局记录', () => {

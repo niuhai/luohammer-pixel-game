@@ -13,6 +13,7 @@ function mountTalentDom() {
   document.body.innerHTML = `
     <div id="ui-talent-overlay">
       <div class="ui-talent-subtitle"></div>
+      <button id="ui-talent-skip" type="button" hidden>跳过揭晓</button>
       <div class="ui-talent-hint"></div>
       <div id="ui-talent-cards"></div>
       <div class="ui-talent-actions">
@@ -90,15 +91,48 @@ describe('TalentSystem - 跨周目生命周期', () => {
 
     expect(system.overlay.getAttribute('aria-busy')).toBe('true');
     expect(document.querySelector('.ui-talent-hint').textContent).toContain('揭晓中');
+    expect(document.getElementById('ui-talent-skip').hidden).toBe(false);
 
-    vi.advanceTimersByTime(1439);
+    vi.advanceTimersByTime(620);
+    expect(cards[0].classList.contains('is-reveal-active')).toBe(true);
+    expect(document.querySelector('.ui-talent-hint').textContent)
+      .toContain('正在揭晓第 1 张');
+
+    vi.advanceTimersByTime(500);
+    expect(cards[0].classList.contains('is-reveal-settled')).toBe(true);
+    expect(cards.filter(card => card.classList.contains('is-reveal-active')))
+      .toHaveLength(1);
+
+    vi.advanceTimersByTime(319);
     expect(cards.every(card => card.disabled)).toBe(true);
 
     vi.advanceTimersByTime(1);
     expect(cards.every(card => !card.disabled)).toBe(true);
     expect(cards.every(card => card.classList.contains('is-revealed'))).toBe(true);
+    expect(cards.every(card => card.classList.contains('is-reveal-settled'))).toBe(true);
+    expect(document.getElementById('ui-talent-skip').hidden).toBe(true);
     expect(document.activeElement).toBe(cards[0]);
     expect(cards.every(card => card.tabIndex === 0)).toBe(true);
     expect(system.overlay.getAttribute('aria-busy')).toBe('false');
+  });
+
+  it('跳过揭晓会立即清理时间线并把焦点交给第一张牌', () => {
+    const system = new TalentSystem({});
+    system.show(TALENTS, vi.fn());
+    const cards = [...document.querySelectorAll('.ui-talent-card')];
+    const skip = document.getElementById('ui-talent-skip');
+    skip.focus();
+    skip.click();
+
+    expect(system.overlay.dataset.phase).toBe('choosing');
+    expect(system.overlay.getAttribute('aria-busy')).toBe('false');
+    expect(skip.hidden).toBe(true);
+    expect(cards.every(card => !card.disabled)).toBe(true);
+    expect(cards.every(card => card.classList.contains('is-reveal-settled'))).toBe(true);
+    expect(document.activeElement).toBe(cards[0]);
+
+    vi.runAllTimers();
+    expect(system.overlay.dataset.phase).toBe('choosing');
+    expect(cards.every(card => !card.disabled)).toBe(true);
   });
 });
