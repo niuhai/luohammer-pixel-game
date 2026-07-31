@@ -26,7 +26,7 @@ TRAE AI 创意大赛参赛作品（生活娱乐赛道）。Phaser 3 + Vite 5，�
 - **资源**：9 角色姿态 × 12 场景全 WebP（PNG→WebP 省 95% 体积）
 - **PWA**：manifest + Service Worker（network-first），离线全链路可玩
 - **质量基线**：ESLint 0 错 0 警 · 427 单测 · 214 节点静态校验 0 错 · 13 策略路径模拟 · E2E 58 项
-- **工程方法**：133 轮 Loop Engineering PDCA 闭环、595+ 项修复、15 条硬约束
+- **工程方法**：139 轮 Loop Engineering PDCA 闭环、597+ 项修复、15 条硬约束
 
 ## 快速开始
 
