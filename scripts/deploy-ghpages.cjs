@@ -30,6 +30,14 @@ function copyDir(src, dest) {
 copyDir(distPath, tempDir);
 console.log('Copied dist to temp dir');
 
+// dist/showcase 是 vite 构建产生的空目录；作品展示页真实文件在仓库根 showcase/，
+// 必须显式拷贝，否则 /MIR 镜像会把线上 showcase 删成空目录（R040 部署事故）
+const showcaseSrc = path.join(__dirname, '..', 'showcase');
+if (fs.existsSync(showcaseSrc)) {
+  copyDir(showcaseSrc, path.join(tempDir, 'showcase'));
+  console.log('Copied showcase pages to temp dir');
+}
+
 // Create .nojekyll file
 fs.writeFileSync(path.join(tempDir, '.nojekyll'), '');
 console.log('.nojekyll created');
