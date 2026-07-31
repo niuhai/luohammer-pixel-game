@@ -1,17 +1,17 @@
 # 当前迭代状态（v4.3 持续周期）
-
 cycle: 2026-07-29-v4.3-continuous
-round_next: R041
+cycle_status: FREEZE（R045 GATE 收敛，2026-07-31；重开触发见 R045.md 与 coverage.md 下次触发列）
+round_next: R046（仅触发式）
 
 goal: >
   评委 10 分钟体验旅程在"电脑端主验收、手机端护栏"下持续逼近极限
   （对应评审 GATE 加权 ≥9.5/10）；序章 FREEZE 后推进下一段旅程。
 
 baseline:
-  quality: Q001（scorecard.md，本周期建立）
+  quality: Q002（scorecard.md，R045 收敛快照）
   ui: UI-Q002（ui/baseline.md，序章场景，FREEZE）
   capability: growth.md 首期账本
-  best_known_version: R039 已部署（gh-pages 942261f，线上 index-DII3Da4B + SW v12-prod，verify:deployment 通过；L3 全套件 58/58 由收口会话代跑补齐）
+  best_known_version: R043 已验证 3f71178（gh-pages 2a3b0f0，线上 index-CWJb_9fJ + SW v12-prod，五页 verify 通过；本地构建与线上零 src 差异）
 
 target: >
   每轮产生可证据化的 Outcome Delta（IMPROVED 且护栏稳定）；
