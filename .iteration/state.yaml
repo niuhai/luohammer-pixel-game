@@ -1,17 +1,18 @@
 # 当前迭代状态（v4.3 持续周期）
-cycle: 2026-07-29-v4.3-continuous
-cycle_status: FREEZE（R045 GATE 收敛，2026-07-31；重开触发见 R045.md 与 coverage.md 下次触发列）
-round_next: R046（仅触发式）
+cycle: 2026-08-01-v4.3-final-sprint
+cycle_status: ACTIVE（R045 FREEZE 后用户 RE-FRAME "决赛评委视角优化到极限"，R046-R048 已完成）
+round_next: R049（继续决赛评委视角优化）
 
 goal: >
-  评委 10 分钟体验旅程在"电脑端主验收、手机端护栏"下持续逼近极限
-  （对应评审 GATE 加权 ≥9.5/10）；序章 FREEZE 后推进下一段旅程。
+  决赛评委 10 分钟体验旅程优化到极限：showcase 首屏、复赛帖可信度、
+  演示视频一致性、移动端实机、结局页体验、PWA 离线、提交链路清洁。
 
 baseline:
   quality: Q002（scorecard.md，R045 收敛快照）
   ui: UI-Q002（ui/baseline.md，序章场景，FREEZE）
   capability: growth.md 首期账本
-  best_known_version: R043 已验证 3f71178（gh-pages 2a3b0f0，线上 index-CWJb_9fJ + SW v12-prod，五页 verify 通过；本地构建与线上零 src 差异）
+  best_known_version: R048 已验证 gh-pages 4a77cf2（showcase 102.8KB/1022ms，stat-strip 8项，viewport-fit=cover）
+  pre_freeze: R043 已验证 3f71178（gh-pages 2a3b0f0，线上 index-CWJb_9fJ + SW v12-prod，五页 verify 通过）
 
 target: >
   每轮产生可证据化的 Outcome Delta（IMPROVED 且护栏稳定）；
