@@ -224,6 +224,22 @@
       width: 100%;
     }
 
+    @media (max-width: 768px) {
+      nav {
+        padding: 0 1rem;
+        padding-top: env(safe-area-inset-top);
+      }
+      nav ul {
+        gap: .9rem;
+      }
+      nav a {
+        font-size: .82rem;
+      }
+      nav .logo span {
+        display: none;
+      }
+    }
+
     /* ═══════════════════════════════════════════════════       ▸ 通用容器 + 区块       ═══════════════════════════════════════════════════ */
     .container {
       max-width: 1080px;
@@ -2489,6 +2505,7 @@
       <li><a href="#timeline">人生</a></li>
       <li><a href="#endings">结局</a></li>
       <li><a href="#cta">体验</a></li>
+      <li><a href="process.html">创作过程</a></li>
     </ul>
   </nav><!-- ▸ HERO — 全屏视觉锚点 + 角色立绘 -->
   <section id="hero">
