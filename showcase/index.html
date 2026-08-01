@@ -4,7 +4,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>十字路口 · 人生模拟器 — 罗远人生选择游戏</title>
   <meta name="description" content="以罗远人生经历为背景的像素风互动养成游戏，在关键节点做出选择，体验不同人生结局。">
   <meta property="og:title" content="十字路口 · 人生模拟器 — 罗远人生选择游戏">
@@ -162,6 +162,7 @@
       -webkit-backdrop-filter: blur(16px);
       border-bottom: 1px solid rgba(255, 215, 0, .12);
       padding: 0 2rem;
+      padding-top: env(safe-area-inset-top);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -302,7 +303,7 @@
       justify-content: flex-start;
       text-align: left;
       position: relative;
-      padding-top: 56px;
+      padding-top: calc(56px + env(safe-area-inset-top));
       overflow: hidden;
       background: var(--bg) url('./screenshots/bg-pattern.webp') center center / 110% no-repeat;
     }
@@ -699,10 +700,16 @@
 
     .stat-strip {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 0;
       border-top: 1px solid rgba(255, 215, 0, .15);
       border-bottom: 1px solid rgba(255, 215, 0, .15);
+    }
+
+    @media (max-width: 768px) {
+      .stat-strip {
+        grid-template-columns: repeat(2, 1fr);
+      }
     }
 
     .stat-item {
@@ -2536,12 +2543,20 @@
             <div class="stat-label">人生结局</div>
           </div>
           <div class="stat-item">
-            <div class="stat-num" data-value="12">0</div>
-            <div class="stat-label">场景类型</div>
+            <div class="stat-num" data-value="130" data-suffix="+">0</div>
+            <div class="stat-label">随机事件</div>
           </div>
           <div class="stat-item">
             <div class="stat-num" data-value="49">0</div>
             <div class="stat-label">天赋系统</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num" data-value="12">0</div>
+            <div class="stat-label">场景类型</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num" data-value="20">0</div>
+            <div class="stat-label">永久增益</div>
           </div>
           <div class="stat-item">
             <div class="stat-num" data-value="6">0</div>
