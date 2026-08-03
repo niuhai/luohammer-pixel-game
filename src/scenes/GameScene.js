@@ -4150,6 +4150,20 @@ export class GameScene extends Phaser.Scene {
     if (!audio) return;
     const currentKey = audio.getVoicePresetKey();
     const speechSupport = getSpeechSupportState(audio);
+    const getCurrentDeviceVoiceLabel = () => {
+      if (!speechSupport.supported) return '浏览器不支持系统朗读';
+      const explicitVoiceName = typeof audio.getVoiceName === 'function'
+        ? audio.getVoiceName()
+        : '';
+      if (explicitVoiceName) return explicitVoiceName;
+      const matchedInfo = typeof audio.getMatchedVoiceInfo === 'function'
+        ? audio.getMatchedVoiceInfo(currentKey)
+        : null;
+      if (matchedInfo?.voiceName && !/无中文语音/.test(matchedInfo.voiceName)) {
+        return matchedInfo.voiceName;
+      }
+      return '当前使用浏览器默认语音';
+    };
 
     const panel = document.createElement('div');
     panel.id = 'ui-quick-voice-panel';
@@ -4174,9 +4188,36 @@ export class GameScene extends Phaser.Scene {
     support.textContent = `${speechSupport.label} · ${speechSupport.detail}`;
     box.appendChild(support);
 
+    const currentDevice = document.createElement('div');
+    currentDevice.className = 'ui-quick-voice-current-device';
+    const currentDeviceLabel = document.createElement('span');
+    currentDeviceLabel.className = 'ui-quick-voice-current-device-label';
+    currentDeviceLabel.textContent = '当前设备语音：';
+    const currentDeviceName = document.createElement('span');
+    currentDeviceName.className = 'ui-quick-voice-current-device-name';
+    currentDeviceName.textContent = getCurrentDeviceVoiceLabel();
+    currentDevice.append(currentDeviceLabel, currentDeviceName);
+    box.appendChild(currentDevice);
+
+    const note = document.createElement('div');
+    note.className = 'ui-quick-voice-note';
+    note.textContent = '只影响朗读，不改变对话框与剧情节奏。点击试听可立即比较。';
+    box.appendChild(note);
+
     const body = document.createElement('div');
     body.className = 'ui-quick-voice-body';
     box.appendChild(body);
+
+    const previewCurrentBtn = document.createElement('button');
+    previewCurrentBtn.type = 'button';
+    previewCurrentBtn.className = 'ui-quick-voice-preview-current';
+    previewCurrentBtn.textContent = '试听当前语音';
+    previewCurrentBtn.disabled = !speechSupport.canPreview;
+    previewCurrentBtn.title = speechSupport.canPreview ? '' : speechSupport.label;
+    previewCurrentBtn.addEventListener('click', () => {
+      audio.previewVoicePreset(audio.getVoicePresetKey());
+    });
+    body.appendChild(previewCurrentBtn);
 
     const modeLabel = document.createElement('div');
     modeLabel.className = 'ui-quick-voice-label';
@@ -4246,6 +4287,7 @@ export class GameScene extends Phaser.Scene {
     voiceSelect.value = audio.getVoiceName();
     voiceSelect.addEventListener('change', () => {
       audio.setVoiceName(voiceSelect.value);
+      currentDeviceName.textContent = getCurrentDeviceVoiceLabel();
       audio.previewVoicePreset(audio.getVoicePresetKey());
       announceAudioState(voiceSelect.value
         ? `设备语音已切换为${voiceSelect.selectedOptions[0]?.textContent || voiceSelect.value}`
@@ -4256,7 +4298,7 @@ export class GameScene extends Phaser.Scene {
 
     const styleLabel = document.createElement('div');
     styleLabel.className = 'ui-quick-voice-label';
-    styleLabel.textContent = '朗读风格';
+    styleLabel.textContent = '朗读节奏';
     body.appendChild(styleLabel);
 
     const presets = Object.values(VOICE_PRESETS);
@@ -4310,8 +4352,9 @@ export class GameScene extends Phaser.Scene {
           if (audio.setVoicePreset(preset.key)) {
             this._updateVoiceToggleLabel();
             this._syncPauseMenuSettings();
-            announceAudioState(`朗读风格已切换为${preset.label}`);
             this._closeQuickVoicePanel();
+            audio.previewVoicePreset(preset.key);
+            announceAudioState(`朗读节奏已切换为${preset.label}`);
             try { toast.info(`已切换：${preset.label}`); } catch(e) {}
           }
         });

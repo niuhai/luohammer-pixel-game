@@ -280,6 +280,8 @@ test.describe('首次游玩流程', () => {
 
     const panel = page.locator('.ui-voice-panel');
     await expect(panel).toBeVisible();
+    await expect(panel.locator('.ui-voice-current-device'))
+      .toContainText('当前设备语音');
     await expect(panel).toContainText('完全使用当前设备的中文系统语音');
     await expect(panel).toContainText('朗读内容');
     await expect(panel).toContainText('设备语音');

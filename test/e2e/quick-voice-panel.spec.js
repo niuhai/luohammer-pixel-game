@@ -45,6 +45,7 @@ async function openVoicePanel(page) {
       narrationMode: 'highlights',
       presetKey: 'luo_style',
       voiceName: '',
+      previewCalls: [],
       getVoicePresetKey() {
         return this.presetKey;
       },
@@ -70,7 +71,9 @@ async function openVoicePanel(page) {
         this.presetKey = key;
         return true;
       },
-      previewVoicePreset() {},
+      previewVoicePreset(key) {
+        this.previewCalls.push(key || this.presetKey);
+      },
       speak() {},
       stopSpeaking() {}
     };
@@ -139,6 +142,8 @@ async function readPanelState(page) {
         Math.round(button.getBoundingClientRect().height)
       )),
       minActionHeight: Math.min(...actionHeights),
+      currentDeviceText: panel.querySelector('.ui-quick-voice-current-device')
+        ?.textContent.replace(/\s+/g, ' ').trim() || '',
       closeText: close?.textContent.replace(/\s+/g, ' ').trim() || '',
       initialFocusText: focused?.textContent?.replace(/\s+/g, ' ').trim() || '',
       initialFocusInPanel: panel.contains(focused),
@@ -212,6 +217,8 @@ test('朗读设置应具备响应式布局、44px 操作和完整焦点闭环', 
     mobile.cardBox.right <= mobile.viewport.width &&
     mobile.cardBox.top >= 0 &&
     mobile.cardBox.bottom <= mobile.viewport.height &&
+    desktop.currentDeviceText.includes('当前设备语音') &&
+    mobile.currentDeviceText.includes('当前设备语音') &&
     closeFlow.triggerExpanded === 'false' &&
     !closeFlow.backgroundInert;
   fs.writeFileSync(path.join(OUT, 'report.json'), `${JSON.stringify(report, null, 2)}\n`, 'utf8');
@@ -235,7 +242,22 @@ test('朗读设置应具备响应式布局、44px 操作和完整焦点闭环', 
     expect(mobile.minActionHeight).toBeGreaterThanOrEqual(44);
     expect(mobile.initialFocusText).toContain('金句');
     expect(tabCycle.focusStayedInPanel).toBeTruthy();
-    expect(tabCycle.focusedText).toContain('关闭');
+    expect(tabCycle.focusedText).toMatch(/试听当前语音|关闭/);
     expect(closeFlow.triggerFocused).toBeTruthy();
   }
+});
+
+test('应用朗读节奏后应立即试听并关闭浮层', async ({ page }) => {
+  await page.goto('/');
+  await openVoicePanel(page);
+
+  const applyButton = page.locator('.ui-quick-voice-action.apply:not(:disabled)').first();
+  await expect(applyButton).toBeVisible();
+  await applyButton.click();
+
+  await expect(page.locator('#ui-quick-voice-panel')).toHaveCount(0);
+  const previewCalls = await page.evaluate(() =>
+    window.__quickVoiceProbe?.audio?.previewCalls || []
+  );
+  expect(previewCalls.length).toBeGreaterThan(0);
 });

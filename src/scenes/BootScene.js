@@ -565,6 +565,16 @@ export class BootScene extends Phaser.Scene {
     const presets = Object.values(VOICE_PRESETS);
     const currentKey = this.audio.getVoicePresetKey();
     const speechSupport = getSpeechSupportState(this.audio);
+    const getCurrentDeviceVoiceLabel = () => {
+      if (!speechSupport.supported) return '浏览器不支持系统朗读';
+      const explicitVoiceName = this.audio.getVoiceName();
+      if (explicitVoiceName) return explicitVoiceName;
+      const matchedInfo = this.audio.getMatchedVoiceInfo(currentKey);
+      if (matchedInfo?.voiceName && !/无中文语音/.test(matchedInfo.voiceName)) {
+        return matchedInfo.voiceName;
+      }
+      return '当前使用浏览器默认语音';
+    };
     const previousFocus = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : triggerBtn;
@@ -634,6 +644,30 @@ export class BootScene extends Phaser.Scene {
     ].join(';');
     panel.appendChild(ttsNote);
 
+    const currentVoiceSummary = document.createElement('div');
+    currentVoiceSummary.className = 'ui-voice-current-device';
+    currentVoiceSummary.setAttribute('role', 'status');
+    currentVoiceSummary.style.cssText = [
+      'display: flex',
+      'align-items: center',
+      'justify-content: space-between',
+      'gap: 8px',
+      'margin-bottom: 14px',
+      'padding: 8px 10px',
+      'border: 1px solid rgba(92, 129, 171, 0.34)',
+      'background: rgba(0, 0, 0, 0.28)',
+      'font-size: 10px',
+      'line-height: 1.45'
+    ].join(';');
+    const currentVoiceLabel = document.createElement('span');
+    currentVoiceLabel.textContent = '当前设备语音：';
+    currentVoiceLabel.style.cssText = 'color: var(--color-text-secondary); white-space: nowrap;';
+    const currentVoiceName = document.createElement('span');
+    currentVoiceName.textContent = getCurrentDeviceVoiceLabel();
+    currentVoiceName.style.cssText = 'min-width: 0; overflow: hidden; color: var(--color-text-primary); font-weight: 700; text-align: right; text-overflow: ellipsis; white-space: nowrap;';
+    currentVoiceSummary.append(currentVoiceLabel, currentVoiceName);
+    panel.appendChild(currentVoiceSummary);
+
     const modeTitle = document.createElement('div');
     modeTitle.textContent = '朗读内容';
     modeTitle.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); margin-bottom: 6px;';
@@ -692,6 +726,7 @@ export class BootScene extends Phaser.Scene {
     voiceSelect.addEventListener('change', (e) => {
       e.stopPropagation();
       this.audio.setVoiceName(voiceSelect.value);
+      currentVoiceName.textContent = getCurrentDeviceVoiceLabel();
       this.audio.previewVoicePreset(this.audio.getVoicePresetKey());
       announceAudioState(voiceSelect.value
         ? `设备语音已切换为${voiceSelect.selectedOptions[0]?.textContent || voiceSelect.value}`
@@ -701,7 +736,7 @@ export class BootScene extends Phaser.Scene {
     panel.appendChild(voiceLabel);
 
     const styleTitle = document.createElement('div');
-    styleTitle.textContent = '朗读风格';
+    styleTitle.textContent = '朗读节奏';
     styleTitle.style.cssText = 'font-size: 10px; color: var(--color-text-secondary); margin-bottom: 6px;';
     panel.appendChild(styleTitle);
 

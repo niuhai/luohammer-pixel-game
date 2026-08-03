@@ -154,6 +154,10 @@ describe('AudioSystem - 跨场景生命周期', () => {
       '明快讲述'
     ]);
     expect(Object.values(VOICE_PRESETS).every(preset => preset.pitch >= 0.9 && preset.pitch <= 1.1)).toBe(true);
+    expect(VOICE_PRESETS.broadcast.rate).toBeLessThan(VOICE_PRESETS.luo_style.rate);
+    expect(VOICE_PRESETS.young_female.rate).toBeGreaterThan(VOICE_PRESETS.warm_female.rate);
+    expect(VOICE_PRESETS.broadcast.pauseMs).toBeGreaterThan(VOICE_PRESETS.luo_style.pauseMs);
+    expect(VOICE_PRESETS.young_female.pauseMs).toBeLessThan(VOICE_PRESETS.warm_female.pauseMs);
   });
 
   it('区分系统朗读不支持、默认语音降级和中文语音就绪', () => {
@@ -211,7 +215,10 @@ describe('AudioSystem - 跨场景生命周期', () => {
     const text = '第一段讲述人生的选择与代价，需要保持清晰自然的停顿。'.repeat(8);
 
     expect(audio.speak(text)).toBe(true);
-    while (synth.current) synth.finishCurrent();
+    while (synth.current || audio.isSpeaking()) {
+      if (synth.current) synth.finishCurrent();
+      vi.advanceTimersByTime(140);
+    }
 
     expect(synth.spoken.length).toBeGreaterThan(1);
     expect(synth.spoken.every(utterance => utterance.text.length <= 80)).toBe(true);
@@ -233,6 +240,7 @@ describe('AudioSystem - 跨场景生命周期', () => {
     expect(finished).not.toHaveBeenCalled();
 
     synth.finishCurrent();
+    vi.advanceTimersByTime(140);
     expect(finished).toHaveBeenCalledOnce();
     audio.destroy();
   });

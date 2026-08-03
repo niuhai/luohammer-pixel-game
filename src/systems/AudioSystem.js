@@ -47,8 +47,9 @@ export const VOICE_PRESETS = {
     key: 'luo_style',
     label: '沉稳演讲',
     desc: '稍慢语速、克制音调，适合人物金句与关键剧情',
-    rate: 0.88,
-    pitch: 0.96,
+    rate: 0.84,
+    pitch: 0.94,
+    pauseMs: 90,
     gender: 'male',
     voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /kangkang|yunyang|liangliang|^yun$|male|男/i.test(v.name)
   },
@@ -56,8 +57,9 @@ export const VOICE_PRESETS = {
     key: 'broadcast',
     label: '纪录旁白',
     desc: '稳定、清晰、留有停顿，适合完整剧情叙述',
-    rate: 0.82,
-    pitch: 0.94,
+    rate: 0.76,
+    pitch: 0.98,
+    pauseMs: 120,
     gender: 'male',
     voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /kangkang|yunyang|liangliang|^yun$|male|男/i.test(v.name)
   },
@@ -65,8 +67,9 @@ export const VOICE_PRESETS = {
     key: 'warm_female',
     label: '温和叙事',
     desc: '自然柔和、稍慢语速，适合平静和低落场景',
-    rate: 0.92,
-    pitch: 1.03,
+    rate: 0.95,
+    pitch: 1.05,
+    pauseMs: 45,
     gender: 'female',
     voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /huihui|yaoyao|tingting|hanhan|xiaoxiao|female|女/i.test(v.name)
   },
@@ -74,8 +77,9 @@ export const VOICE_PRESETS = {
     key: 'young_female',
     label: '明快讲述',
     desc: '语速轻快、音调自然，适合日常和高光场景',
-    rate: 1.02,
-    pitch: 1.06,
+    rate: 1.08,
+    pitch: 1.08,
+    pauseMs: 20,
     gender: 'female',
     voiceFilter: (v) => v.lang && v.lang.startsWith('zh') && /huihui|yaoyao|tingting|hanhan|xiaoxiao|female|女/i.test(v.name)
   }
@@ -155,6 +159,7 @@ export class AudioSystem {
     this._speechGeneration = 0;    // 朗读会话代号，隔离 cancel 后迟到的 onend/onerror
     this._speechQueue = [];        // 短句队列，避免单个超长 SpeechSynthesisUtterance
     this._speechActive = false;
+    this._speechPauseTimer = null;
     this._activeSpeechUtterance = null;
     this._speechDucked = false;    // 朗读时压低 BGM，结束后恢复
     this._sceneShutdownHandler = null;
@@ -1383,6 +1388,7 @@ export class AudioSystem {
     return {
       rate: Math.max(0.72, Math.min(1.18, Number.isFinite(baseRate) ? baseRate : 0.9)),
       pitch: Math.max(0.90, Math.min(1.10, Number.isFinite(basePitch) ? basePitch : 1)),
+      pauseMs: Math.max(0, Math.min(180, Number.isFinite(preset.pauseMs) ? preset.pauseMs : 0)),
       volume: Math.max(0, Math.min(1, this.masterVolume * 0.9)),
       voice: selected.voice
     };
@@ -1404,6 +1410,12 @@ export class AudioSystem {
     if (!this._ttsResumeTimer) return;
     clearInterval(this._ttsResumeTimer);
     this._ttsResumeTimer = null;
+  }
+
+  _clearSpeechPauseTimer() {
+    if (!this._speechPauseTimer) return;
+    clearTimeout(this._speechPauseTimer);
+    this._speechPauseTimer = null;
   }
 
   _speakNextChunk(generation) {
@@ -1428,7 +1440,16 @@ export class AudioSystem {
       this._clearTTSResumeTimer();
       if (generation !== this._speechGeneration || this._activeSpeechUtterance !== utterance) return;
       this._activeSpeechUtterance = null;
-      this._speakNextChunk(generation);
+      const pauseMs = Number(item.settings.pauseMs) || 0;
+      if (pauseMs > 0) {
+        this._clearSpeechPauseTimer();
+        this._speechPauseTimer = setTimeout(() => {
+          this._speechPauseTimer = null;
+          this._speakNextChunk(generation);
+        }, pauseMs);
+      } else {
+        this._speakNextChunk(generation);
+      }
     };
 
     utterance.onstart = () => {
@@ -1458,6 +1479,7 @@ export class AudioSystem {
   _finishSpeechSession(generation) {
     if (generation !== this._speechGeneration) return;
     this._clearTTSResumeTimer();
+    this._clearSpeechPauseTimer();
     this._activeSpeechUtterance = null;
     this._speechQueue = [];
     this._speechActive = false;
@@ -1472,6 +1494,7 @@ export class AudioSystem {
     this._speechActive = false;
     this._activeSpeechUtterance = null;
     this._clearTTSResumeTimer();
+    this._clearSpeechPauseTimer();
     if (window.speechSynthesis) {
       try { window.speechSynthesis.cancel(); } catch(e) {}
     }
