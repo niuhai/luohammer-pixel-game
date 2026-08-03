@@ -19,6 +19,7 @@ export class ChoiceSystem {
     this._transientTimers = new Set();
     this._activePreview = null;
     this._previewTimer = null;
+    this._safetyFallbackChoice = null;
     // R45: 容器滚动时更新"还有更多选项"吸底提示（元素静态存在于 index.html，监听一次即可）
     this._onChoicesScroll = () => this._updateScrollHint();
     if (this.el) this.el.addEventListener('scroll', this._onChoicesScroll, { passive: true });
@@ -240,9 +241,13 @@ export class ChoiceSystem {
     this.choices = choices;
     this._choiceLock = false;
     const state = this.scene.state || {};
-    const enabledCount = choices.filter(choice =>
-      !this._getChoiceLock(choice, state, choices).locked
-    ).length;
+    const lockStates = choices.map(choice => this._getChoiceLock(choice, state, choices));
+    const authoredEnabledCount = lockStates.filter(result => !result.locked).length;
+    const fallbackIndex = authoredEnabledCount === 0
+      ? choices.findIndex(choice => choice?.next || choice?.check?.successNext || choice?.check?.failNext)
+      : -1;
+    this._safetyFallbackChoice = fallbackIndex >= 0 ? choices[fallbackIndex] : null;
+    const enabledCount = authoredEnabledCount || (fallbackIndex >= 0 ? 1 : 0);
     const isTouch = window.matchMedia('(pointer: coarse)').matches ||
       navigator.maxTouchPoints > 0;
 
@@ -319,7 +324,10 @@ export class ChoiceSystem {
     this._currentBtns = [];
 
     choices.forEach((choice, i) => {
-      const { locked, hint: lockHint } = this._getChoiceLock(choice, state, choices);
+      const lockState = lockStates[i];
+      const safetyFallback = i === fallbackIndex;
+      const locked = lockState.locked && !safetyFallback;
+      const lockHint = lockState.hint;
       const marker = String(i + 1);
 
       // === 跨周目技能：命运之眼 — 显示选项导向（好/坏/中性）===
@@ -337,6 +345,7 @@ export class ChoiceSystem {
       const btn = document.createElement('button');
       btn.className = 'ui-choice-btn' +
         (locked ? ' locked' : '') +
+        (safetyFallback ? ' safety-fallback' : '') +
         (choice.talentChoice ? ' talent-choice' : '');
       btn.type = 'button';
       btn.setAttribute('aria-describedby', 'ui-choice-context-meta');
@@ -357,7 +366,11 @@ export class ChoiceSystem {
         <span class="corner-deco br"></span>
         <span class="ui-choice-marker">${locked ? '<span class="lock-icon">▣</span>' : `<span class="marker-icon">${marker}</span><span class="marker-key-hint">${marker}</span>`}</span>
         <span class="ui-choice-text">${talentChoiceHtml || `${choice.label}${checkHintHtml}${autoPreviewHtml}${alignmentHtml}`}</span>
-        ${locked ? `<span class="ui-choice-lock-hint">${lockHint}</span>` : '<span class="ui-choice-arrow">→</span>'}
+        ${locked
+          ? `<span class="ui-choice-lock-hint">${lockHint}</span>`
+          : safetyFallback
+            ? '<span class="ui-choice-safety-hint">保底路线 · 避免剧情中断</span><span class="ui-choice-arrow">→</span>'
+            : '<span class="ui-choice-arrow">→</span>'}
       `;
 
       if (locked) {
@@ -484,7 +497,8 @@ export class ChoiceSystem {
         const c = choices[idx];
         const state = this.scene.state || {};
         const { locked } = this._getChoiceLock(c, state, choices);
-        if (!locked && onChoice) {
+        const safetyFallback = c === this._safetyFallbackChoice;
+        if ((!locked || safetyFallback) && onChoice) {
           this._choiceLock = true;
           this._currentBtns.forEach(b => b.disabled = true);
           const _selectedBtn = this._currentBtns[idx];
@@ -700,6 +714,7 @@ export class ChoiceSystem {
       this.el.classList.remove('visible', 'leaving');
       this.el.innerHTML = '';
       this._currentBtns = [];
+      this._safetyFallbackChoice = null;
       if (this.scene.dialog && this.scene.dialog.notifyChoicesVisible) {
         this.scene.dialog.notifyChoicesVisible(false);
       }
@@ -719,6 +734,7 @@ export class ChoiceSystem {
     }
     this.hide(true);
     this.choices = [];
+    this._safetyFallbackChoice = null;
     this.el = null;
     this.scene = null;
   }

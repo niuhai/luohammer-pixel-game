@@ -20,6 +20,7 @@ beforeEach(() => {
           <span class="ui-dialog-insight-basis"></span>
         </div>
         <div id="ui-dialog-text"></div>
+        <button id="ui-dialog-skip-node" type="button" hidden></button>
         <button id="ui-dialog-continue" type="button"></button>
       </div>
       <div id="ui-choices"></div>
@@ -154,7 +155,7 @@ describe('DialogSystem - choice focus handoff', () => {
     expect(control.tagName).toBe('BUTTON');
     expect(control.hidden).toBe(false);
     expect(control.dataset.state).toBe('typing');
-    expect(control.textContent).toContain('显示全文');
+    expect(control.textContent).toContain('显示本段全文');
 
     system.skipTyping();
     expect(control.dataset.state).toBe('next-segment');
@@ -172,6 +173,41 @@ describe('DialogSystem - choice focus handoff', () => {
 
     system.notifyChoicesVisible(true);
     expect(control.hidden).toBe(true);
+    system.destroy();
+  });
+
+  it('offers a one-step route from multi-part narration to choices', () => {
+    const scene = {
+      state: {},
+      vibrate: vi.fn(),
+      isGameplayInputBlocked: () => false
+    };
+    const system = new DialogSystem(scene);
+    const completion = vi.fn(() => {
+      document.getElementById('ui-choices').classList.add('visible');
+      system.notifyChoicesVisible(true);
+    });
+    const longText = [
+      '第一段交代潮湿出租屋里的药材和连阴雨。'.repeat(4),
+      '第二段说明货物发霉以后造成的损失。'.repeat(4),
+      '第三段让玩家理解这次失败带来的决定。'.repeat(4)
+    ].join('\n');
+
+    system.show('小罗', longText, completion);
+    const skip = document.getElementById('ui-dialog-skip-node');
+    expect(system._segments.length).toBeGreaterThan(1);
+    expect(skip.hidden).toBe(false);
+    expect(skip.getAttribute('aria-hidden')).toBe('false');
+
+    skip.click();
+    expect(completion).toHaveBeenCalledOnce();
+    expect(system.isTyping).toBe(false);
+    expect(system._segments).toBeNull();
+    expect(skip.hidden).toBe(true);
+    expect(document.getElementById('ui-dialog-continue').hidden).toBe(true);
+
+    skip.click();
+    expect(completion).toHaveBeenCalledOnce();
     system.destroy();
   });
 

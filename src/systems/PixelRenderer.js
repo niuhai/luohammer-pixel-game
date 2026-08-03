@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT } from '../config.js';
+import { GAME_WIDTH, GAME_HEIGHT, SCENE_ASSETS } from '../config.js';
 import { TALENTS } from '../data/talents.js';
 import {
   drawClassroom,
@@ -43,6 +43,11 @@ function releaseParticle(p) {
 
 // ---- 背景粒子配置 ----
 const BG_PARTICLE_COUNT = 40;
+// 场景纹理映射只认 config 中的单一事实源。新增场景时不再需要同步维护第二份表，
+// 否则资源虽已成功加载，渲染器仍会误用程序化教室兜底。
+const BG_TEXTURE_BY_TYPE = Object.freeze(
+  Object.fromEntries(SCENE_ASSETS.map(asset => [asset.type, asset.key]))
+);
 
 const BG_PARTICLE_MIN_SIZE = 1;
 const BG_PARTICLE_MAX_SIZE = 5;
@@ -731,32 +736,8 @@ export class PixelRenderer {
     // 切换场景氛围粒子模式（默认 dust）
     this.setParticleMode(SCENE_PARTICLE_MODES[type] || 'dust');
 
-    const bgTextureMap = {
-      classroom: 'bg-classroom',
-      lecture: 'bg-lecture',
-      office: 'bg-office',
-      stage: 'bg-stage',
-      livestream: 'bg-livestream',
-      street: 'bg-street',
-      fridge_smash: 'bg-fridge_smash',
-      talkshow: 'bg-talkshow',
-      court: 'bg-court',
-      lab: 'bg-lab',
-      podcast: 'bg-podcast',
-      // 场景变体（氛围增强）
-      office_empty: 'bg-office_empty',
-      office_dark: 'bg-office_dark',
-      street_night: 'bg-street_night',
-      office_busy: 'bg-office_busy',
-      livestream_first: 'bg-livestream_first',
-      street_day: 'bg-street_day',
-      stage_arena: 'bg-stage_arena',
-      classroom_night: 'bg-classroom_night',
-      office_day: 'bg-office_day'
-    };
-
     // 1. 检查预加载纹理
-    const textureKey = bgTextureMap[type];
+    const textureKey = BG_TEXTURE_BY_TYPE[type];
     const hasPreloadedTexture = textureKey && this.scene.textures.exists(textureKey);
 
     // 2. 检查缓存的 RenderTexture（Graphics 绘制结果缓存）

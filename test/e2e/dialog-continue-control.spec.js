@@ -188,7 +188,7 @@ test('剧情继续控件应表达打字、分段与自动播放状态且单次�
     expect(typing.tagName).toBe('BUTTON');
     expect(typing.type).toBe('button');
     expect(typing.state).toBe('typing');
-    expect(typing.text).toContain('显示全文');
+    expect(typing.text).toContain('显示本段全文');
     expect(typing.hidden).toBeFalsy();
     expect(desktopReady.state).toBe('next-segment');
     expect(desktopReady.text).toContain('下一段');

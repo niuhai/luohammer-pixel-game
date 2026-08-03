@@ -76,6 +76,33 @@ describe('ChoiceSystem - 同局支线防重复', () => {
     expect(buttons.every(button => !button.disabled)).toBe(true);
   });
 
+  it('所有条件出口都被锁定时开放一条保底路线', () => {
+    const onChoice = vi.fn();
+    const scene = createScene({
+      pride: 0,
+      wealth: 0,
+      history: [],
+      flags: new Set()
+    });
+    const system = new ChoiceSystem(scene);
+    const choices = [
+      { label: '需要理想', next: 'pride_route', requires: { pride: 8 } },
+      { label: '需要财富', next: 'wealth_route', requires: { wealth: 8 } }
+    ];
+
+    system.show(choices, onChoice);
+    const buttons = [...document.querySelectorAll('.ui-choice-btn')];
+    expect(buttons.filter(button => !button.disabled)).toHaveLength(1);
+    expect(buttons[0].classList.contains('safety-fallback')).toBe(true);
+    expect(buttons[0].textContent).toContain('保底路线');
+    expect(document.querySelector('#ui-choice-context-meta').textContent).toContain('1 个可选方向');
+
+    const keyHandler = scene.input.keyboard.on.mock.calls[0][1];
+    keyHandler({ key: '1' });
+    expect(onChoice).toHaveBeenCalledOnce();
+    expect(onChoice).toHaveBeenCalledWith(choices[0]);
+  });
+
   it('键盘快捷键不能绕过已完成支线锁', () => {
     const onChoice = vi.fn();
     const scene = createScene({

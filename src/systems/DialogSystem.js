@@ -56,6 +56,7 @@ export class DialogSystem {
     this.nameEl = document.getElementById('ui-dialog-name');
     this.textEl = document.getElementById('ui-dialog-text');
     this.continueEl = document.getElementById('ui-dialog-continue');
+    this.skipNodeEl = document.getElementById('ui-dialog-skip-node');
     this.insightEl = document.getElementById('ui-dialog-insight');
     this.insightContextEl = this.insightEl?.querySelector('.ui-dialog-insight-context');
     this.insightAttitudeEl = this.insightEl?.querySelector('.ui-dialog-insight-attitude');
@@ -180,6 +181,12 @@ export class DialogSystem {
         this._cycleTypingSpeed();
       }, signalOpts);
     }
+    if (this.skipNodeEl) {
+      this.skipNodeEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._skipToChoices();
+      }, signalOpts);
+    }
 
     // === 自动播放 & 速度快捷键（T28） ===
     this._keyHandler = (e) => {
@@ -219,6 +226,7 @@ export class DialogSystem {
     // 初始化 UI 状态
     this._applyAutoPlayState();
     this._setContinueControlState('hidden');
+    this._setSkipToChoicesVisible(false);
 
     // === 移动端手势支持（左滑回退 / 右滑继续）===
     this._setupGestures();
@@ -610,6 +618,7 @@ export class DialogSystem {
       this._segments = segments;
       this._segmentIndex = 0;
       this._finalOnComplete = onComplete;
+      this._setSkipToChoicesVisible(typeof onComplete === 'function');
       this.currentCharacterName = characterName;
       this._showSegment(0);
       return;
@@ -619,6 +628,7 @@ export class DialogSystem {
     this._segments = null;
     this._segmentIndex = 0;
     this._finalOnComplete = null;
+    this._setSkipToChoicesVisible(false);
     this._inSegmentMode = false;
     this._isLastSegment = false;
     this._showTextDirect(characterName, cleanText, onComplete);
@@ -633,6 +643,9 @@ export class DialogSystem {
   _showSegment(index) {
     const segmentText = this._segments[index];
     if (!segmentText) return;
+    // 段落切换期间也允许玩家点击“直接看选项”。保存本轮引用，避免 150ms
+    // 延迟回调在逃生口已清空段落后又把旧文本/打字机重新挂回界面。
+    const segmentRun = this._segments;
     const isLast = index === this._segments.length - 1;
     this._segmentIndex = index;
 
@@ -653,6 +666,10 @@ export class DialogSystem {
 
     // 150ms 后替换文字并从下方滑入（R25 P2-1：改用 _trackedTimeout 统一跟踪）
     this._trackedTimeout(() => {
+      if (this._segments !== segmentRun || !this._segments?.[index]) {
+        this._segmentTransitioning = false;
+        return;
+      }
       this._segmentTransitioning = false;
       this._showTextDirect(this.currentCharacterName, segmentText, segmentOnComplete);
       // _showTextDirect 会设置 opacity:1、transition:none 并清空 textContent，
@@ -817,6 +834,7 @@ export class DialogSystem {
     this.el.classList.toggle('awaiting-choice', Boolean(_visible));
     if (_visible) {
       this._setContinueControlState('hidden');
+      this._setSkipToChoicesVisible(false);
       this._stopPulse();
     } else if (this.el.classList.contains('visible')) {
       this._updateContinueHint();
@@ -943,6 +961,35 @@ export class DialogSystem {
     if (this.typingTimer) this.typingTimer.remove();
     this.textEl.textContent = this._plainText;
     this.finishTyping();
+  }
+
+  /**
+   * 多段剧情的显式逃生口：不改属性、不自动替玩家选择，只跳过剩余文字并展示选项。
+   * 用独立按钮承载，避免慢速打字、AUTO/TTS 异常或玩家不熟悉逐段操作时形成假死。
+   */
+  _skipToChoices() {
+    if (!this._segments || typeof this._finalOnComplete !== 'function') return;
+    if (this._isChoicesVisible()) return;
+
+    this._typingActive = false;
+    this.isTyping = false;
+    this._segmentTransitioning = false;
+    if (this.typingTimer) this.typingTimer.remove();
+    this._stopPulse();
+    if (this.audio && typeof this.audio.stopSpeaking === 'function') {
+      try { this.audio.stopSpeaking({ notify: false }); } catch(e) {}
+    }
+
+    const complete = this._finalOnComplete;
+    this.onComplete = null;
+    this._finalOnComplete = null;
+    this._segments = null;
+    this._segmentIndex = 0;
+    this._inSegmentMode = false;
+    this._isLastSegment = false;
+    this._setSkipToChoicesVisible(false);
+    this._setContinueControlState('hidden');
+    complete();
   }
 
   finishTyping() {
@@ -1138,8 +1185,8 @@ export class DialogSystem {
     const currentSegment = Math.min(this._segmentIndex + 1, segmentCount);
     const content = {
       typing: {
-        text: '显示全文',
-        label: '显示当前剧情的完整文字'
+        text: '显示本段全文',
+        label: '显示当前这一段剧情的完整文字'
       },
       'next-segment': {
         text: `下一段 · ${currentSegment}/${segmentCount}`,
@@ -1160,6 +1207,12 @@ export class DialogSystem {
     this.continueEl.textContent = content.text;
     this.continueEl.setAttribute('aria-label', `${content.label}；快捷键空格或回车`);
     this.continueEl.title = content.label;
+  }
+
+  _setSkipToChoicesVisible(visible) {
+    if (!this.skipNodeEl) return;
+    this.skipNodeEl.hidden = !visible;
+    this.skipNodeEl.setAttribute('aria-hidden', visible ? 'false' : 'true');
   }
 
   /**
@@ -1220,6 +1273,7 @@ export class DialogSystem {
     this.el.classList.remove('visible', 'hiding', 'awaiting-choice');
     if (this.touchLayer) this.touchLayer.classList.remove('visible');
     this._setContinueControlState('hidden');
+    this._setSkipToChoicesVisible(false);
     this._stopPulse();
     this._updateSeenBadge(true);
     this._updateInsight(null);

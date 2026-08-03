@@ -102,6 +102,12 @@ const METEORS = [
 export class IntroScene extends Phaser.Scene {
   constructor() { super('IntroScene'); }
 
+  preload() {
+    // 背景材质与流星使用独立像素资产，路径/核心/节点仍由 Phaser 绘制。
+    this.load.image('intro-nebula-bg-ui', 'assets/intro/intro-nebula-bg.webp');
+    this.load.image('intro-meteor-ui', 'assets/intro/intro-meteor.png');
+  }
+
   create() {
     const data = this.scene.settings.data || {};
     this._returnToBoot = data.returnToBoot === true;
@@ -176,7 +182,8 @@ export class IntroScene extends Phaser.Scene {
     // 独立实色垫底，确保 IntroScene 首帧就覆盖 BootScene 留在同一 canvas 上的最后画面。
     this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x05050a, 1).setOrigin(0, 0);
     this._buildNebula();   // 静态星云纹理（含深空底色），垫底
-    this._gfx = this.add.graphics();
+    this._gfx = this.add.graphics().setDepth(10);
+    this._buildSpriteUI();
     // 绘制顺序：星云纹理(底) < _gfx 星/光轨/节点 < 方向词标签(顶)
     this._buildNodeLabels();
     this._buildCenterLabel();
@@ -260,9 +267,25 @@ export class IntroScene extends Phaser.Scene {
    * 深空底色渐变 + 三团径向渐变星云 + 像素噪声斑块（打破 CG 感，回到像素质地）。
    */
   _buildNebula() {
+    const W = GAME_WIDTH, H = GAME_HEIGHT;
+    const generatedKey = 'intro-nebula-bg-ui';
+    if (this.textures.exists(generatedKey)) {
+      this._nebulaImg = this.add.image(0, 0, generatedKey)
+        .setOrigin(0, 0)
+        .setDisplaySize(W, H)
+        .setDepth(1);
+      const targetAlpha = 0.34;
+      if (this._reducedMotion) {
+        this._nebulaImg.setAlpha(targetAlpha);
+      } else {
+        this._nebulaImg.setAlpha(0);
+        this.tweens.add({ targets: this._nebulaImg, alpha: targetAlpha, duration: 1400, ease: 'Sine.easeIn' });
+      }
+      return;
+    }
+
     const KEY = 'intro-nebula';
     if (!this.textures.exists(KEY)) {
-      const W = GAME_WIDTH, H = GAME_HEIGHT;
       const tex = this.textures.createCanvas(KEY, W, H);
       const ctx = tex.getContext();
 
@@ -299,7 +322,7 @@ export class IntroScene extends Phaser.Scene {
       }
       tex.refresh();
     }
-    this._nebulaImg = this.add.image(0, 0, KEY).setOrigin(0, 0);
+    this._nebulaImg = this.add.image(0, 0, KEY).setOrigin(0, 0).setDepth(1);
     if (this._reducedMotion) {
       this._nebulaImg.setAlpha(1);
     } else {
@@ -339,6 +362,34 @@ export class IntroScene extends Phaser.Scene {
     this._arrivalCells = this._expandPolyline(ARRIVAL.points.map(([x, y]) => ({ x, y })));
   }
 
+  /**
+   * 关键星体 UI：资产只负责质感，位置/缩放/旋转/显隐仍由时间线控制。
+   * 这样星图不会变成一张不可拆分的整图，也保留 Graphics 降级路径。
+   */
+  _buildSpriteUI() {
+    const make = (key, x, y, size) => {
+      if (!this.textures.exists(key)) return null;
+      return this.add.image(x, y, key)
+        .setOrigin(0.5)
+        .setDisplaySize(size, size)
+        .setAlpha(0)
+        .setDepth(11);
+    };
+
+    // 中心核心和远端节点保持 Graphics 版本，避免图片徽记破坏星图的轻盈感。
+    this._coreSprite = null;
+    this._coreBaseScale = 1;
+    this._nodeSprites = this._paths.map(() => null);
+    this._nodeBaseScales = this._nodeSprites.map(sprite => sprite ? sprite.scaleX : 1);
+
+    this._meteorSprites = METEORS.map(m => {
+      const sprite = make('intro-meteor-ui', m.x0, m.y0, 92);
+      if (sprite) sprite.setTint(m.dim ? 0xd8dce8 : 0xfff4d8);
+      return sprite;
+    });
+    this._meteorBaseScales = this._meteorSprites.map(sprite => sprite ? sprite.scaleX : 1);
+  }
+
   /** 为每个终点节点创建人生方向词标签（初始隐藏，节点点亮时弹性浮现） */
   _buildNodeLabels() {
     // 竖屏移动端：画布 FIT 缩放约 0.47；按最终显示尺寸反向补偿，
@@ -355,6 +406,7 @@ export class IntroScene extends Phaser.Scene {
         letterSpacing: portrait ? 3 : 2
       })
         .setOrigin(0.5, 0)
+        .setDepth(12)
         .setAlpha(0)
         .setScale(0.78)
         .setStroke('#050509', strokeW)
@@ -372,6 +424,7 @@ export class IntroScene extends Phaser.Scene {
       letterSpacing: portrait ? 4 : 3
     })
       .setOrigin(0.5, 0)
+      .setDepth(12)
       .setAlpha(0)
       .setScale(0.94)
       .setStroke('#050509', portrait ? 4 : 2)
@@ -453,6 +506,71 @@ export class IntroScene extends Phaser.Scene {
         this._convergeFinish();
       }
     }
+
+    // 图片化 UI 在 Graphics 完成绘制后更新，确保本帧即可显示在路径和粒子之上。
+    this._updateSpriteUI(t);
+  }
+
+  /** 独立星体资产的时间线动画：呼吸、显形、波前闪烁、流星轨迹。 */
+  _updateSpriteUI(t) {
+    if (this._coreSprite) {
+      let alpha = t < TL.igniteAt ? 0 : Math.min(0.92, (t - TL.igniteAt) / 420);
+      let scale = 0.88 + Math.min(1, Math.max(0, (t - TL.igniteAt) / 500)) * 0.12;
+      if (!this._reducedMotion) {
+        scale *= 1 + Math.sin(t / 2400 * Math.PI * 2) * 0.035;
+      }
+      if (this._convergeAt >= 0) {
+        const k = Math.min(1, (t - this._convergeAt) / CONVERGE_MS);
+        alpha *= Math.max(0, 1 - k * 1.2);
+        scale *= 1 + k * 0.08;
+      }
+      if (this._burstAt >= 0) {
+        const k = Math.min(1, (t - this._burstAt) / BURST_MS);
+        alpha *= Math.max(0, 1 - k * 1.5);
+        scale *= 1 + k * 0.8;
+      }
+      this._coreSprite
+        .setAlpha(alpha)
+        .setScale(this._coreBaseScale * scale)
+        .setRotation(this._reducedMotion ? 0 : t / 14000);
+    }
+
+    this._nodeSprites?.forEach((sprite, i) => {
+      if (!sprite) return;
+      const p = this._paths[i];
+      let alpha = p.litAt < 0 ? 0 : Math.min(0.9, 0.9 * (1 - Math.max(0, 320 - (t - p.litAt)) / 320));
+      let scale = 0.82;
+      if (p.litAt >= 0 && !this._reducedMotion) {
+        scale += 0.07 + Math.sin(t / 2000 * Math.PI * 2 + p.endX) * 0.035;
+      }
+      if (this._convergeAt >= 0) {
+        const k = Math.min(1, (t - this._convergeAt) / CONVERGE_MS);
+        alpha *= Math.max(0, 1 - k * 1.35);
+        scale *= 1 - k * 0.08;
+      }
+      if (this._burstAt >= 0) alpha = 0;
+      sprite.setAlpha(alpha).setScale(this._nodeBaseScales[i] * scale);
+    });
+
+    this._meteorSprites?.forEach((sprite, i) => {
+      if (!sprite) return;
+      const m = METEORS[i];
+      if (this._reducedMotion || t < m.at || t > m.at + m.dur) {
+        sprite.setAlpha(0);
+        return;
+      }
+      const k = (t - m.at) / m.dur;
+      const ease = 1 - (1 - k) * (1 - k);
+      const hx = m.x0 + (m.x1 - m.x0) * ease;
+      const hy = m.y0 + (m.y1 - m.y0) * ease;
+      const baseA = (m.dim ? 0.38 : 0.82) * Math.sin(Math.PI * Math.min(1, k * 1.15));
+      const direction = Math.atan2(m.y1 - m.y0, m.x1 - m.x0);
+      sprite
+        .setPosition(hx, hy)
+        .setAlpha(baseA)
+        .setScale(this._meteorBaseScales[i] * (0.92 + Math.sin(Math.PI * k) * 0.12))
+        .setRotation(direction - Math.PI * 0.75);
+    });
   }
 
   /** 第 i 条光轨的开始延伸时刻：第一批 [0,1]，第二批 [2,3,4] 错落 */
@@ -484,9 +602,10 @@ export class IntroScene extends Phaser.Scene {
     const reveal = Math.min(1, (t - 900) / 900);
     const breathe = this._reducedMotion ? 1 : 0.8 + Math.sin(t / 2200 * Math.PI * 2) * 0.2;
     this._paths.forEach((p, pathIndex) => {
-      for (let c = pathIndex % 2; c < p.cells.length; c += 3) {
+      for (let c = pathIndex % 2; c < p.cells.length; c += 2) {
         const cell = p.cells[c];
-        g.fillStyle(p.color, 0.055 * reveal * breathe);
+        const pulse = !this._reducedMotion && c % 8 === Math.floor(t / 180) % 8 ? 0.028 : 0;
+        g.fillStyle(p.color, (0.024 + pulse) * reveal * breathe);
         g.fillRect(cell.x - 1, cell.y - 1, 2, 2);
       }
     });
@@ -570,7 +689,10 @@ export class IntroScene extends Phaser.Scene {
   /** 流星：头部亮、尾部渐隐的像素 streak，ease-out 减速 */
   _drawMeteors(g, t) {
     if (this._reducedMotion) return;
-    for (const m of METEORS) {
+    for (let i = 0; i < METEORS.length; i++) {
+      // 有图片资产时由 _updateSpriteUI 驱动；只为缺失资产保留旧 Graphics 版本。
+      if (this._meteorSprites?.[i]) continue;
+      const m = METEORS[i];
       if (t < m.at || t > m.at + m.dur) continue;
       const k = (t - m.at) / m.dur;
       const ease = 1 - (1 - k) * (1 - k);
@@ -647,34 +769,37 @@ export class IntroScene extends Phaser.Scene {
     const breathe = this._reducedMotion ? 1 : 1 + Math.sin(t / 2400 * Math.PI * 2) * 0.12;
     const r = 14 * breathe * grow;
 
-    // 命运罗盘刻度：极慢旋转的方向感，不增加强光，只给中心更多空间层次。
-    const dialRotation = this._reducedMotion ? 0 : t / 14000;
-    const dialAlpha = 0.16 * grow;
-    for (let i = 0; i < 12; i++) {
-      const angle = dialRotation + i / 12 * Math.PI * 2;
-      const cardinal = i % 3 === 0;
-      const inner = cardinal ? 29 : 31;
-      const outer = cardinal ? 38 : 35;
-      g.lineStyle(1, cardinal ? 0xffe0a0 : 0xd8b860, dialAlpha * (cardinal ? 1 : 0.58));
-      g.beginPath();
-      g.moveTo(CENTER.x + Math.cos(angle) * inner, CENTER.y + Math.sin(angle) * inner);
-      g.lineTo(CENTER.x + Math.cos(angle) * outer, CENTER.y + Math.sin(angle) * outer);
-      g.strokePath();
-    }
+    // 资产版核心已经包含罗盘刻度、星芒和像素光晕；缺图时保留原有 Graphics 版本。
+    if (!this._coreSprite) {
+      // 命运罗盘刻度：极慢旋转的方向感，不增加强光，只给中心更多空间层次。
+      const dialRotation = this._reducedMotion ? 0 : t / 14000;
+      const dialAlpha = 0.16 * grow;
+      for (let i = 0; i < 12; i++) {
+        const angle = dialRotation + i / 12 * Math.PI * 2;
+        const cardinal = i % 3 === 0;
+        const inner = cardinal ? 29 : 31;
+        const outer = cardinal ? 38 : 35;
+        g.lineStyle(1, cardinal ? 0xffe0a0 : 0xd8b860, dialAlpha * (cardinal ? 1 : 0.58));
+        g.beginPath();
+        g.moveTo(CENTER.x + Math.cos(angle) * inner, CENTER.y + Math.sin(angle) * inner);
+        g.lineTo(CENTER.x + Math.cos(angle) * outer, CENTER.y + Math.sin(angle) * outer);
+        g.strokePath();
+      }
 
-    // 四层光晕渐进，消除圆盘边缘感
-    g.fillStyle(0xf0c040, 0.08 * grow);
-    g.fillCircle(CENTER.x, CENTER.y, r * 3.6);
-    g.fillStyle(0xf0c040, 0.12 * grow);
-    g.fillCircle(CENTER.x, CENTER.y, r * 2.6);
-    g.fillStyle(0xf0c040, 0.18 * grow);
-    g.fillCircle(CENTER.x, CENTER.y, r * 1.8);
-    g.fillStyle(0xf0c040, 0.26 * grow);
-    g.fillCircle(CENTER.x, CENTER.y, r * 1.2);
-    // 像素核心：金色方块（星图的起点）
-    const core = Math.max(GRID, Math.round(10 * grow / GRID) * GRID);
-    g.fillStyle(0xffe080, 0.95 * grow);
-    g.fillRect(CENTER.x - core / 2, CENTER.y - core / 2, core, core);
+      // 四层光晕渐进，消除圆盘边缘感
+      g.fillStyle(0xf0c040, 0.08 * grow);
+      g.fillCircle(CENTER.x, CENTER.y, r * 3.6);
+      g.fillStyle(0xf0c040, 0.12 * grow);
+      g.fillCircle(CENTER.x, CENTER.y, r * 2.6);
+      g.fillStyle(0xf0c040, 0.18 * grow);
+      g.fillCircle(CENTER.x, CENTER.y, r * 1.8);
+      g.fillStyle(0xf0c040, 0.26 * grow);
+      g.fillCircle(CENTER.x, CENTER.y, r * 1.2);
+      // 像素核心：金色方块（星图的起点）
+      const core = Math.max(GRID, Math.round(10 * grow / GRID) * GRID);
+      g.fillStyle(0xffe080, 0.95 * grow);
+      g.fillRect(CENTER.x - core / 2, CENTER.y - core / 2, core, core);
+    }
 
     // 点燃瞬间（前 460ms）：白色闪核 + 冲击环，黑暗中第一颗星的"诞生"
     if (!this._reducedMotion && t < appear + 460) {
@@ -751,10 +876,10 @@ export class IntroScene extends Phaser.Scene {
         ? p.cells.length
         : Math.min(p.cells.length, Math.floor((t - startAt) / STEP_MS) + 1);
 
-      // 低亮连续结构线托住像素光点：远看是一条完整命运轨道，近看仍保留像素颗粒。
+      // 第二层：低亮连续主线托住像素光点，降低流程图感，保留路线方向。
       if (litCount > 1) {
         const settled = p.flashAt >= 0;
-        g.lineStyle(1, p.color, settled ? 0.2 : 0.1);
+        g.lineStyle(1, p.color, settled ? 0.16 : 0.065);
         g.beginPath();
         g.moveTo(CENTER.x, CENTER.y);
         for (let c = 1; c < litCount; c += 2) {
@@ -772,32 +897,46 @@ export class IntroScene extends Phaser.Scene {
         if (p.flashAt < 0 && waveFront >= p.cells.length) p.flashAt = t;
       }
 
+      // 第三层：节点点亮后，一段高亮流光从中心向终点跑过，留下短暂余辉。
+      const flowProgress = p.litAt >= 0 ? (t - p.litAt) / 1100 : -1;
+      const flowFront = flowProgress >= 0 && flowProgress <= 1.2
+        ? flowProgress * p.cells.length
+        : -1;
+
       for (let c = 0; c < litCount; c++) {
         const cell = p.cells[c];
         const distFromHead = litCount - 1 - c;
-        let alpha = 0.62;
+        let alpha = p.flashAt >= 0 ? 0.5 : 0.42;
         if (!this._reducedMotion) {
-          if (distFromHead === 0) alpha = 1.0;
-          else if (distFromHead === 1) alpha = 0.78;
-          else if (distFromHead === 2) alpha = 0.66;
+          if (distFromHead === 0) alpha = 0.92;
+          else if (distFromHead === 1) alpha = 0.68;
+          else if (distFromHead === 2) alpha = 0.56;
         }
-        // 波前经过处增亮（6 格衰减）；波后全轨保持高亮（星座完成态）
-        let boost = 0;
+        // 终局波前增亮；开场流光则只保留短余辉，不把整条路线刷白。
+        let waveBoost = 0;
         if (waveFront >= 0) {
-          boost = Math.max(0, 1 - Math.abs(c - waveFront) / 6);
-          alpha = Math.min(1, alpha + boost * 0.55);
+          waveBoost = Math.max(0, 1 - Math.abs(c - waveFront) / 6);
+          alpha = Math.min(1, alpha + waveBoost * 0.5);
         }
         if (p.flashAt >= 0) alpha = Math.max(alpha, 0.8);
 
+        const flowGlow = flowFront >= 0 ? Math.max(0, 1 - Math.abs(c - flowFront) / 10) : 0;
+        const flowTrail = flowFront >= 0 && c < flowFront
+          ? Math.max(0, 1 - (flowFront - c) / 16)
+          : 0;
+        const boost = Math.max(waveBoost, flowGlow, flowTrail * 0.34);
+        alpha = Math.min(1, alpha + boost * 0.36);
+
         // 全程微光底 + 波前强辉光，像光在轨道上流动
-        g.fillStyle(p.color, 0.07 + boost * 0.3);
+        g.fillStyle(p.color, 0.04 + boost * 0.22);
         g.fillRect(cell.x - 4, cell.y - 4, 8, 8);
-        if (distFromHead < 6 || boost > 0.3) {
+        if (distFromHead < 4 || boost > 0.3) {
           g.fillStyle(p.color, alpha * 0.18);
           g.fillRect(cell.x - 5, cell.y - 5, 10, 10);
         }
         g.fillStyle(p.color, alpha);
-        g.fillRect(cell.x - 1.5, cell.y - 1.5, 3, 3);
+        const pixel = distFromHead <= 2 || boost > 0.25 ? 3 : 2;
+        g.fillRect(cell.x - pixel / 2, cell.y - pixel / 2, pixel, pixel);
       }
     });
   }
@@ -837,7 +976,7 @@ export class IntroScene extends Phaser.Scene {
   /** 远端节点：光轨到达后点亮，一次脉冲环，随后明暗呼吸 */
   _drawNodes(g, t) {
     if (this._convergeAt >= 0) return; // 收场由 _drawConverge 统一绘制节点余晖
-    this._paths.forEach((p) => {
+    this._paths.forEach((p, i) => {
       if (p.litAt < 0) return;
       const since = t - p.litAt;
 
@@ -861,22 +1000,24 @@ export class IntroScene extends Phaser.Scene {
         }
       }
 
-      const breathe = this._reducedMotion ? 1 : 1 + Math.sin(t / 2000 * Math.PI * 2 + p.endX) * 0.12;
-      g.fillStyle(p.node, 0.16);
-      g.fillCircle(p.endX, p.endY, 14 * breathe);
-      g.lineStyle(1, p.node, 0.3);
-      g.strokeCircle(p.endX, p.endY, 9 * breathe);
-      // 稳态节点改为像素菱形路标，比单纯圆点更像一个明确的“方向”
-      const r = 5;
-      g.fillStyle(p.node, 0.9);
-      g.fillPoints([
-        { x: p.endX, y: p.endY - r },
-        { x: p.endX + r, y: p.endY },
-        { x: p.endX, y: p.endY + r },
-        { x: p.endX - r, y: p.endY }
-      ], true);
-      g.fillStyle(0xfff4d8, 0.8);
-      g.fillRect(p.endX - 1, p.endY - 1, 2, 2);
+      if (!this._nodeSprites?.[i]) {
+        const breathe = this._reducedMotion ? 1 : 1 + Math.sin(t / 2000 * Math.PI * 2 + p.endX) * 0.12;
+        g.fillStyle(p.node, 0.16);
+        g.fillCircle(p.endX, p.endY, 14 * breathe);
+        g.lineStyle(1, p.node, 0.3);
+        g.strokeCircle(p.endX, p.endY, 9 * breathe);
+        // 降级版稳态节点：像素菱形路标
+        const r = 5;
+        g.fillStyle(p.node, 0.9);
+        g.fillPoints([
+          { x: p.endX, y: p.endY - r },
+          { x: p.endX + r, y: p.endY },
+          { x: p.endX, y: p.endY + r },
+          { x: p.endX - r, y: p.endY }
+        ], true);
+        g.fillStyle(0xfff4d8, 0.8);
+        g.fillRect(p.endX - 1, p.endY - 1, 2, 2);
+      }
     });
   }
 

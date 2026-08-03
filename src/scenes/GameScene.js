@@ -1180,6 +1180,11 @@ export class GameScene extends Phaser.Scene {
   loadNode(nodeId) {
     const node = STORY[nodeId];
 
+    // 异步场景/人物纹理可能比下一次节点切换更晚完成；为每次载入分配令牌，
+    // 避免旧节点的迟到渲染覆盖玩家已经进入的新节点。
+    this._renderRequestId = (this._renderRequestId || 0) + 1;
+    const renderRequestId = this._renderRequestId;
+
     // R77 F1【P0】：离开旧节点时才将其标记为已读——旧实现在 _renderNode 开始即标记，
     // 首读节点被立即视为已读，误触发快进通道（零交互自动播放 + 「已读·快进中」误导角标），
     // 破坏交互小说首读控制感。改为：任何路径离开旧节点（选择/结局/崩溃）时才落定已读。
@@ -1205,19 +1210,20 @@ export class GameScene extends Phaser.Scene {
     // 检查是否进入新阶段 → 触发阶段结算
     if (stage && this._isStageEntry(nodeId, stage)) {
       this._onStageEntry(stage, () => {
-        this._renderNode(node);
+        if (renderRequestId !== this._renderRequestId) return;
+        this._renderNode(node, renderRequestId);
       });
       return;
     }
 
-    this._renderNode(node);
+    return this._renderNode(node, renderRequestId);
   }
 
   /**
    * 渲染节点
    * async：渲染前会异步等待场景背景 + 角色立绘纹理加载完成，避免出现 Graphics 兜底闪烁
    */
-  async _renderNode(node) {
+  async _renderNode(node, renderRequestId = this._renderRequestId) {
     // R77 F1【P0】：已读标记已上移至 loadNode（离开旧节点时落定），
     // 此处绝不可再即时标记——否则首读节点被误判已读，快进通道（自动播放/角标）误触发。
 
@@ -1257,6 +1263,9 @@ export class GameScene extends Phaser.Scene {
       this._ensureSceneTexture(node.sceneType),
       this._ensureCharacterTexture(effectivePose)
     ]);
+
+    // 纹理加载期间可能已经进入了另一个节点；旧请求到这里直接放弃。
+    if (renderRequestId !== this._renderRequestId) return;
 
     // 资源就绪后开始渲染（PixelRenderer 仍会兜底处理意外缺失的纹理）
     this.pixelRenderer.drawBackground(node.sceneType);

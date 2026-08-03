@@ -1,7 +1,7 @@
 # 当前迭代状态（v4.3 持续周期）
 cycle: 2026-08-01-v4.3-final-sprint
-cycle_status: ACTIVE（R045 FREEZE 后用户 RE-FRAME "决赛评委视角优化到极限"，R046-R048 已完成）
-round_next: R049（继续决赛评委视角优化）
+cycle_status: ACTIVE（R045 FREEZE 后用户 RE-FRAME "决赛评委视角优化到极限"，R046-R049 已完成）
+round_next: R050
 
 goal: >
   决赛评委 10 分钟体验旅程优化到极限：showcase 首屏、复赛帖可信度、

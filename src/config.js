@@ -196,6 +196,8 @@ export const SCENE_ASSETS = [
   { key: 'bg-stage_arena',   url: 'assets/characters/scene-stage_arena-v2.webp',   type: 'stage_arena' },
   { key: 'bg-classroom_night', url: 'assets/characters/scene-classroom_night-v2.webp', type: 'classroom_night' },
   { key: 'bg-office_day',    url: 'assets/characters/scene-office_day-v2.webp',    type: 'office_day' },
+  // R050 质量门禁：四张专属图尚未达到发布标准时，优先复用语义最近的合格背景，
+  // 绝不把生成失败白图或扁平矢量稿暴露给玩家。后续专属重绘只需替换 url。
   { key: 'bg-cafe',          url: 'assets/characters/scene-cafe-v2.webp',          type: 'cafe' },
   { key: 'bg-factory',       url: 'assets/characters/scene-factory-v2.webp',       type: 'factory' },
   { key: 'bg-factory_door',  url: 'assets/characters/scene-factory_door-v2.webp',  type: 'factory_door' },
