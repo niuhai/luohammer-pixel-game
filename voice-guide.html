@@ -1,0 +1,826 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#07080c" />
+  <title>《罗的十字路口》配音跟读</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07080c;
+      --panel: rgba(15, 16, 22, .88);
+      --panel-strong: rgba(9, 10, 15, .96);
+      --gold: #c7a456;
+      --gold-soft: #e0c77e;
+      --white: #f2efe7;
+      --muted: #8f8b83;
+      --line: rgba(199, 164, 86, .26);
+      --green: #75d7a8;
+      --red: #f17c74;
+      font-family: "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      min-height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--white);
+    }
+
+    body {
+      min-height: 100dvh;
+      overflow-x: hidden;
+      background:
+        radial-gradient(circle at 82% 12%, rgba(199, 164, 86, .11), transparent 30%),
+        radial-gradient(circle at 10% 82%, rgba(62, 132, 118, .09), transparent 33%),
+        linear-gradient(145deg, #06070a, #101116 58%, #07080b);
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: linear-gradient(to bottom, black, transparent 88%);
+    }
+
+    button, select, input { font: inherit; }
+
+    button {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(20, 21, 28, .92);
+      color: var(--white);
+      cursor: pointer;
+      transition: border-color .18s ease, background .18s ease, transform .18s ease;
+    }
+
+    button:hover { border-color: rgba(199, 164, 86, .7); }
+    button:active { transform: translateY(1px); }
+    button:disabled { cursor: not-allowed; opacity: .42; }
+
+    .app {
+      position: relative;
+      z-index: 1;
+      width: min(1320px, 100%);
+      min-height: 100dvh;
+      margin: 0 auto;
+      padding: max(22px, env(safe-area-inset-top)) 28px max(26px, env(safe-area-inset-bottom));
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 18px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand-kicker {
+      color: var(--gold);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .22em;
+    }
+
+    .brand-title {
+      margin-top: 5px;
+      font-size: clamp(20px, 2vw, 28px);
+      font-weight: 720;
+      letter-spacing: .02em;
+    }
+
+    .clock {
+      min-width: 184px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .clock strong { font-size: clamp(22px, 2.3vw, 32px); font-weight: 650; }
+    .clock span { color: var(--muted); font-size: 14px; }
+
+    .chapters {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 2px 0 5px;
+      scrollbar-width: thin;
+    }
+
+    .chapter-btn {
+      flex: 0 0 auto;
+      padding: 8px 12px;
+      color: #a9a59d;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .chapter-btn.active {
+      border-color: rgba(199, 164, 86, .72);
+      background: rgba(199, 164, 86, .12);
+      color: var(--gold-soft);
+    }
+
+    .stage {
+      position: relative;
+      min-height: 470px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(145deg, rgba(18,19,25,.92), rgba(8,9,13,.95));
+      box-shadow: 0 26px 80px rgba(0,0,0,.35), inset 0 1px rgba(255,255,255,.035);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: clamp(24px, 4vw, 54px);
+    }
+
+    .stage::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: var(--gold);
+    }
+
+    .stage-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .chapter-label {
+      color: var(--gold);
+      font-weight: 650;
+      letter-spacing: .12em;
+    }
+
+    .delivery {
+      padding: 5px 9px;
+      border: 1px solid rgba(255,255,255,.09);
+      border-radius: 99px;
+      color: #bbb6ac;
+    }
+
+    .lines {
+      align-self: center;
+      display: grid;
+      gap: clamp(20px, 3vh, 34px);
+      padding: 26px 0;
+    }
+
+    .previous, .next {
+      min-height: 1.6em;
+      color: #73716d;
+      font-size: clamp(17px, 1.65vw, 23px);
+      line-height: 1.6;
+      transition: opacity .2s ease;
+    }
+
+    .next { color: #96928a; }
+    .next::before { content: "下一句  "; color: var(--gold); font-size: .72em; letter-spacing: .12em; }
+
+    .current {
+      min-height: 2.5em;
+      color: rgba(242,239,231,.62);
+      font-size: clamp(34px, 4.35vw, 64px);
+      font-weight: 720;
+      line-height: 1.42;
+      letter-spacing: .01em;
+      text-wrap: balance;
+    }
+
+    .current.pause {
+      color: #77736b;
+      font-size: clamp(27px, 3vw, 42px);
+      font-weight: 560;
+    }
+
+    .char {
+      transition: color .08s linear, text-shadow .08s linear;
+    }
+
+    .char.sung { color: var(--gold-soft); }
+    .char.active { color: #fffaf0; text-shadow: 0 0 18px rgba(199,164,86,.75); }
+
+    .cue-progress {
+      position: relative;
+      height: 4px;
+      overflow: hidden;
+      border-radius: 99px;
+      background: rgba(255,255,255,.07);
+    }
+
+    .cue-progress > span {
+      display: block;
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #9f7e36, var(--gold-soft));
+      transition: width .08s linear;
+    }
+
+    .timeline {
+      position: relative;
+      height: 7px;
+      overflow: hidden;
+      border-radius: 99px;
+      background: rgba(255,255,255,.065);
+    }
+
+    .timeline span {
+      display: block;
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--gold);
+    }
+
+    .countdown {
+      position: absolute;
+      z-index: 8;
+      inset: 0;
+      display: none;
+      place-items: center;
+      background: rgba(5,6,9,.9);
+      backdrop-filter: blur(8px);
+      font-size: min(30vw, 220px);
+      font-weight: 750;
+      color: var(--gold-soft);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .countdown.show { display: grid; }
+
+    .controls {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .control-group { display: flex; align-items: center; gap: 9px; }
+    .icon-btn { width: 44px; height: 42px; font-size: 17px; }
+    .primary-btn { min-width: 126px; height: 44px; padding: 0 18px; background: rgba(199,164,86,.16); border-color: rgba(199,164,86,.65); color: #f2dfad; font-weight: 650; }
+    .record-btn { min-width: 150px; height: 44px; padding: 0 18px; border-color: rgba(241,124,116,.48); color: #ffd5d1; }
+    .record-btn.recording { background: rgba(241,124,116,.16); border-color: var(--red); }
+
+    .options {
+      justify-self: center;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .options label { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+    .options select { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: #111219; color: var(--white); }
+    .options input { accent-color: var(--gold); }
+
+    .recording-status {
+      min-height: 20px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: right;
+    }
+
+    .recording-status.live { color: #ffaaa3; }
+    .download {
+      display: none;
+      color: var(--green);
+      text-decoration: none;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .download.show { display: inline; }
+
+    .help {
+      color: #77736c;
+      font-size: 12px;
+      line-height: 1.65;
+      text-align: center;
+    }
+
+    @media (max-width: 820px) {
+      .app { padding-left: 14px; padding-right: 14px; gap: 12px; }
+      .topbar { align-items: flex-start; }
+      .brand-kicker { font-size: 10px; }
+      .clock { min-width: 128px; }
+      .clock span { display: block; }
+      .stage { min-height: 56dvh; border-radius: 14px; padding: 22px 20px 24px; }
+      .stage-head { font-size: 12px; }
+      .current { font-size: clamp(31px, 9.2vw, 46px); }
+      .previous, .next { font-size: clamp(15px, 4.2vw, 19px); }
+      .controls { grid-template-columns: 1fr; }
+      .control-group { justify-content: center; }
+      .options { order: 3; flex-wrap: wrap; justify-content: center; }
+      .recording-status { text-align: center; }
+      .chapters { margin-right: -14px; padding-right: 14px; }
+    }
+
+    @media (max-height: 720px) and (orientation: landscape) {
+      .app { padding-top: 12px; padding-bottom: 12px; gap: 9px; }
+      .brand-kicker, .help { display: none; }
+      .brand-title { margin: 0; font-size: 18px; }
+      .stage { min-height: 360px; padding: 20px 32px; }
+      .lines { gap: 14px; padding: 14px 0; }
+      .current { font-size: clamp(32px, 4vw, 52px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div>
+        <div class="brand-kicker">VOICE PERFORMANCE GUIDE</div>
+        <div class="brand-title">《罗的十字路口》跟读</div>
+      </div>
+      <div class="clock"><strong id="currentTime">00:00.0</strong> <span>/ 04:33.1</span></div>
+    </header>
+
+    <nav class="chapters" id="chapters" aria-label="章节跳转"></nav>
+
+    <section class="stage">
+      <div class="countdown" id="countdown">3</div>
+      <div class="stage-head">
+        <span class="chapter-label" id="chapterLabel">准备</span>
+        <span class="delivery" id="delivery">沉稳、自然</span>
+      </div>
+      <div class="lines">
+        <div class="previous" id="previousLine">开始前先调整好手机与嘴的距离。</div>
+        <div class="current pause" id="currentLine">点击“练习跟读”或“跟读并录音”</div>
+        <div class="next" id="nextLine">如果是你，欠下六亿以后，会怎么选？</div>
+      </div>
+      <div>
+        <div class="cue-progress"><span id="cueProgress"></span></div>
+        <div class="timeline" style="margin-top:16px"><span id="timelineProgress"></span></div>
+      </div>
+    </section>
+
+    <section class="controls">
+      <div class="control-group">
+        <button class="icon-btn" id="previousBtn" title="上一句">◀</button>
+        <button class="primary-btn" id="practiceBtn">练习跟读</button>
+        <button class="icon-btn" id="nextBtn" title="下一句">▶</button>
+        <button class="icon-btn" id="restartBtn" title="回到开头">↺</button>
+      </div>
+
+      <div class="options">
+        <label>练习速度
+          <select id="speedSelect">
+            <option value="0.85">0.85×</option>
+            <option value="0.92">0.92×</option>
+            <option value="1" selected>1.00× 同步成片</option>
+            <option value="1.08">1.08×</option>
+          </select>
+        </label>
+        <label><input type="checkbox" id="cueSound" /> 耳机节拍提示</label>
+      </div>
+
+      <div class="control-group" style="justify-content:flex-end;flex-wrap:wrap">
+        <button class="record-btn" id="recordBtn">● 跟读并录音</button>
+        <a class="download" id="downloadLink">下载录音</a>
+        <div class="recording-status" id="recordingStatus">建议先练习一遍，再正式录制</div>
+      </div>
+    </section>
+
+    <p class="help">正式录制请保持 1.00×。节拍提示仅建议佩戴耳机时开启，避免声音被手机麦克风录进去。录音需要 HTTPS 或 localhost 环境。</p>
+  </div>
+
+  <script>
+    const TOTAL_DURATION = 273.095;
+
+    const chapters = [
+      { name: '冷开场', start: 0 },
+      { name: '产品揭示', start: 8 },
+      { name: '进入游戏', start: 17 },
+      { name: '内容规模', start: 42 },
+      { name: '人生路径', start: 54 },
+      { name: '复赛打磨', start: 124 },
+      { name: '六亿债务', start: 136 },
+      { name: '测试验收', start: 220.829 },
+      { name: '结局复盘', start: 232.829 },
+      { name: 'TRAE 参与', start: 253.095 },
+      { name: '结尾', start: 265.095 },
+    ];
+
+    const cues = [
+      { start: .4, end: 6.3, chapter: '冷开场', delivery: '低一些，不要快', text: '如果是你，欠下六亿以后，会怎么选？' },
+
+      { start: 8.35, end: 10.7, chapter: '产品揭示', delivery: '清楚、笃定', text: '这是《罗的十字路口》。' },
+      { start: 11.0, end: 16.5, chapter: '产品揭示', delivery: '“亲自”稍加重', text: '你不是旁观一段传记，而是亲自替他做选择。' },
+
+      { start: 17.5, end: 22.3, chapter: '进入游戏', delivery: '自然、清楚', text: '每一局，玩家先从随机天赋中选出两项，决定人生起点。' },
+      { start: 22.9, end: 31.7, chapter: '进入游戏', delivery: '“解锁或关闭”加重', text: '之后的每个选择，都会改变属性，也会解锁或关闭后续路径。' },
+      { start: 32.4, end: 41.2, chapter: '进入游戏', delivery: '稍慢，有落点', text: '你得到的不是即时分数，而是一条被自己逐渐改写的人生。' },
+
+      { start: 42.3, end: 46.3, chapter: '内容规模', delivery: '数字读清楚', text: '一局十到十五分钟，走完六个生命阶段。' },
+      { start: 46.8, end: 53.6, chapter: '内容规模', delivery: '不赶，数字分组读', text: '背后是二百一十四个剧情节点、一百三十个随机事件，和三十五种结局。' },
+
+      { start: 54.6, end: 61.5, chapter: '人生路径', delivery: '讲故事', text: '故事从新东方的第一次试讲开始。' },
+      { start: 62.0, end: 69.0, chapter: '人生路径', delivery: '自然', text: '你可以接受失败，也可以争取下一次机会。' },
+      { start: 70.0, end: 78.2, chapter: '人生路径', delivery: '平稳推进', text: '进入创业阶段以后，选择不再只影响眼前得失。' },
+      { start: 79.0, end: 90.3, chapter: '人生路径', delivery: '属性名分开读', text: '理想、财富、名声、压力和信任，会持续累积，成为后续事件和选项的条件。' },
+      { start: 91.0, end: 102.5, chapter: '人生路径', delivery: '有层次', text: '从牛博网、锤子科技，到产品发布和供应链危机，每个阶段都有不同的场景与文案语气。' },
+      { start: 104.0, end: 113.5, chapter: '人生路径', delivery: '稍慢', text: '玩家看到的，不是一组按时间排列的经历。' },
+      { start: 114.5, end: 123.2, chapter: '人生路径', delivery: '“承担后果”加重', text: '而是一条由自己选择，也由自己承担后果的人生路径。' },
+
+      { start: 124.4, end: 129.6, chapter: '复赛打磨', delivery: '作者口吻', text: '复赛阶段，我重新打磨了所有画面和 UI。' },
+      { start: 130.0, end: 135.7, chapter: '复赛打磨', delivery: '清楚、克制', text: '也逐节点重审了文案、路径和选择反馈。' },
+
+      { start: 136.5, end: 144.8, chapter: '六亿债务', delivery: '进入高潮', text: '人生走到鸟巢发布会，理想主义迎来了最昂贵的一次检验。' },
+      { start: 145.4, end: 155.3, chapter: '六亿债务', delivery: '逐渐加压', text: '现场演砸、舆论变化、资金链断裂和供应商压力，接连出现。' },
+      { start: 156.3, end: 162.0, chapter: '六亿债务', delivery: '停顿后再读', text: '游戏在这里，不再只计算输赢。' },
+      { start: 163.0, end: 174.4, chapter: '六亿债务', delivery: '沉稳', text: '员工、供应商和信任，都不是背景数字，而是每次选择需要承担的责任。' },
+      { start: 175.8, end: 181.2, chapter: '六亿债务', delivery: '“六亿债务”放慢', text: '最终，六亿债务摆到了面前。' },
+      { start: 182.2, end: 190.7, chapter: '六亿债务', delivery: '客观，不评判', text: '申请破产，在法律上没有问题。' },
+      { start: 191.7, end: 200.7, chapter: '六亿债务', delivery: '稍慢', text: '把债务扛下来，则可能付出余生。' },
+      { start: 201.8, end: 212.8, chapter: '六亿债务', delivery: '克制', text: '游戏没有替玩家规定答案，只把每种选择的条件和代价摆出来。' },
+      { start: 214.0, end: 220.5, chapter: '六亿债务', delivery: '最后一句放慢', text: '它真正想问的是：你还想成为怎样的人？' },
+
+      { start: 221.1, end: 226.1, chapter: '测试验收', delivery: '数据清楚', text: '所有剧情节点和结局节点，全部可达。' },
+      { start: 226.6, end: 232.5, chapter: '测试验收', delivery: '数字分组读', text: '四百三十一项单测、六十一项端到端检查，全部通过。' },
+
+      { start: 233.2, end: 238.0, chapter: '结局复盘', delivery: '放松一点', text: '结局不是一次简单的打分。' },
+      { start: 238.6, end: 247.4, chapter: '结局复盘', delivery: '自然说明', text: '它会结合本局属性、关键选择和人生轨迹，给出动态点评与复盘。' },
+      { start: 248.0, end: 252.8, chapter: '结局复盘', delivery: '轻微上扬', text: '三十五种结局，也让玩家有理由重新选择一次。' },
+
+      { start: 253.4, end: 256.7, chapter: 'TRAE 参与', delivery: '作者口吻', text: 'TRAE 贯穿了完整生产过程。' },
+      { start: 257.1, end: 264.7, chapter: 'TRAE 参与', delivery: '清楚、可信', text: '从叙事共创和系统实现，到体验打磨与测试验收，全程都有可核验记录。' },
+
+      { start: 265.4, end: 269.4, chapter: '结尾', delivery: '放慢', text: '视频展示的，只是其中一条人生路径。' },
+      { start: 269.8, end: 272.8, chapter: '结尾', delivery: '留一点余味', text: '如果是你，会怎么选？' },
+    ];
+
+    const el = {
+      currentTime: document.querySelector('#currentTime'),
+      chapters: document.querySelector('#chapters'),
+      chapterLabel: document.querySelector('#chapterLabel'),
+      delivery: document.querySelector('#delivery'),
+      previousLine: document.querySelector('#previousLine'),
+      currentLine: document.querySelector('#currentLine'),
+      nextLine: document.querySelector('#nextLine'),
+      cueProgress: document.querySelector('#cueProgress'),
+      timelineProgress: document.querySelector('#timelineProgress'),
+      countdown: document.querySelector('#countdown'),
+      practiceBtn: document.querySelector('#practiceBtn'),
+      recordBtn: document.querySelector('#recordBtn'),
+      previousBtn: document.querySelector('#previousBtn'),
+      nextBtn: document.querySelector('#nextBtn'),
+      restartBtn: document.querySelector('#restartBtn'),
+      speedSelect: document.querySelector('#speedSelect'),
+      cueSound: document.querySelector('#cueSound'),
+      recordingStatus: document.querySelector('#recordingStatus'),
+      downloadLink: document.querySelector('#downloadLink'),
+    };
+
+    let currentTime = 0;
+    let playing = false;
+    let anchorTime = 0;
+    let anchorStamp = 0;
+    let playbackRate = 1;
+    let rafId = 0;
+    let renderedCue = -2;
+    let audioContext = null;
+    let wakeLock = null;
+    let recorder = null;
+    let recordingStream = null;
+    let recordingChunks = [];
+    let recordingUrl = '';
+    let lastChapter = '';
+
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    function formatTime(value) {
+      const safe = Math.max(0, value);
+      const minutes = Math.floor(safe / 60);
+      const seconds = safe - minutes * 60;
+      return `${String(minutes).padStart(2, '0')}:${seconds.toFixed(1).padStart(4, '0')}`;
+    }
+
+    function chapterAt(time) {
+      let chapter = chapters[0];
+      for (const item of chapters) {
+        if (time >= item.start) chapter = item;
+        else break;
+      }
+      return chapter;
+    }
+
+    function cueAt(time) {
+      return cues.findIndex(cue => time >= cue.start && time <= cue.end);
+    }
+
+    function nextCueIndex(time) {
+      const index = cues.findIndex(cue => cue.start > time);
+      return index === -1 ? cues.length - 1 : index;
+    }
+
+    function previousCueIndex(time) {
+      for (let i = cues.length - 1; i >= 0; i -= 1) {
+        if (cues[i].start < time - .2) return i;
+      }
+      return 0;
+    }
+
+    function weightedCharacters(text) {
+      const punctuation = /[，。；：？！、]/;
+      const chars = [...text];
+      const weights = chars.map(char => punctuation.test(char) ? 1.8 : 1);
+      const total = weights.reduce((sum, weight) => sum + weight, 0);
+      let cursor = 0;
+      return chars.map((char, index) => {
+        const start = cursor / total;
+        cursor += weights[index];
+        return { char, start, end: cursor / total };
+      });
+    }
+
+    function renderCue(index) {
+      renderedCue = index;
+      const chapter = chapterAt(currentTime);
+      el.chapterLabel.textContent = chapter.name;
+
+      if (index >= 0) {
+        const cue = cues[index];
+        el.delivery.textContent = cue.delivery;
+        el.previousLine.textContent = index > 0 ? cues[index - 1].text : '倒计时结束后直接进入第一句。';
+        el.nextLine.textContent = index < cues.length - 1 ? cues[index + 1].text : '录制完成，保持安静两秒再停止。';
+        el.currentLine.classList.remove('pause');
+        el.currentLine.replaceChildren(...weightedCharacters(cue.text).map(item => {
+          const span = document.createElement('span');
+          span.className = 'char';
+          span.textContent = item.char;
+          span.dataset.start = item.start;
+          span.dataset.end = item.end;
+          return span;
+        }));
+      } else {
+        const nextIndex = nextCueIndex(currentTime);
+        const previousIndex = previousCueIndex(currentTime + .2);
+        el.delivery.textContent = currentTime <= 0 ? '准备开始' : '停顿，让画面说话';
+        el.previousLine.textContent = currentTime <= 0 ? '手机距离嘴约十五到二十厘米。' : cues[previousIndex]?.text || '';
+        el.nextLine.textContent = cues[nextIndex]?.text || '录制完成';
+        el.currentLine.classList.add('pause');
+        el.currentLine.textContent = currentTime <= 0 ? '准备好后，跟着金色进度自然读。' : '停顿 · 呼吸 · 看下一句';
+      }
+    }
+
+    function updateCharacters(progress) {
+      for (const span of el.currentLine.querySelectorAll('.char')) {
+        const start = Number(span.dataset.start);
+        const end = Number(span.dataset.end);
+        span.classList.toggle('sung', progress >= end);
+        span.classList.toggle('active', progress >= start && progress < end);
+      }
+    }
+
+    function render() {
+      el.currentTime.textContent = formatTime(currentTime);
+      el.timelineProgress.style.width = `${Math.min(100, currentTime / TOTAL_DURATION * 100)}%`;
+      const cueIndex = cueAt(currentTime);
+      if (cueIndex !== renderedCue) renderCue(cueIndex);
+
+      if (cueIndex >= 0) {
+        const cue = cues[cueIndex];
+        const progress = Math.max(0, Math.min(1, (currentTime - cue.start) / (cue.end - cue.start)));
+        el.cueProgress.style.width = `${progress * 100}%`;
+        updateCharacters(progress);
+      } else {
+        el.cueProgress.style.width = '0%';
+      }
+
+      const chapter = chapterAt(currentTime);
+      if (chapter.name !== lastChapter) {
+        lastChapter = chapter.name;
+        for (const button of el.chapters.querySelectorAll('button')) {
+          button.classList.toggle('active', button.dataset.chapter === chapter.name);
+        }
+      }
+    }
+
+    function tick(stamp) {
+      if (!playing) return;
+      currentTime = anchorTime + (stamp - anchorStamp) / 1000 * playbackRate;
+      if (currentTime >= TOTAL_DURATION) {
+        currentTime = TOTAL_DURATION;
+        pauseTimeline();
+        if (recorder?.state === 'recording') stopRecording();
+      }
+      render();
+      if (playing) rafId = requestAnimationFrame(tick);
+    }
+
+    function startTimeline() {
+      if (currentTime >= TOTAL_DURATION) currentTime = 0;
+      playing = true;
+      anchorTime = currentTime;
+      anchorStamp = performance.now();
+      el.practiceBtn.textContent = '暂停';
+      rafId = requestAnimationFrame(tick);
+      requestWakeLock();
+    }
+
+    function pauseTimeline() {
+      if (playing) {
+        currentTime = anchorTime + (performance.now() - anchorStamp) / 1000 * playbackRate;
+      }
+      playing = false;
+      cancelAnimationFrame(rafId);
+      el.practiceBtn.textContent = currentTime > 0 ? '继续跟读' : '练习跟读';
+      render();
+    }
+
+    function seek(time) {
+      currentTime = Math.max(0, Math.min(TOTAL_DURATION, time));
+      if (playing) {
+        anchorTime = currentTime;
+        anchorStamp = performance.now();
+      }
+      renderedCue = -2;
+      render();
+    }
+
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator && !wakeLock) wakeLock = await navigator.wakeLock.request('screen');
+      } catch { /* 部分浏览器不支持，忽略即可。 */ }
+    }
+
+    function beep(frequency = 740, duration = .07) {
+      if (!el.cueSound.checked) return;
+      audioContext ||= new AudioContext();
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(.0001, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(.08, audioContext.currentTime + .01);
+      gain.gain.exponentialRampToValueAtTime(.0001, audioContext.currentTime + duration);
+      oscillator.connect(gain).connect(audioContext.destination);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + duration + .02);
+    }
+
+    async function countdownThenStart({ record = false } = {}) {
+      pauseTimeline();
+      if (record && !await prepareRecorder()) return;
+      el.countdown.classList.add('show');
+      for (const value of [3, 2, 1]) {
+        el.countdown.textContent = value;
+        beep(value === 1 ? 920 : 720, .09);
+        if (navigator.vibrate) navigator.vibrate(45);
+        await delay(820);
+      }
+      el.countdown.textContent = '开始';
+      await delay(420);
+      el.countdown.classList.remove('show');
+      if (record) beginRecording();
+      startTimeline();
+    }
+
+    async function prepareRecorder() {
+      if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+        el.recordingStatus.textContent = '当前浏览器不能直接录音，请通过 HTTPS 或 localhost 打开。';
+        return false;
+      }
+      try {
+        recordingStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+            channelCount: 1,
+          },
+        });
+      } catch (error) {
+        try {
+          recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch {
+          el.recordingStatus.textContent = '没有获得麦克风权限。请检查浏览器权限后重试。';
+          return false;
+        }
+      }
+
+      const candidates = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'];
+      const mimeType = candidates.find(type => MediaRecorder.isTypeSupported?.(type));
+      recorder = mimeType ? new MediaRecorder(recordingStream, { mimeType }) : new MediaRecorder(recordingStream);
+      recordingChunks = [];
+      recorder.addEventListener('dataavailable', event => {
+        if (event.data.size) recordingChunks.push(event.data);
+      });
+      recorder.addEventListener('stop', finishRecording);
+      return true;
+    }
+
+    function beginRecording() {
+      if (!recorder) return;
+      if (recordingUrl) URL.revokeObjectURL(recordingUrl);
+      el.downloadLink.classList.remove('show');
+      recorder.start(1000);
+      el.recordBtn.textContent = '■ 停止并保存';
+      el.recordBtn.classList.add('recording');
+      el.recordingStatus.textContent = '正在录音 · 读错后停两秒，整句重读即可';
+      el.recordingStatus.classList.add('live');
+      el.speedSelect.disabled = true;
+    }
+
+    function stopRecording() {
+      if (recorder?.state === 'recording') recorder.stop();
+      pauseTimeline();
+    }
+
+    function finishRecording() {
+      const mimeType = recorder?.mimeType || 'audio/webm';
+      const blob = new Blob(recordingChunks, { type: mimeType });
+      recordingUrl = URL.createObjectURL(blob);
+      const extension = mimeType.includes('mp4') ? 'm4a' : 'webm';
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      el.downloadLink.href = recordingUrl;
+      el.downloadLink.download = `罗的十字路口-配音原始录音-${stamp}.${extension}`;
+      el.downloadLink.textContent = `下载录音 ${(blob.size / 1024 / 1024).toFixed(1)} MB`;
+      el.downloadLink.classList.add('show');
+      el.recordBtn.textContent = '● 重新录音';
+      el.recordBtn.classList.remove('recording');
+      el.recordingStatus.textContent = '录制完成。先下载保存，再关闭页面。';
+      el.recordingStatus.classList.remove('live');
+      el.speedSelect.disabled = false;
+      recordingStream?.getTracks().forEach(track => track.stop());
+      recordingStream = null;
+      recorder = null;
+    }
+
+    for (const chapter of chapters) {
+      const button = document.createElement('button');
+      button.className = 'chapter-btn';
+      button.dataset.chapter = chapter.name;
+      button.textContent = `${formatTime(chapter.start).slice(0, 5)} ${chapter.name}`;
+      button.addEventListener('click', () => {
+        if (recorder?.state === 'recording') return;
+        seek(chapter.start);
+      });
+      el.chapters.append(button);
+    }
+
+    el.practiceBtn.addEventListener('click', () => {
+      if (recorder?.state === 'recording') {
+        playing ? pauseTimeline() : startTimeline();
+        return;
+      }
+      if (playing) pauseTimeline();
+      else if (currentTime === 0) countdownThenStart();
+      else startTimeline();
+    });
+
+    el.recordBtn.addEventListener('click', () => {
+      if (recorder?.state === 'recording') stopRecording();
+      else {
+        seek(0);
+        countdownThenStart({ record: true });
+      }
+    });
+
+    el.previousBtn.addEventListener('click', () => {
+      if (recorder?.state === 'recording') return;
+      seek(cues[previousCueIndex(currentTime)]?.start || 0);
+    });
+
+    el.nextBtn.addEventListener('click', () => {
+      if (recorder?.state === 'recording') return;
+      seek(cues[nextCueIndex(currentTime)]?.start || TOTAL_DURATION);
+    });
+
+    el.restartBtn.addEventListener('click', () => {
+      if (recorder?.state === 'recording') return;
+      pauseTimeline();
+      seek(0);
+    });
+
+    el.speedSelect.addEventListener('change', () => {
+      const wasPlaying = playing;
+      if (wasPlaying) pauseTimeline();
+      playbackRate = Number(el.speedSelect.value);
+      if (wasPlaying) startTimeline();
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && playing) requestWakeLock();
+    });
+
+    render();
+  </script>
+</body>
+</html>

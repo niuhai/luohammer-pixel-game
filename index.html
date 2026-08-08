@@ -936,29 +936,81 @@
       border-radius: var(--radius-soft);
     }
 
+    .ui-dialog-actions {
+      align-self: stretch;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: clamp(2px, 0.5vh, 6px);
+      flex-shrink: 0;
+    }
+
+    .ui-dialog-skip-node,
     .ui-dialog-continue {
-      align-self: flex-end;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 176px;
       min-height: 44px;
       max-width: 100%;
       padding: 8px 14px;
-      border: 1px solid rgba(240, 192, 64, 0.34);
       border-radius: var(--radius-sharp);
-      background: linear-gradient(180deg, rgba(240, 192, 64, 0.10), rgba(18, 24, 48, 0.78));
       font-size: var(--fs-caption);
       font-family: inherit;
       font-weight: 700;
-      color: var(--color-gold);
-      margin-top: clamp(2px, 0.5vh, 6px);
-      text-align: right;
-      letter-spacing: 1px;
-      flex-shrink: 0;
       cursor: pointer;
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
+    }
+
+    .ui-dialog-skip-node {
+      min-width: 132px;
+      border: 1px solid rgba(240, 192, 64, 0.74);
+      background: linear-gradient(180deg, rgba(240, 192, 64, 0.24), rgba(46, 37, 32, 0.92));
+      color: #fff0b8;
+      box-shadow: inset 0 0 12px rgba(240, 192, 64, 0.08);
+      letter-spacing: 0.4px;
+      transition:
+        color 0.18s ease,
+        border-color 0.18s ease,
+        background 0.18s ease,
+        transform 0.12s ease;
+    }
+
+    .ui-dialog-skip-node::before {
+      content: '↠';
+      margin-right: 6px;
+      color: var(--color-gold);
+    }
+
+    .ui-dialog-skip-node:hover {
+      color: #ffffff;
+      border-color: rgba(255, 221, 112, 0.94);
+      background: linear-gradient(180deg, rgba(240, 192, 64, 0.34), rgba(54, 42, 32, 0.96));
+    }
+
+    .ui-dialog-skip-node:active,
+    .ui-dialog-continue:active {
+      transform: translateY(1px);
+    }
+
+    .ui-dialog-skip-node:focus-visible,
+    .ui-dialog-continue:focus-visible {
+      outline: 2px solid rgba(255, 221, 112, 0.95);
+      outline-offset: 2px;
+    }
+
+    .ui-dialog-skip-node[hidden] {
+      display: none;
+    }
+
+    .ui-dialog-continue {
+      min-width: 176px;
+      border: 1px solid rgba(240, 192, 64, 0.34);
+      background: linear-gradient(180deg, rgba(240, 192, 64, 0.10), rgba(18, 24, 48, 0.78));
+      color: var(--color-gold);
+      text-align: right;
+      letter-spacing: 1px;
       transition:
         color 0.18s ease,
         border-color 0.18s ease,
@@ -972,19 +1024,10 @@
       background: linear-gradient(180deg, rgba(240, 192, 64, 0.18), rgba(22, 33, 62, 0.88));
     }
 
-    .ui-dialog-continue:active {
-      transform: translateY(1px);
-    }
-
-    .ui-dialog-continue:focus-visible {
-      outline: 2px solid rgba(255, 221, 112, 0.95);
-      outline-offset: 2px;
-    }
-
     .ui-dialog-continue[data-state="typing"] {
-      color: var(--color-text-secondary);
-      border-color: rgba(160, 170, 205, 0.32);
-      background: rgba(18, 24, 48, 0.72);
+      color: #ffe7a0;
+      border-color: rgba(240, 192, 64, 0.52);
+      background: linear-gradient(180deg, rgba(240, 192, 64, 0.14), rgba(18, 24, 48, 0.84));
     }
 
     .ui-dialog-continue[data-state="auto"] {
@@ -1019,10 +1062,15 @@
     }
 
     @media (max-width: 600px) {
+      .ui-dialog-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 0.84fr) minmax(0, 1.16fr);
+      }
+      .ui-dialog-skip-node,
       .ui-dialog-continue {
-        align-self: stretch;
         width: 100%;
         min-width: 0;
+        padding-inline: 8px;
       }
     }
 
@@ -1792,6 +1840,23 @@
       flex-wrap: wrap;
     }
 
+    .ui-choice-btn.safety-fallback {
+      flex-wrap: wrap;
+      border-color: rgba(240, 192, 64, 0.66);
+      background:
+        linear-gradient(90deg, rgba(240, 192, 64, 0.12), rgba(22, 33, 62, 0.86));
+      box-shadow: inset 3px 0 0 rgba(240, 192, 64, 0.72);
+    }
+
+    .ui-choice-safety-hint {
+      flex-basis: 100%;
+      padding-left: clamp(28px, 4vw, 38px);
+      color: #ffe083;
+      font-size: var(--fs-caption);
+      line-height: 1.35;
+      letter-spacing: 0.4px;
+    }
+
     /* === Stats Bar === */
     .ui-stats {
       position: fixed;
@@ -2401,25 +2466,24 @@
       inset: 0;
       z-index: 1000;
       display: flex;
-      align-items: center;
-      justify-content: center;
+      align-items: flex-start;
+      justify-content: flex-end;
       padding:
-        max(16px, env(safe-area-inset-top, 0px))
-        max(16px, env(safe-area-inset-right, 0px))
+        max(56px, calc(env(safe-area-inset-top, 0px) + 54px))
+        max(12px, 2vw)
         max(16px, env(safe-area-inset-bottom, 0px))
         max(16px, env(safe-area-inset-left, 0px));
-      background:
-        radial-gradient(circle at 50% 28%, rgba(240, 192, 64, 0.08), transparent 34%),
-        rgba(0, 0, 0, 0.82);
-      backdrop-filter: blur(4px);
+      background: transparent;
+      pointer-events: auto;
       font-family: 'Luohammer UI', "Microsoft YaHei", sans-serif;
       box-sizing: border-box;
-      animation: quickVoiceBackdropIn 0.18s ease-out both;
+      animation: quickVoiceBackdropIn 0.14s ease-out both;
     }
 
     .ui-quick-voice-card {
       width: min(560px, 100%);
-      max-height: min(86dvh, 720px);
+      height: min(76dvh, 680px);
+      max-height: min(76dvh, 680px);
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -2432,6 +2496,14 @@
         0 0 34px rgba(240, 192, 64, 0.12),
         inset 0 0 0 1px rgba(240, 192, 64, 0.06);
       animation: quickVoiceCardIn 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .ui-quick-voice-note {
+      margin: -2px clamp(16px, 3vw, 24px) 8px;
+      color: var(--color-text-muted);
+      font-size: clamp(10px, 1.2vw, 11px);
+      line-height: 1.5;
+      text-align: center;
     }
 
     .ui-quick-voice-title {
@@ -2461,12 +2533,42 @@
       background: rgba(180, 96, 40, 0.08);
     }
 
+    .ui-quick-voice-current-device {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 0 clamp(16px, 3vw, 24px) 10px;
+      padding: 9px 10px;
+      color: var(--color-text-primary);
+      background: rgba(0, 0, 0, 0.28);
+      border: 1px solid rgba(92, 129, 171, 0.34);
+      font-size: clamp(10px, 1.2vw, 12px);
+      line-height: 1.45;
+    }
+
+    .ui-quick-voice-current-device-label {
+      color: var(--color-text-muted);
+      white-space: nowrap;
+    }
+
+    .ui-quick-voice-current-device-name {
+      min-width: 0;
+      overflow: hidden;
+      color: #d9e6f5;
+      font-weight: 700;
+      text-align: right;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .ui-quick-voice-body {
+      flex: 1 1 auto;
       min-height: 0;
       overflow-y: auto;
       overscroll-behavior: contain;
       scrollbar-gutter: stable;
-      padding: 16px 20px;
+      padding: 16px 20px 24px;
     }
 
     .ui-quick-voice-label {
@@ -2487,6 +2589,7 @@
 
     .ui-quick-voice-mode,
     .ui-quick-voice-replay,
+    .ui-quick-voice-preview-current,
     .ui-quick-voice-action,
     .ui-quick-voice-close {
       min-height: 44px;
@@ -2536,7 +2639,23 @@
       border: 1px solid rgba(240, 192, 64, 0.38);
     }
 
+    .ui-quick-voice-preview-current {
+      width: 100%;
+      margin: 0 0 10px;
+      padding: 8px 12px;
+      color: #17120a;
+      background: linear-gradient(180deg, #f3cf67, #c99c37);
+      border: 1px solid #f3cf67;
+      box-shadow: 0 6px 18px rgba(240, 192, 64, 0.13);
+    }
+
+    .ui-quick-voice-preview-current:hover {
+      color: #17120a;
+      background: linear-gradient(180deg, #ffe18a, #d7a641);
+    }
+
     .ui-quick-voice-replay:disabled,
+    .ui-quick-voice-preview-current:disabled,
     .ui-quick-voice-action:disabled {
       cursor: not-allowed;
       opacity: 0.52;
@@ -2617,6 +2736,8 @@
     }
 
     .ui-quick-voice-close {
+      position: relative;
+      z-index: 1;
       flex-shrink: 0;
       width: calc(100% - 40px);
       margin: 0 20px 18px;
@@ -2624,6 +2745,7 @@
       color: var(--color-text-secondary);
       background: rgba(0, 0, 0, 0.18);
       border: 1px solid rgba(184, 169, 132, 0.35);
+      box-shadow: 0 -10px 18px rgba(5, 6, 12, 0.74);
     }
 
     @keyframes quickVoiceBackdropIn {
@@ -2638,15 +2760,18 @@
 
     @media (max-width: 520px) {
       .ui-quick-voice-panel {
-        align-items: center;
+        align-items: flex-start;
+        justify-content: flex-end;
         padding:
-          max(10px, env(safe-area-inset-top, 0px))
+          max(54px, calc(env(safe-area-inset-top, 0px) + 50px))
           max(10px, env(safe-area-inset-right, 0px))
           max(10px, env(safe-area-inset-bottom, 0px))
           max(10px, env(safe-area-inset-left, 0px));
       }
       .ui-quick-voice-card {
-        max-height: 92dvh;
+        width: 100%;
+        height: 82dvh;
+        max-height: 82dvh;
       }
       .ui-quick-voice-title {
         padding: 14px 16px 12px;
@@ -10230,7 +10355,7 @@
       .scene-transition { animation: none !important; opacity: 1 !important; transform: none !important; }
     }
   </style>
-  <script type="module" crossorigin src="/luohammer-pixel-game/assets/index-B48FTnDj.js"></script>
+  <script type="module" crossorigin src="/luohammer-pixel-game/assets/index-DegI_Ad5.js"></script>
 </head>
 <body>
 
@@ -10326,10 +10451,16 @@
         </div>
       </div>
       <div class="ui-dialog-text" id="ui-dialog-text"></div>
-      <button class="ui-dialog-continue" id="ui-dialog-continue" type="button"
-        aria-keyshortcuts="Enter Space" aria-live="polite" aria-atomic="true" hidden>
-        显示全文
-      </button>
+      <div class="ui-dialog-actions">
+        <button class="ui-dialog-skip-node" id="ui-dialog-skip-node" type="button"
+          aria-label="跳过剩余文字，直接进入剧情选择" hidden>
+          直接看选项
+        </button>
+        <button class="ui-dialog-continue" id="ui-dialog-continue" type="button"
+          aria-keyshortcuts="Enter Space" aria-live="polite" aria-atomic="true" hidden>
+          显示本段全文
+        </button>
+      </div>
     </div>
 
     <!-- Choices -->
@@ -10405,8 +10536,8 @@
 
     <!-- Talent Selection -->
     <div class="ui-talent-overlay" id="ui-talent-overlay" role="dialog" aria-modal="true" aria-labelledby="ui-talent-title" aria-describedby="ui-talent-subtitle">
-      <div class="ui-talent-title" id="ui-talent-title">选择你的天赋</div>
-      <div class="ui-talent-subtitle" id="ui-talent-subtitle">本局获得 5 个天赋，选择 2 个组合你的人生底色</div>
+      <div class="ui-talent-title" id="ui-talent-title">你准备带着什么底色，进入这段人生？</div>
+      <div class="ui-talent-subtitle" id="ui-talent-subtitle">选择 2 项天赋，它们会影响你最初的判断，也会改变你后来走上的路。</div>
       <button class="ui-talent-skip" id="ui-talent-skip" type="button" hidden>
         跳过揭晓
       </button>
